@@ -46,7 +46,8 @@ const (
 	PermissionRetryFailedEvent = "RetryFailedEvent"
 
 	// The default permission template.
-	PermissionTemplate = "p,role:%s,%s,%s:%s,%s,allow"
+	PermissionTemplate     = "p,role:%s,%s,%s:%s,%s,allow"
+	TeamPermissionTemplate = "t,team:%s,%s,%s:%s,-,allow"
 )
 
 // All static rbac information that is required to check authentication of a given user.
@@ -333,7 +334,7 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 			policy.Groups[line] = g
 		}
 	}
-	if len(policy.Permissions) == 0 {
+	if len(policy.Permissions) == 0 && len(policy.TeamPermissions) == 0 {
 		return nil, errors.New("dex.policy.error: dexRbacPolicy is required when \"KUBERPULT_DEX_ENABLED\" is true")
 	}
 
@@ -350,6 +351,13 @@ func validatePermissionsForManifestRepoExportService(policy *RBACPolicies) error
 		if permission.Action == PermissionSkipEslEvent || permission.Action == PermissionRetryFailedEvent {
 			if !isApplicableForAllAppsAndEnvs(permission) {
 				return fmt.Errorf("permissions for %s must not be scoped to specific apps or envs/envgroups", permission.Action)
+			}
+		}
+	}
+	for _, permission := range policy.TeamPermissions {
+		if permission.Action == PermissionSkipEslEvent || permission.Action == PermissionRetryFailedEvent {
+			if permission.Environment != "*:*" {
+				return fmt.Errorf("team permissions for %s must not be scoped to specific envs/envgroups", permission.Action)
 			}
 		}
 	}
@@ -467,6 +475,16 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 	if isEnvironmentIndependent(action) {
 		env = "*"
 	}
+
+	userTeams := []string{}
+	if rbacConfig.Team != nil {
+		for _, t := range rbacConfig.Team.Permissions[user.Email] {
+			userTeams = append(userTeams, t)
+		}
+	}
+
+	// TODO: check if app team owner is one of userTeams
+
 	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
 	for _, pEnvGroup := range []string{envGroup, "*"} {
 		for _, pEnv := range []types.EnvName{env, "*"} {
@@ -482,7 +500,13 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 						return nil
 					}
 				}
-
+				for _, t := range userTeams {
+					permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, t, action, pEnvGroup, pEnv)
+					_, permissionsExist := rbacConfig.Policy.TeamPermissions[permissionsWanted]
+					if permissionsExist {
+						return nil
+					}
+				}
 			}
 		}
 	}

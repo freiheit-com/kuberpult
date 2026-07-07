@@ -1619,18 +1619,21 @@ func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction 
 	if group == "" {
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
+
+	if team == "" && application != "*" {
+		team, err = s.GetApplicationTeamOwner(ctx, transaction, application)
+		if err != nil {
+			return err
+		}
+	}
+
+	logging.Info(ctx, "CheckUserPermission", zap.Any("RBACConfig", RBACConfig), zap.Any("user", user), zap.Any("env", env), zap.Any("team", team), zap.Any("group", group), zap.Any("application", application), zap.Any("action", action), zap.Any("checkTeam", checkTeam))
+
 	err = auth.CheckUserPermissions(RBACConfig, user, env, team, group, application, action)
 	if err != nil {
 		return err
 	}
 	if checkTeam {
-		if team == "" && application != "*" {
-			team, err = s.GetApplicationTeamOwner(ctx, transaction, application)
-
-			if err != nil {
-				return err
-			}
-		}
 		err = auth.CheckUserTeamPermissions(RBACConfig, user, team, action)
 	}
 	return err
