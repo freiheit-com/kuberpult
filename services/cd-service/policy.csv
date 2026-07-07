@@ -1,3 +1,5 @@
+p, role:Developer, CreateRelease, *:*, *, allow
 p, role:Developer, CreateLock, *:*, app1, allow
+t, team:sreteam, CreateLock, *:*, -, allow
 
 g, freiheit-com-org:fdc-org-team1, role:admin

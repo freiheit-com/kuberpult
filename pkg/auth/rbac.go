@@ -150,14 +150,22 @@ type Permission struct {
 	Environment string
 	Action      string
 }
+
+type TeamPermission struct {
+	Team        string
+	Environment string
+	Action      string
+}
+
 type RBACGroup struct {
 	Group string
 	Role  string
 }
 
 type RBACPolicies struct {
-	Groups      map[string]RBACGroup
-	Permissions map[string]Permission
+	Groups          map[string]RBACGroup
+	Permissions     map[string]Permission
+	TeamPermissions map[string]TeamPermission
 }
 
 type RBACTeams struct {
@@ -168,7 +176,7 @@ func isApplicableForAllAppsAndEnvs(p Permission) bool {
 	return p.Application == "*" && p.Environment == "*:*"
 }
 
-func ValidateRbacPermission(line string) (p Permission, err error) {
+func ValidateRoleRbacPermission(line string) (p Permission, err error) {
 	// p, role:<role>, <permission>, <environment-group>:<environment>, <application>, allow
 	cfg := initPolicyConfig()
 	// Verifies if all fields are specified
@@ -207,7 +215,44 @@ func ValidateRbacPermission(line string) (p Permission, err error) {
 	}, nil
 }
 
-func ValidateTeamRbacPermission(line string) (team string, users []string, err error) {
+func ValidateTeamRbacPermission(line string) (p TeamPermission, err error) {
+	// t, team:<team>, <permission>, <environment-group>:<environment>, -, allow
+	cfg := initPolicyConfig()
+	// Verifies if all fields are specified
+	c := strings.Split(line, ",")
+	if len(c) != 6 {
+		return p, fmt.Errorf("6 fields are expected but only %d were specified", len(c))
+	}
+	// Permission role
+	if !strings.Contains(c[1], "team:") {
+		return p, fmt.Errorf("the format for permissions expects the prefix `team:` for permissions")
+	}
+	team := c[1][5:]
+	// Validates the permission action
+	action := c[2]
+	err = cfg.validateAction(action)
+	if err != nil {
+		return p, err
+	}
+	// Validate the permission environment
+	environment := c[3]
+	err = cfg.validateEnvs(environment, action)
+	if err != nil {
+		return p, err
+	}
+	// Validate the application names
+	application := c[4]
+	if application != "-" {
+		return p, fmt.Errorf("team permission applies to all the associated apps, '-' must be declared as the application name")
+	}
+	return TeamPermission{
+		Team:        team,
+		Action:      action,
+		Environment: environment,
+	}, nil
+}
+
+func ValidateRbacTeam(line string) (team string, users []string, err error) {
 
 	permission := strings.Split(line, ",")
 
@@ -264,16 +309,22 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 	defer file.Close() //nolint:errcheck
 
 	scanner := bufio.NewScanner(file)
-	policy = &RBACPolicies{Permissions: map[string]Permission{}, Groups: map[string]RBACGroup{}}
+	policy = &RBACPolicies{Permissions: map[string]Permission{}, TeamPermissions: map[string]TeamPermission{}, Groups: map[string]RBACGroup{}}
 	for scanner.Scan() {
 		// Trim spaces from policy
 		line := strings.ReplaceAll(scanner.Text(), " ", "")
 		if len(line) > 0 && line[0] == 'p' {
-			p, err := ValidateRbacPermission(line)
+			p, err := ValidateRoleRbacPermission(line)
 			if err != nil {
 				return nil, err
 			}
 			policy.Permissions[line] = p
+		} else if len(line) > 0 && line[0] == 't' {
+			t, err := ValidateTeamRbacPermission(line)
+			if err != nil {
+				return nil, err
+			}
+			policy.TeamPermissions[line] = t
 		} else if len(line) > 0 && line[0] == 'g' {
 			g, err := ValidateRbacGroup(line)
 			if err != nil {
@@ -342,7 +393,7 @@ func ReadRbacTeam(dexEnabled bool, DexRbacTeamPath string) (teamPermissions *RBA
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) > 0 {
-			t, u, err := ValidateTeamRbacPermission(line)
+			t, u, err := ValidateRbacTeam(line)
 
 			if err != nil {
 				return nil, err
