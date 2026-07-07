@@ -36,6 +36,9 @@ on:
       modify_readme:
         required: true
         type: boolean
+      inject_helm_error:
+        required: true
+        type: boolean
       inject_integration_tests_error:
         required: true
         type: boolean
@@ -96,6 +99,10 @@ jobs:
         if: inputs.modify_readme == true
         run: |
           echo -e "\nTest reliability" >> README.md
+      - name: Modify Helm
+        if: inputs.inject_helm_error == true
+        run: |
+          echo -e "\nInvalid:yaml:construct:no:way:this:is:valid" >> charts/kuberpult/templates/cd-service.yaml
       - name: Inject error in integration tests
         if: inputs.inject_integration_tests_error == true
         run: |
@@ -177,10 +184,10 @@ jobs:
         with:
           name: validation-errors-${{ inputs.test_id }}.zip
           path: validation-errors.txt
-  check-linting-errors:
+  check-go-linting-errors:
     # check if the golangci-lint detects the injected linting error in cd-service
     # this check is only run when inputs.inject_linting_error is set to true
-    name: "Check linting errors"
+    name: "Handle go linting errors"
     if: ${{ inputs.inject_linting_error == true && always() }}
     needs: [trigger-ci]
     runs-on: ubuntu-latest
@@ -193,7 +200,7 @@ jobs:
         with:
           name: linting-report-services_cd-service-5.zip
           path: linting-report
-      - name: "Check linting errors"
+      - name: "Check go linting errors"
         run: |
           touch validation-errors.txt
           if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
@@ -201,6 +208,38 @@ jobs:
           elif [[ ! -n $(grep "services/cd-service/cmd/server/main.go" linting-report/.golangci_lint.log | grep "const unusedConst is unused") ]]; then
             # the injected linting error is not correctly detected: unused const "unusedConst" in main.go file
             echo "Linting error not detected" >> validation-errors.txt
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload validation errors
+        id: upload-validation-errors
+        uses: actions/upload-artifact@v6
+        with:
+          name: validation-errors-${{ inputs.test_id }}.zip
+          path: validation-errors.txt
+  check-helm-linting-errors:
+    # check if helm test detects the injected linting error in the yaml
+    name: "Handle helm linting errors"
+    if: ${{ inputs.inject_helm_error == true && always() }}
+    needs: [trigger-ci]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Download helm-lint report
+        uses: actions/download-artifact@v6
+        with:
+          name: linting-report-charts_kuberpult-6.zip
+          path: linting-report
+      - name: "Check helm linting errors"
+        run: |
+          touch validation-errors.txt
+          if [[ "${{ needs.trigger-ci.result }}" != "failure" ]]; then
+            echo "CI build should have failed due to linting error" >> validation-errors.txt
+          fi
+          if ! grep -q -F "[ERROR] templates/cd-service.yaml" linting-report/helm_lint.log ; then
+            echo "Helm linting error not detected" >> validation-errors.txt
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -220,6 +259,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: "Check integration tests errors"
+        uses: actions/download-artifact@v6
+        with:
+          name: linting-report-charts_kuberpult-6.zip
+          path: linting-report
+      - name: "Check helm linting errors"
         run: |
           touch validation-errors.txt
           if [[ "${{ needs.trigger-integration-tests.result }}" != "failure" && "${{ needs.trigger-integration-tests.result }}" != "cancelled" ]]; then

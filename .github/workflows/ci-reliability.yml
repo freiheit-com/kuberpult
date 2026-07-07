@@ -22,6 +22,7 @@ jobs:
 
             modify_readme: false
             inject_linting_error: false
+            inject_helm_error: false
             inject_integration_tests_error: false
 
             check_new_images: true
@@ -37,6 +38,7 @@ jobs:
 
             modify_readme: false
             inject_linting_error: false
+            inject_helm_error: false
             inject_integration_tests_error: false
 
             check_new_images: true
@@ -52,6 +54,7 @@ jobs:
 
             modify_readme: false
             inject_linting_error: false
+            inject_helm_error: false
             inject_integration_tests_error: false
 
             check_new_images: true
@@ -67,6 +70,7 @@ jobs:
 
             modify_readme: true
             inject_linting_error: false
+            inject_helm_error: false
             inject_integration_tests_error: false
 
             check_new_images: true
@@ -83,12 +87,31 @@ jobs:
 
             modify_readme: false
             inject_linting_error: true
+            inject_helm_error: false
             inject_integration_tests_error: false
 
             check_new_images: false
             expect_cd: false
             expect_fe: false
             expect_export: false
+
+          - id: "6" # test helm reliability
+            source_branch: automated/ci-reliability/ci-test-6
+            modify_pkg: false
+            modify_cd: false
+            modify_fe: false
+            modify_export: false
+
+            modify_readme: false
+            inject_linting_error: false
+            inject_helm_error: true
+            inject_integration_tests_error: false
+
+            check_new_images: false
+            expect_cd: false
+            expect_fe: false
+            expect_export: false
+
           - id: "7" # test integration test reliability
             source_branch: automated/ci-reliability/ci-test-7
             modify_pkg: false
@@ -98,6 +121,7 @@ jobs:
 
             modify_readme: false
             inject_linting_error: false
+            inject_helm_error: false
             inject_integration_tests_error: true
 
             check_new_images: false
@@ -108,6 +132,7 @@ jobs:
     with:
       test_id: ${{ matrix.id }}
       source_branch: ${{ matrix.source_branch }}
+      base_branch: ${{ github.ref }} # use the current ref, in case we trigger from a specific branch
 
       modify_pkg: ${{ matrix.modify_pkg }}
       modify_cd_service: ${{ matrix.modify_cd }}
@@ -116,6 +141,7 @@ jobs:
       
       modify_readme: ${{ matrix.modify_readme }}
       inject_linting_error: ${{ matrix.inject_linting_error }}
+      inject_helm_error: ${{ matrix.inject_helm_error }}
       inject_integration_tests_error: ${{ matrix.inject_integration_tests_error }}
 
       check_new_images: ${{ matrix.check_new_images }}
@@ -158,7 +184,13 @@ jobs:
         uses: actions/download-artifact@v6
         with:
           name: validation-errors-5.zip
-          path: validation-errors-5          
+          path: validation-errors-5
+      - name: Download validation errors for Test 6
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: validation-errors-6.zip
+          path: validation-errors-6
       - name: Download validation errors for Test 7
         continue-on-error: true
         uses: actions/download-artifact@v6
@@ -173,6 +205,7 @@ jobs:
           EMOJI_RESULT_CI_TEST_3="✅"
           EMOJI_RESULT_CI_TEST_4="✅"
           EMOJI_RESULT_CI_TEST_5="✅"
+          EMOJI_RESULT_CI_TEST_6="✅"
           EMOJI_RESULT_CI_TEST_7="✅"
 
           # If the validation-errors artifact is not uploaded, it means the CI test failed
@@ -181,6 +214,7 @@ jobs:
           VALIDATION_ERRORS_CI_TEST_3=$(cat validation-errors-3/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
           VALIDATION_ERRORS_CI_TEST_4=$(cat validation-errors-4/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
           VALIDATION_ERRORS_CI_TEST_5=$(cat validation-errors-5/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
+          VALIDATION_ERRORS_CI_TEST_6=$(cat validation-errors-6/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
           VALIDATION_ERRORS_CI_TEST_7=$(cat validation-errors-7/validation-errors.txt 2> /dev/null || echo "\nError occurred during CI build")
 
           if [[ -n "$VALIDATION_ERRORS_CI_TEST_1" ]]; then
@@ -205,6 +239,11 @@ jobs:
 
           if [[ -n "$VALIDATION_ERRORS_CI_TEST_5" ]]; then
             EMOJI_RESULT_CI_TEST_5="❌"
+            EMOJI_RESULT_OVERALL="❌"
+          fi
+
+          if [[ -n "$VALIDATION_ERRORS_CI_TEST_6" ]]; then
+            EMOJI_RESULT_CI_TEST_6="❌"
             EMOJI_RESULT_OVERALL="❌"
           fi
 
@@ -240,6 +279,11 @@ jobs:
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_5\n\`\`\`"
           fi
 
+          MSG+="\n\n*Test 6:* $EMOJI_RESULT_CI_TEST_6 error in helm test detected"
+          if [ -n "$VALIDATION_ERRORS_CI_TEST_6" ]; then
+            MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_6\n\`\`\`"
+          fi
+
           MSG+="\n\n*Test 7:* $EMOJI_RESULT_CI_TEST_7 error in integration test is detected"
           if [ -n "$VALIDATION_ERRORS_CI_TEST_7" ]; then
             MSG+="\n\`\`\`$VALIDATION_ERRORS_CI_TEST_7\n\`\`\`"
@@ -247,6 +291,7 @@ jobs:
 
           MSG+="\n\n*🔗 View in GitHub Action:* $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
+          echo "${MSG}"
           curl \
             --request POST \
             --header "Content-Type: application/json" \

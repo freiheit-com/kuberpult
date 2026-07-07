@@ -29,11 +29,6 @@ jobs:
       skip_unversioned_builds: true
     secrets: inherit
 
-  helm-test:
-    uses: ./.github/workflows/run-helm-test.yml
-    with:
-      imageTagPrefix: "main-"
-
   release:
     name: Release Kuberpult with the specific Ref
     runs-on: ubuntu-latest

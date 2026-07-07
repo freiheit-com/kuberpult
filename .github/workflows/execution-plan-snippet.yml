@@ -226,12 +226,21 @@ jobs:
           DIR="${{ matrix.data.directory }}"
           echo "safe_dir=${DIR//\//_}" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v6
+        name: Upload golangci lint log
         if: ${{ always() }}
         with:
           if-no-files-found: ignore
           include-hidden-files: true
           name: linting-report-${{ steps.safe-artifact-name.outputs.safe_dir }}-${{ inputs.run_id }}.zip
           path: .golangci_lint.log
+      - uses: actions/upload-artifact@v6
+        name: Upload helm lint log
+        if: ${{ always() }}
+        with:
+          if-no-files-found: ignore
+          include-hidden-files: false
+          name: linting-report-${{ steps.safe-artifact-name.outputs.safe_dir }}-${{ inputs.run_id }}.zip
+          path: charts/kuberpult/helm_lint.log
       - uses: actions/upload-artifact@v4
         if: matrix.data.artifacts != ''
         with:
