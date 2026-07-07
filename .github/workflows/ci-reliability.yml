@@ -121,8 +121,8 @@ jobs:
 
             modify_readme: false
             inject_linting_error: false
-            inject_helm_error: true
-            inject_integration_tests_error: false
+            inject_helm_error: false
+            inject_integration_tests_error: true
 
             check_new_images: false
             expect_cd: false
@@ -197,6 +197,7 @@ jobs:
         with:
           name: validation-errors-7.zip
           path: validation-errors-7
+      - name: Notify results
         run: |
           EMOJI_RESULT_OVERALL="✅"
           EMOJI_RESULT_CI_TEST_1="✅"
