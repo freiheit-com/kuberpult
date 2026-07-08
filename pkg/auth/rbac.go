@@ -230,7 +230,7 @@ func ValidateRbacTeamPermission(line string) (p TeamPermission, err error) {
 	}
 	team := c[1][5:]
 	if team == "*" {
-		return p, fmt.Errorf("team name must be specified")
+		return p, fmt.Errorf("team name must be specified, not '*'")
 	}
 
 	// Validates the permission action
