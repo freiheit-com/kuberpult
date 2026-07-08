@@ -177,7 +177,7 @@ func isApplicableForAllAppsAndEnvs(p Permission) bool {
 	return p.Application == "*" && p.Environment == "*:*"
 }
 
-func ValidateRoleRbacPermission(line string) (p Permission, err error) {
+func ValidateRbacRolePermission(line string) (p Permission, err error) {
 	// p, role:<role>, <permission>, <environment-group>:<environment>, <application>, allow
 	cfg := initPolicyConfig()
 	// Verifies if all fields are specified
@@ -216,7 +216,7 @@ func ValidateRoleRbacPermission(line string) (p Permission, err error) {
 	}, nil
 }
 
-func ValidateTeamRbacPermission(line string) (p TeamPermission, err error) {
+func ValidateRbacTeamPermission(line string) (p TeamPermission, err error) {
 	// t, team:<team>, <permission>, <environment-group>:<environment>, -, allow
 	cfg := initPolicyConfig()
 	// Verifies if all fields are specified
@@ -229,6 +229,10 @@ func ValidateTeamRbacPermission(line string) (p TeamPermission, err error) {
 		return p, fmt.Errorf("the format for permissions expects the prefix `team:` for permissions")
 	}
 	team := c[1][5:]
+	if team == "*" {
+		return p, fmt.Errorf("team name must be specified")
+	}
+
 	// Validates the permission action
 	action := c[2]
 	err = cfg.validateAction(action)
@@ -244,7 +248,7 @@ func ValidateTeamRbacPermission(line string) (p TeamPermission, err error) {
 	// Validate the application names
 	application := c[4]
 	if application != "-" {
-		return p, fmt.Errorf("team permission applies to all the associated apps, '-' must be declared as the application name")
+		return p, fmt.Errorf("team permissions apply to all the associated apps, application name must be declared as '-'")
 	}
 	return TeamPermission{
 		Team:        team,
@@ -253,7 +257,7 @@ func ValidateTeamRbacPermission(line string) (p TeamPermission, err error) {
 	}, nil
 }
 
-func ValidateRbacTeam(line string) (team string, users []string, err error) {
+func ValidateRbacTeamUsers(line string) (team string, users []string, err error) {
 
 	permission := strings.Split(line, ",")
 
@@ -315,13 +319,13 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 		// Trim spaces from policy
 		line := strings.ReplaceAll(scanner.Text(), " ", "")
 		if len(line) > 0 && line[0] == 'p' {
-			p, err := ValidateRoleRbacPermission(line)
+			p, err := ValidateRbacRolePermission(line)
 			if err != nil {
 				return nil, err
 			}
 			policy.Permissions[line] = p
 		} else if len(line) > 0 && line[0] == 't' {
-			t, err := ValidateTeamRbacPermission(line)
+			t, err := ValidateRbacTeamPermission(line)
 			if err != nil {
 				return nil, err
 			}
@@ -401,7 +405,7 @@ func ReadRbacTeam(dexEnabled bool, DexRbacTeamPath string) (teamPermissions *RBA
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) > 0 {
-			t, u, err := ValidateRbacTeam(line)
+			t, u, err := ValidateRbacTeamUsers(line)
 
 			if err != nil {
 				return nil, err
@@ -486,6 +490,21 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 	// TODO: check if app team owner is one of userTeams
 
 	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
+	// group1:env1, app1
+	// group1:env1, *
+	// group1:*, app1
+	// group1:*, *
+	// *:env1, app1
+	// *:env1, *
+	// *:*, app1
+	// *:*, *
+
+	// team1, group1:env1
+	// team1, group1:*
+	// team1, *:env1
+	// team1, *:*
+	// what if the input application is *? -> team = ''
+	// what if the userTeams is *? -> we dont have to check for app team owner
 	for _, pEnvGroup := range []string{envGroup, "*"} {
 		for _, pEnv := range []types.EnvName{env, "*"} {
 			for _, pApplication := range []types.AppName{application, "*"} {

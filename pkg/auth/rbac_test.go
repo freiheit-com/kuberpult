@@ -77,7 +77,7 @@ func TestValidateRbacPermission(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			permission, err := ValidateRoleRbacPermission(tc.Permission)
+			permission, err := ValidateRbacRolePermission(tc.Permission)
 			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
@@ -88,7 +88,7 @@ func TestValidateRbacPermission(t *testing.T) {
 	}
 }
 
-func TestValidateRbacTeam(t *testing.T) {
+func TestValidateRbacTeamUsers(t *testing.T) {
 	tcs := []struct {
 		Name           string
 		Permission     string
@@ -126,7 +126,7 @@ func TestValidateRbacTeam(t *testing.T) {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			tp := RBACTeams{Permissions: make(map[string][]string)}
-			team, users, err := ValidateRbacTeam(tc.Permission)
+			team, users, err := ValidateRbacTeamUsers(tc.Permission)
 			AddUsersToTeam(team, users, &tp)
 			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
@@ -406,7 +406,7 @@ func TestValidateRbacPermissionWildcards(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			// Test all wildcard possible combinations (2^8).
 			for _, permission := range tc.permissions {
-				_, err := ValidateRoleRbacPermission(permission)
+				_, err := ValidateRbacRolePermission(permission)
 				if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
 					t.Errorf("Error mismatch (-want +got):\n%s", diff)
 				}
@@ -450,7 +450,7 @@ func TestValidatePermissionsForManifestRepoExportService(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			// given:
-			permission, err := ValidateRoleRbacPermission(tc.permission)
+			permission, err := ValidateRbacRolePermission(tc.permission)
 			if err != nil {
 				t.Errorf("could not validate permission:\n%s", err)
 			}
