@@ -489,9 +489,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 
 	userTeams := []string{}
 	if rbacConfig.Team != nil {
-		for _, t := range rbacConfig.Team.Permissions[user.Email] {
-			userTeams = append(userTeams, t)
-		}
+		userTeams = append(userTeams, rbacConfig.Team.Permissions[user.Email]...)
 	}
 
 	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
