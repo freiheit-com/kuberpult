@@ -527,7 +527,8 @@ func (c *CreateApplicationVersion) Transform(
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 	}
-	actualBracketName, err := db.HandleBracketsUpdate(ctx, state.DBHandler, transaction, c.Application, c.ArgoBracket, *now, c.GetEslVersion())
+	actualBracketName := db.ResolveBracketName(c.Application, c.ArgoBracket)
+	err = db.HandleBracketsUpdate(ctx, state.DBHandler, transaction, c.Application, actualBracketName, *now, c.GetEslVersion())
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update brackets: %w", err))
 	}

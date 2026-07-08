@@ -2132,13 +2132,12 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr r
 	}
 	if tr.GetDBEventType() == db.EvtCreateApplicationVersion {
 		concreteTransformer := tr.(*rp.CreateApplicationVersion)
-		actualBracketName := types.ArgoBracketName(concreteTransformer.Application)
+		actualBracketName := db.ResolveBracketName(types.AppName(concreteTransformer.Application), concreteTransformer.ArgoBracket)
 		if concreteTransformer.GetEslVersion() > 0 {
-			bracketName, bracketError := db.HandleBracketsUpdate(ctx, dbHandler, transaction, types.AppName(concreteTransformer.Application), concreteTransformer.ArgoBracket, *now, concreteTransformer.GetEslVersion())
+			bracketError := db.HandleBracketsUpdate(ctx, dbHandler, transaction, types.AppName(concreteTransformer.Application), actualBracketName, *now, concreteTransformer.GetEslVersion())
 			if bracketError != nil {
 				t.Fatal(bracketError)
 			}
-			actualBracketName = bracketName
 		}
 		err2 := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, types.AppName(concreteTransformer.Application), db.AppStateChangeCreate, db.DBAppMetaData{Team: concreteTransformer.Team}, actualBracketName)
 		if err2 != nil {

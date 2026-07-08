@@ -388,7 +388,7 @@ func TestProcessOneBatch_SkipsStaleRows(t *testing.T) {
 				if tc.IsBracket {
 					// Also seed bracket membership: appName is a member of bracketName.
 					now := time.Now()
-					if _, err := db.HandleBracketsUpdate(ctx, dbHandler, tx, appName, bracketName, now, 1); err != nil {
+					if err := db.HandleBracketsUpdate(ctx, dbHandler, tx, appName, db.ResolveBracketName(appName, bracketName), now, 1); err != nil {
 						return err
 					}
 					return dbHandler.UpsertRolloutUndeployCascade(ctx, tx, string(bracketName), envName, true, 0)
