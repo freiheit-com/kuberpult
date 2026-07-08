@@ -25,7 +25,88 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
-func TestValidateRbacPermission(t *testing.T) {
+func TestValidateRbacTeamPermission(t *testing.T) {
+	tcs := []struct {
+		Name                   string
+		Permission             string
+		WantError              error
+		WantPermission         TeamPermission
+		WantWildcardLine       string
+		WantWildcardPermission TeamPermission
+	}{
+		{
+			Name:       "RBAC works as expected",
+			Permission: "t,team:sreteam,CreateLock,dev:dev,-,allow",
+			WantPermission: TeamPermission{
+				Team:        "sreteam",
+				Action:      "CreateLock",
+				Environment: "dev:dev",
+			},
+			WantWildcardLine: "t,team:*,CreateLock,dev:dev,-,allow",
+			WantWildcardPermission: TeamPermission{
+				Team:        "*",
+				Action:      "CreateLock",
+				Environment: "dev:dev",
+			},
+		},
+		{
+			Name:       "Invalid application name",
+			Permission: "t,team:sreteam,CreateLock,dev:dev,app1,allow",
+			WantError:  errMatcher{"team permissions apply to all the associated apps, application name must be declared as '-'"},
+		},
+		{
+			Name:       "Invalid team prefix",
+			Permission: "t,sreteam,CreateLock,dev:dev,app1,allow",
+			WantError:  errMatcher{"the format for permissions expects the prefix `team:` for permissions"},
+		},
+		{
+			Name:       "Invalid permission Action",
+			Permission: "t,team:sreteam,WRONG_ACTION,dev:development-d2,*,allow",
+			WantError:  errMatcher{"invalid action WRONG_ACTION"},
+		},
+		{
+			Name:       "Invalid permission Environment <ENVIRONMENT_GROUP:ENVIRONMENT>",
+			Permission: "t,team:sreteam,CreateLock,dev:-foo,*,allow",
+			WantError:  errMatcher{"invalid environment dev:-foo"},
+		},
+		{
+			Name:       "Invalid permission Environment <ENVIRONMENT>",
+			Permission: "t,team:sreteam,CreateLock,-foo,*,allow",
+			WantError:  errMatcher{"invalid environment -foo"},
+		},
+		{
+			Name:       "Invalid permission Empty Environment",
+			Permission: "t,team:sreteam,CreateLock,,*,allow",
+			WantError:  errMatcher{"invalid environment "},
+		},
+		{
+			Name:       "Invalid permission for Environment Independent action <ENVIRONMENT_GROUP:*",
+			Permission: "t,team:sreteam,DeployUndeploy,dev:development-1,*,allow",
+			WantError:  errMatcher{"the action DeployUndeploy requires the environment * and got dev:development-1"},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			permission, wildcardLine, wildcardPermission, err := ValidateRbacTeamPermission(tc.Permission)
+			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(permission, tc.WantPermission, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("%s: unexpected result diff : %v", tc.Name, diff)
+			}
+			if diff := cmp.Diff(wildcardLine, tc.WantWildcardLine, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("%s: unexpected result diff : %v", tc.Name, diff)
+			}
+			if diff := cmp.Diff(wildcardPermission, tc.WantWildcardPermission, cmpopts.EquateEmpty()); diff != "" {
+				t.Errorf("%s: unexpected result diff : %v", tc.Name, diff)
+			}
+		})
+	}
+}
+
+func TestValidateRbacRolePermission(t *testing.T) {
 	tcs := []struct {
 		Name           string
 		Permission     string
@@ -179,7 +260,7 @@ func TestValidateRbacGroup(t *testing.T) {
 	}
 }
 
-func TestCheckUserTeamPermissions(t *testing.T) {
+func TestCheckUserTeam(t *testing.T) {
 	tcs := []struct {
 		Name        string
 		rbacConfig  RBACConfig
@@ -245,7 +326,7 @@ func TestCheckUserTeamPermissions(t *testing.T) {
 	for _, tc := range tcs {
 		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
-			err := CheckUserTeamPermissions(tc.rbacConfig, tc.user, tc.team, tc.action)
+			err := CheckUserTeam(tc.rbacConfig, tc.user, tc.team, tc.action)
 			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("Error mismatch (-want +got):\n%s", diff)
 			}
@@ -367,7 +448,202 @@ func TestCheckUserPermissions(t *testing.T) {
 	}
 }
 
-func TestValidateRbacPermissionWildcards(t *testing.T) {
+func TestCheckTeamPermissions(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		rbacConfig  RBACConfig
+		user        *User
+		env         types.EnvName
+		envGroup    string
+		application types.AppName
+		action      string
+		team        string
+		WantError   error
+	}{
+		{
+			Name:     "Check team permission works as expected",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateLock,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"sreteam"}}},
+				Policy:     &RBACPolicies{TeamPermissions: map[string]TeamPermission{"t,team:sreteam,CreateLock,production:production,-,allow": {}}},
+			},
+			team: "sreteam",
+		},
+		{
+			Name:     "Check team permission works as expected with multiple teams",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateLock,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"sreteam", "devteam"}}},
+				Policy:     &RBACPolicies{TeamPermissions: map[string]TeamPermission{"t,team:sreteam,CreateLock,production:production,-,allow": {}}},
+			},
+			team: "sreteam",
+		},
+		{
+			Name:     "Check team permission works as expected with wildcards user team",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateLock,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"*"}}},
+				Policy: &RBACPolicies{
+					TeamPermissions:         map[string]TeamPermission{"t,team:sreteam,CreateLock,production:production,-,allow": {}},
+					WildcardTeamPermissions: map[string]TeamPermission{"t,team:*,CreateLock,production:production,-,allow": {}},
+				},
+			},
+			team: "sreteam",
+		},
+		{
+			Name:     "Check team permission works as expected with wildcards user team 2",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateLock,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"client-team", "*"}}},
+				Policy: &RBACPolicies{
+					TeamPermissions:         map[string]TeamPermission{"t,team:sreteam,CreateLock,production:production,-,allow": {}},
+					WildcardTeamPermissions: map[string]TeamPermission{"t,team:*,CreateLock,production:production,-,allow": {}},
+				},
+			},
+			team: "devteam",
+		},
+		{
+			Name:     "Check team permission works as expected with empty requested app team",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateEnvironment,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"sreteam"}}},
+				Policy:     &RBACPolicies{TeamPermissions: map[string]TeamPermission{"t,team:sreteam,CreateEnvironment,production:production,-,allow": {}}},
+			},
+			team: "",
+		},
+		{
+			Name:     "Check team permission works as expected with wildcard environment group",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateEnvironment,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"sreteam"}}},
+				Policy:     &RBACPolicies{TeamPermissions: map[string]TeamPermission{"t,team:sreteam,CreateEnvironment,*:production,-,allow": {}}},
+			},
+			team: "sreteam",
+		},
+		{
+			Name:     "Check team permission works as expected with wildcard environment",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateEnvironment,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"sreteam"}}},
+				Policy:     &RBACPolicies{TeamPermissions: map[string]TeamPermission{"t,team:sreteam,CreateEnvironment,production:*,-,allow": {}}},
+			},
+			team: "sreteam",
+		},
+		{
+			Name:     "Check team permission works as expected with wildcard environment group and environment",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateEnvironment,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"sreteam"}}},
+				Policy:     &RBACPolicies{TeamPermissions: map[string]TeamPermission{"t,team:sreteam,CreateEnvironment,*:*,-,allow": {}}},
+			},
+			team: "sreteam",
+		},
+		{
+			Name:     "Team does not have permission: wrong team",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateLock,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"sreteam", "devteam"}}},
+				Policy:     &RBACPolicies{TeamPermissions: map[string]TeamPermission{"t,team:secteam,CreateLock,production:production,-,allow": {}}},
+			},
+			team: "secteam",
+			WantError: PermissionError{
+				User:        "user",
+				Role:        "Developer",
+				Action:      "CreateLock",
+				Environment: "production",
+				Team:        "secteam",
+			},
+		},
+		{
+			Name:     "Team does not have permission: wrong environment group",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateLock,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"sreteam", "devteam"}}},
+				Policy:     &RBACPolicies{TeamPermissions: map[string]TeamPermission{"t,team:secteam,CreateLock,fakeprod:production,-,allow": {}}},
+			},
+			team: "sreteam",
+			WantError: PermissionError{
+				User:        "user",
+				Role:        "Developer",
+				Action:      "CreateLock",
+				Environment: "production",
+				Team:        "sreteam",
+			},
+		},
+		{
+			Name:     "Team does not have permission: wrong environment",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateLock,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"sreteam", "devteam"}}},
+				Policy:     &RBACPolicies{TeamPermissions: map[string]TeamPermission{"t,team:sreteam,CreateLock,production:fakeprod,-,allow": {}}},
+			},
+			team: "sreteam",
+			WantError: PermissionError{
+				User:        "user",
+				Role:        "Developer",
+				Action:      "CreateLock",
+				Environment: "production",
+				Team:        "sreteam",
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			err := CheckUserPermissions(tc.rbacConfig, tc.user, tc.env, tc.team, tc.envGroup, tc.application, tc.action)
+			if diff := cmp.Diff(tc.WantError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("Error mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestValidateRbacRolePermissionWildcards(t *testing.T) {
 	tcs := []struct {
 		Name        string
 		permissions []string

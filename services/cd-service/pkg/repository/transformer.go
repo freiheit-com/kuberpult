@@ -1602,7 +1602,7 @@ func (c *CreateEnvironmentLock) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction *sql.Tx, env types.EnvName, application types.AppName, action, team string, RBACConfig auth.RBACConfig, checkTeam bool, cfg *config.EnvironmentConfig) error {
+func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction *sql.Tx, env types.EnvName, application types.AppName, action, appTeam string, RBACConfig auth.RBACConfig, checkTeam bool, cfg *config.EnvironmentConfig) error {
 	if !RBACConfig.DexEnabled {
 		return nil
 	}
@@ -1620,21 +1620,21 @@ func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction 
 		return fmt.Errorf("group not found for environment: %s", env)
 	}
 
-	if team == "" && application != "*" {
-		team, err = s.GetApplicationTeamOwner(ctx, transaction, application)
+	if appTeam == "" && application != "*" {
+		appTeam, err = s.GetApplicationTeamOwner(ctx, transaction, application)
 		if err != nil {
 			return err
 		}
 	}
 
-	logging.Info(ctx, "CheckUserPermission", zap.Any("RBACConfig", RBACConfig), zap.Any("user", user), zap.Any("env", env), zap.Any("team", team), zap.Any("group", group), zap.Any("application", application), zap.Any("action", action), zap.Any("checkTeam", checkTeam))
+	logging.Info(ctx, "CheckUserPermission", zap.Any("RBACConfig", RBACConfig), zap.Any("user", user), zap.Any("env", env), zap.Any("appTeam", appTeam), zap.Any("group", group), zap.Any("application", application), zap.Any("action", action), zap.Any("checkTeam", checkTeam))
 
-	err = auth.CheckUserPermissions(RBACConfig, user, env, team, group, application, action)
+	err = auth.CheckUserPermissions(RBACConfig, user, env, appTeam, group, application, action)
 	if err != nil {
 		return err
 	}
 	if checkTeam {
-		err = auth.CheckUserTeamPermissions(RBACConfig, user, team, action)
+		err = auth.CheckUserTeam(RBACConfig, user, appTeam, action)
 	}
 	return err
 }

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"google.golang.org/grpc/codes"
@@ -164,9 +165,10 @@ type RBACGroup struct {
 }
 
 type RBACPolicies struct {
-	Groups          map[string]RBACGroup
-	Permissions     map[string]Permission
-	TeamPermissions map[string]TeamPermission
+	Groups                  map[string]RBACGroup
+	Permissions             map[string]Permission
+	TeamPermissions         map[string]TeamPermission
+	WildcardTeamPermissions map[string]TeamPermission // mirror of TeamPermissions but with 'team:*'
 }
 
 type RBACTeams struct {
@@ -216,45 +218,49 @@ func ValidateRbacRolePermission(line string) (p Permission, err error) {
 	}, nil
 }
 
-func ValidateRbacTeamPermission(line string) (p TeamPermission, err error) {
+func ValidateRbacTeamPermission(line string) (permission TeamPermission, wildcardLine string, wildcardPermission TeamPermission, err error) {
 	// t, team:<team>, <permission>, <environment-group>:<environment>, -, allow
 	cfg := initPolicyConfig()
 	// Verifies if all fields are specified
 	c := strings.Split(line, ",")
 	if len(c) != 6 {
-		return p, fmt.Errorf("6 fields are expected but only %d were specified", len(c))
+		return permission, wildcardLine, wildcardPermission, fmt.Errorf("6 fields are expected but only %d were specified", len(c))
 	}
 	// Permission role
 	if !strings.Contains(c[1], "team:") {
-		return p, fmt.Errorf("the format for permissions expects the prefix `team:` for permissions")
+		return permission, wildcardLine, wildcardPermission, fmt.Errorf("the format for permissions expects the prefix `team:` for permissions")
 	}
 	team := c[1][5:]
-	if team == "*" {
-		return p, fmt.Errorf("team name must be specified, not '*'")
-	}
-
 	// Validates the permission action
 	action := c[2]
 	err = cfg.validateAction(action)
 	if err != nil {
-		return p, err
+		return permission, wildcardLine, wildcardPermission, err
 	}
 	// Validate the permission environment
 	environment := c[3]
 	err = cfg.validateEnvs(environment, action)
 	if err != nil {
-		return p, err
+		return permission, wildcardLine, wildcardPermission, err
 	}
 	// Validate the application names
 	application := c[4]
 	if application != "-" {
-		return p, fmt.Errorf("team permissions apply to all the associated apps, application name must be declared as '-'")
+		return permission, wildcardLine, wildcardPermission, fmt.Errorf("team permissions apply to all the associated apps, application name must be declared as '-'")
 	}
-	return TeamPermission{
+
+	permission = TeamPermission{
 		Team:        team,
 		Action:      action,
 		Environment: environment,
-	}, nil
+	}
+	wildcardLine = fmt.Sprintf("t,team:*,%s,%s,-,allow", action, environment)
+	wildcardPermission = TeamPermission{
+		Team:        "*",
+		Action:      action,
+		Environment: environment,
+	}
+	return permission, wildcardLine, wildcardPermission, nil
 }
 
 func ValidateRbacTeamUsers(line string) (team string, users []string, err error) {
@@ -325,11 +331,12 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 			}
 			policy.Permissions[line] = p
 		} else if len(line) > 0 && line[0] == 't' {
-			t, err := ValidateRbacTeamPermission(line)
+			t, w, wp, err := ValidateRbacTeamPermission(line)
 			if err != nil {
 				return nil, err
 			}
 			policy.TeamPermissions[line] = t
+			policy.WildcardTeamPermissions[w] = wp
 		} else if len(line) > 0 && line[0] == 'g' {
 			g, err := ValidateRbacGroup(line)
 			if err != nil {
@@ -474,7 +481,7 @@ func (e TeamPermissionError) GRPCStatus() *status.Status {
 }
 
 // Checks user permissions on the RBAC policy.
-func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, team string, envGroup string, application types.AppName, action string) error {
+func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, appTeam string, envGroup string, application types.AppName, action string) error {
 	// If the action is environment independent, the env format is <ENVIRONMENT_GROUP>:*
 	if isEnvironmentIndependent(action) {
 		env = "*"
@@ -487,26 +494,30 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 		}
 	}
 
-	// TODO: check if app team owner is one of userTeams
-
 	// Check for all possible Wildcard combinations. Maximum of 8 combinations (2^3).
-	// group1:env1, app1
-	// group1:env1, *
-	// group1:*, app1
-	// group1:*, *
-	// *:env1, app1
-	// *:env1, *
-	// *:*, app1
-	// *:*, *
-
-	// team1, group1:env1
-	// team1, group1:*
-	// team1, *:env1
-	// team1, *:*
-	// what if the input application is *? -> team = ''
-	// what if the userTeams is *? -> we dont have to check for app team owner
 	for _, pEnvGroup := range []string{envGroup, "*"} {
 		for _, pEnv := range []types.EnvName{env, "*"} {
+			// Check if the user's team has access to the target application. This is true when:
+			if slices.Contains(userTeams, "*") {
+				// 1. This is a special case, where the user is allowed to perform the action on all teams
+				// Policy.WildTeamPermissions is a mirror list of Policy.TeamPermissions, but with 'team:*' instead of actual teams
+				permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, "*", action, pEnvGroup, pEnv)
+				_, permissionsExist := rbacConfig.Policy.WildcardTeamPermissions[permissionsWanted]
+				if permissionsExist {
+					return nil
+				}
+			} else if appTeam == "" || slices.Contains(userTeams, appTeam) {
+				// 2. (appTeam == "") The requested permission is not scoped to an application, e.g., CreateEnvironment, DeleteEnvironment, etc.
+				// 3. (userTeams contains appTeam) The user's team owns the application
+				for _, t := range userTeams {
+					permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, t, action, pEnvGroup, pEnv)
+					_, permissionsExist := rbacConfig.Policy.TeamPermissions[permissionsWanted]
+					if permissionsExist {
+						return nil
+					}
+				}
+			}
+
 			for _, pApplication := range []types.AppName{application, "*"} {
 				// Check if the permission exists on the policy.
 				if rbacConfig.Policy == nil {
@@ -515,13 +526,6 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 				for _, role := range user.DexAuthContext.Role {
 					permissionsWanted := fmt.Sprintf(PermissionTemplate, role, action, pEnvGroup, pEnv, pApplication)
 					_, permissionsExist := rbacConfig.Policy.Permissions[permissionsWanted]
-					if permissionsExist {
-						return nil
-					}
-				}
-				for _, t := range userTeams {
-					permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, t, action, pEnvGroup, pEnv)
-					_, permissionsExist := rbacConfig.Policy.TeamPermissions[permissionsWanted]
 					if permissionsExist {
 						return nil
 					}
@@ -535,11 +539,11 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 		Role:        strings.Join(user.DexAuthContext.Role, ", "),
 		Action:      action,
 		Environment: string(env),
-		Team:        team,
+		Team:        appTeam,
 	}
 }
 
-func CheckUserTeamPermissions(rbacConfig RBACConfig, user *User, team string, action string) error {
+func CheckUserTeam(rbacConfig RBACConfig, user *User, team string, action string) error {
 	if rbacConfig.Team == nil {
 		return errors.New("the desired action can not be performed because Dex is enabled without any RBAC Team permissions")
 
