@@ -1629,6 +1629,9 @@ func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction 
 
 	if checkTeam {
 		err = auth.CheckUserTeam(RBACConfig, user, appTeam, action)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = auth.CheckUserPermissions(RBACConfig, user, env, appTeam, group, application, action)
