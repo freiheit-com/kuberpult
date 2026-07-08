@@ -301,6 +301,7 @@ func SetupRepositoryBenchmark(t *testing.B) (Repository, *db.DBHandler) {
 
 	repoCfg := RepositoryConfig{
 		ArgoCdGenerateFiles: true,
+		AllowBracketMove:    true,
 	}
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)

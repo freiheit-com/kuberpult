@@ -150,6 +150,22 @@ func GetCreateReleaseIsNoDownstream(noDownstream []types.EnvName) *CreateRelease
 	}
 }
 
+func GetCreateReleaseBracketMoveNotAllowed(appName types.AppName, currentBracket, requestedBracket types.ArgoBracketName) *CreateReleaseError {
+	response := api.CreateReleaseResponseBracketMoveNotAllowed{
+		AppName:          string(appName),
+		CurrentBracket:   string(currentBracket),
+		RequestedBracket: string(requestedBracket),
+	}
+	return &CreateReleaseError{
+		innerError: nil,
+		response: api.CreateReleaseResponse{
+			Response: &api.CreateReleaseResponse_BracketMoveNotAllowed{
+				BracketMoveNotAllowed: &response,
+			},
+		},
+	}
+}
+
 type LockedError struct {
 	EnvironmentApplicationLocks map[string]Lock
 	EnvironmentLocks            map[string]Lock

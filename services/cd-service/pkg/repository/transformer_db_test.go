@@ -4164,6 +4164,94 @@ func TestUndeployBracketCascade(t *testing.T) {
 	}
 }
 
+func TestCreateApplicationVersionBracketMoveProtection(t *testing.T) {
+	const env = envAcceptance
+	tcs := []struct {
+		Name             string
+		AllowBracketMove bool
+		// Releases are applied after a CreateEnvironment (prepended in the loop), so the first
+		// release is at transformer index 1.
+		Releases []Transformer
+		// expectedError nil means the release is expected to succeed.
+		expectedError *TransformerBatchApplyError
+	}{
+		{
+			Name:             "moving an app to a different bracket is rejected when bracket moves are disabled",
+			AllowBracketMove: false,
+			Releases: []Transformer{
+				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
+				&CreateApplicationVersion{Application: "app1", Version: 2, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b2", Team: "t", WriteCommitData: true},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            2,
+				TransformerError: errMatcher{GetCreateReleaseBracketMoveNotAllowed("app1", "b1", "b2").Error()},
+			},
+		},
+		{
+			Name:             "moving an app to a different bracket is allowed when bracket moves are enabled",
+			AllowBracketMove: true,
+			Releases: []Transformer{
+				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
+				&CreateApplicationVersion{Application: "app1", Version: 2, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b2", Team: "t", WriteCommitData: true},
+			},
+		},
+		{
+			Name:             "assigning a bracket to an app that has none yet is always allowed",
+			AllowBracketMove: false,
+			Releases: []Transformer{
+				// no bracket -> defaults to the app name, i.e. the app has no real bracket yet
+				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, Team: "t", WriteCommitData: true},
+				&CreateApplicationVersion{Application: "app1", Version: 2, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
+			},
+		},
+		{
+			Name:             "creating a new app directly in a bracket is always allowed",
+			AllowBracketMove: false,
+			Releases: []Transformer{
+				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
+			},
+		},
+		{
+			Name:             "re-releasing an app into the same bracket is allowed",
+			AllowBracketMove: false,
+			Releases: []Transformer{
+				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
+				&CreateApplicationVersion{Application: "app1", Version: 2, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			repo, _ := setupRepositoryTestWithConfig(t, RepositoryConfig{
+				ArgoCdGenerateFiles: true,
+				MaxNumThreads:       1,
+				AllowBracketMove:    tc.AllowBracketMove,
+			})
+			transformers := append([]Transformer{
+				&CreateEnvironment{Environment: env, Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: env, Latest: true}}},
+			}, tc.Releases...)
+			err := repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, transformers...)
+				return applyErr
+			})
+			if tc.expectedError == nil {
+				if err != nil {
+					t.Fatalf("expected no error, got: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected error, got none.")
+			}
+			if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestUndeployApplicationDB(t *testing.T) {
 	tcs := []struct {
 		Name          string

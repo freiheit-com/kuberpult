@@ -164,6 +164,10 @@ type RepositoryConfig struct {
 	ArgoCdGenerateFiles bool
 	MinorRegexes        []*regexp.Regexp
 
+	// AllowBracketMove: if false, a release that would move an app from its current bracket to a
+	// different one is rejected. First-time bracket assignment and new apps are always allowed.
+	AllowBracketMove bool
+
 	DBHandler *db.DBHandler
 }
 
@@ -485,6 +489,7 @@ func (r *repository) StateAt() (*State, error) {
 		ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
 		MinorRegexes:         r.config.MinorRegexes,
 		MaxNumThreads:        int(r.config.MaxNumThreads),
+		AllowBracketMove:     r.config.AllowBracketMove,
 		DBHandler:            r.DB,
 	}, nil
 }
@@ -497,6 +502,8 @@ type State struct {
 	ReleaseVersionsLimit uint
 	MinorRegexes         []*regexp.Regexp
 	MaxNumThreads        int
+	// AllowBracketMove: if false, releases that move an app between brackets are rejected.
+	AllowBracketMove bool
 	// DbHandler will be nil if the DB is disabled
 	DBHandler *db.DBHandler
 }
