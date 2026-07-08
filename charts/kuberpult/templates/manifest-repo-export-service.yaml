@@ -271,6 +271,8 @@ spec:
           value: "{{ .Values.manifestRepoExport.rendering.experimentalRenderBrackets }}"
         - name: KUBERPULT_RENDERING_ROOT_APP_POINTS_TO_BRACKETS
           value: "{{ .Values.manifestRepoExport.rendering.experimentalRootAppsPointToBrackets }}"
+        - name: KUBERPULT_ALLOW_BRACKET_MOVE
+          value: "{{ .Values.manifestRepoExport.allowBracketMove }}"
         volumeMounts:
         - name: repository
           # The repository volume, an emptyDir, is mounted to the kp directory.

@@ -287,6 +287,10 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	renderOptions.AllowBracketMove, err = valid.ReadEnvVarBool("KUBERPULT_ALLOW_BRACKET_MOVE")
+	if err != nil {
+		return err
+	}
 
 	renderOptions.RootAppFiltering.Enabled, err = valid.ReadEnvVarBool("KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENABLED")
 	if err != nil {

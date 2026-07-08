@@ -35,6 +35,13 @@ type RenderOptions struct {
 	RenderApps      bool // do we render apps?
 	RenderBrackets  bool // do we render brackets?
 	PointToBrackets bool // do we point the root app to brackets?
+	// AllowBracketMove:
+	// If false, bracket moves are disallowed (see the /api/release check) and brackets render with prune=true.
+	// If true, apps are allowed to move between brackets. Brackets are then
+	// rendered with prune=false so that Argo CD does not automatically delete the resources left
+	// behind by a move; operators can remove them by resetting allowBracketMove to the default 'false' setting
+	// followed by a manual re-render of the environment.
+	AllowBracketMove bool
 
 	RootAppFiltering RootAppFiltering
 }
@@ -88,7 +95,7 @@ func Render(ctx context.Context, gitUrl string, gitBranch string, info *Environm
 		return nil, fmt.Errorf("no ArgoCd configured for environment %s", info.GetFullyQualifiedName())
 	}
 	result := map[ApiVersion][]byte{}
-	if content, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, info, appsData, options.PointToBrackets); err != nil {
+	if content, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, info, appsData, options.PointToBrackets, options.AllowBracketMove); err != nil {
 		return nil, err
 	} else {
 		result[V1Alpha1] = content
@@ -96,7 +103,7 @@ func Render(ctx context.Context, gitUrl string, gitBranch string, info *Environm
 	return result, nil
 }
 
-func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData, pointToBrackets bool) ([]byte, error) {
+func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData, pointToBrackets bool, allowBracketMove bool) ([]byte, error) {
 	applicationNs := ""
 	cfg := info.ArgoCDConfig
 	if cfg.Destination.Namespace != nil {
@@ -168,7 +175,7 @@ func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *
 	}
 	syncOptions := cfg.SyncOptions
 	for _, appData := range appsData {
-		appManifest, err := RenderAppEnv(ctx, gitUrl, gitBranch, cfg.ApplicationAnnotations, info, appData, applicationDestination, ignoreDifferences, syncOptions, pointToBrackets)
+		appManifest, err := RenderAppEnv(ctx, gitUrl, gitBranch, cfg.ApplicationAnnotations, info, appData, applicationDestination, ignoreDifferences, syncOptions, pointToBrackets, allowBracketMove)
 		if err != nil {
 			return nil, err
 		}
@@ -188,6 +195,7 @@ func RenderAppEnv(
 	ignoreDifferences []v1alpha1.ResourceIgnoreDifferences,
 	syncOptions v1alpha1.SyncOptions,
 	pointToBrackets bool,
+	allowBracketMove bool,
 ) (
 	string, error,
 ) {
@@ -244,7 +252,9 @@ func RenderAppEnv(
 			Destination: destination,
 			SyncPolicy: &v1alpha1.SyncPolicy{
 				Automated: &v1alpha1.SyncPolicyAutomated{
-					Prune:    true,
+					// When bracket moves are allowed we render with prune=false, so Argo CD does not
+					// automatically delete resources left behind by a move.
+					Prune:    !allowBracketMove,
 					SelfHeal: true,
 					// We always allow empty, because it makes it easier to delete apps/environments
 					AllowEmpty: true,
