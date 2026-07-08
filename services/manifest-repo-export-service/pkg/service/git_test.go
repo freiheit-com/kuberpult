@@ -1810,7 +1810,7 @@ func TestRetryEventRbac(t *testing.T) {
 					Permissions: map[string]auth.Permission{},
 				},
 			},
-			wantErr: errMatcher{"PermissionDenied The user '' with role 'Developer' is not allowed to perform the action 'RetryFailedEvent' on environment '*'"},
+			wantErr: errMatcher{"PermissionDenied The user '' with role(s) 'Developer' and team(s) '' is not allowed to perform the action 'RetryFailedEvent' on environment '*'"},
 		},
 		{
 			name: "should fail due to wrong role",
@@ -1822,7 +1822,7 @@ func TestRetryEventRbac(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errMatcher{"PermissionDenied The user '' with role 'Developer' is not allowed to perform the action 'RetryFailedEvent' on environment '*'"},
+			wantErr: errMatcher{"PermissionDenied The user '' with role(s) 'Developer' and team(s) '' is not allowed to perform the action 'RetryFailedEvent' on environment '*'"},
 		},
 		{
 			name: "should pass the permission check",
@@ -1888,7 +1888,7 @@ func TestSkipEventRbac(t *testing.T) {
 					Permissions: map[string]auth.Permission{},
 				},
 			},
-			wantErr: errMatcher{"PermissionDenied The user '' with role 'Developer' is not allowed to perform the action 'SkipEslEvent' on environment '*'"},
+			wantErr: errMatcher{"PermissionDenied The user '' with role(s) 'Developer' and team(s) '' is not allowed to perform the action 'SkipEslEvent' on environment '*'"},
 		},
 		{
 			name: "should fail due to wrong role",
@@ -1900,7 +1900,7 @@ func TestSkipEventRbac(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errMatcher{"PermissionDenied The user '' with role 'Developer' is not allowed to perform the action 'SkipEslEvent' on environment '*'"},
+			wantErr: errMatcher{"PermissionDenied The user '' with role(s) 'Developer' and team(s) '' is not allowed to perform the action 'SkipEslEvent' on environment '*'"},
 		},
 		{
 			name: "should pass the permission check",

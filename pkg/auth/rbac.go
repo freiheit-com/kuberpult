@@ -524,7 +524,7 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 			} else if appTeam == "" || slices.Contains(userTeams, appTeam) {
 				// 2. (appTeam == "") The requested permission is not scoped to an application, e.g., CreateEnvironment, DeleteEnvironment, etc.
 				// 3. (userTeams contains appTeam) The user's team owns the application
-				for _, userTeam := range userTeams {
+				for _, userTeam := range append(userTeams, "*") {
 					permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, userTeam, action, pEnvGroup, pEnv)
 					_, permissionsExist := rbacConfig.Policy.TeamPermissions[permissionsWanted]
 					if permissionsExist {
