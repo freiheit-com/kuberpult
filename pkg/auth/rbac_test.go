@@ -487,7 +487,7 @@ func TestCheckTeamPermissions(t *testing.T) {
 			team: "sreteam",
 		},
 		{
-			Name:     "Check team permission works as expected with wildcards user team",
+			Name:     "Wildcard user team: works as expected for simple case",
 			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
 			env:      "production",
 			envGroup: "production",
@@ -503,16 +503,56 @@ func TestCheckTeamPermissions(t *testing.T) {
 			team: "sreteam",
 		},
 		{
-			Name:     "Check team permission works as expected with wildcards user team 2",
+			Name:     "Wildcard user team: wrong team in policy",
 			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
 			env:      "production",
 			envGroup: "production",
 			action:   PermissionCreateLock,
 			rbacConfig: RBACConfig{
 				DexEnabled: true,
-				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"client-team", "*"}}},
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"*"}}},
 				Policy: &RBACPolicies{
 					TeamPermissions:         map[string]TeamPermission{"t,team:sreteam,CreateLock,production:production,-,allow": {}},
+					WildcardTeamPermissions: map[string]TeamPermission{"t,team:*,CreateLock,production:production,-,allow": {}},
+				},
+			},
+			team: "devteam",
+			WantError: PermissionError{
+				User:        "user",
+				UserTeam:    "*",
+				Role:        "Developer",
+				Action:      "CreateLock",
+				Environment: "production",
+				AppTeam:     "devteam",
+			},
+		},
+		{
+			Name:     "Wildcard user team: app team is empty",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateLock,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"*"}}},
+				Policy: &RBACPolicies{
+					TeamPermissions:         map[string]TeamPermission{"t,team:sreteam,CreateLock,production:production,-,allow": {}},
+					WildcardTeamPermissions: map[string]TeamPermission{"t,team:*,CreateLock,production:production,-,allow": {}},
+				},
+			},
+			team: "",
+		},
+		{
+			Name:     "Wildcard user team: policy team is also wildcard",
+			user:     &User{Name: "user", Email: "user@example.com", DexAuthContext: &DexAuthContext{Role: []string{"Developer"}}},
+			env:      "production",
+			envGroup: "production",
+			action:   PermissionCreateLock,
+			rbacConfig: RBACConfig{
+				DexEnabled: true,
+				Team:       &RBACTeams{Permissions: map[string][]string{"user@example.com": []string{"*"}}},
+				Policy: &RBACPolicies{
+					TeamPermissions:         map[string]TeamPermission{"t,team:*,CreateLock,production:production,-,allow": {}},
 					WildcardTeamPermissions: map[string]TeamPermission{"t,team:*,CreateLock,production:production,-,allow": {}},
 				},
 			},

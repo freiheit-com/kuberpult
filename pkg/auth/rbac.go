@@ -18,18 +18,15 @@ package auth
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"os"
 	"slices"
 	"strings"
 
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 )
@@ -507,22 +504,28 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 		for _, pEnv := range []types.EnvName{env, "*"} {
 			// Check if the user's team has access to the target application. This is true when:
 			if slices.Contains(userTeams, "*") {
-				// 1. This is a special case, where the user is allowed to perform the action on all teams
-				// Policy.WildTeamPermissions is a mirror list of Policy.TeamPermissions, but with 'team:*' instead of actual teams
-				permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, "*", action, pEnvGroup, pEnv)
-				_, permissionsExist := rbacConfig.Policy.WildcardTeamPermissions[permissionsWanted]
-				if permissionsExist {
-					return nil
+				// 1. This is a special case, where the user is associated to all teams
+				if appTeam != "" {
+					for _, pTeam := range []string{appTeam, "*"} {
+						permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, pTeam, action, pEnvGroup, pEnv)
+						_, permissionsExist := rbacConfig.Policy.TeamPermissions[permissionsWanted]
+						if permissionsExist {
+							return nil
+						}
+					}
+				} else {
+					// Policy.WildTeamPermissions is a mirror list of Policy.TeamPermissions, but with 'team:*' instead of actual teams
+					permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, "*", action, pEnvGroup, pEnv)
+					_, permissionsExist := rbacConfig.Policy.WildcardTeamPermissions[permissionsWanted]
+					if permissionsExist {
+						return nil
+					}
 				}
 			} else if appTeam == "" || slices.Contains(userTeams, appTeam) {
 				// 2. (appTeam == "") The requested permission is not scoped to an application, e.g., CreateEnvironment, DeleteEnvironment, etc.
 				// 3. (userTeams contains appTeam) The user's team owns the application
-				for _, t := range userTeams {
-					permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, t, action, pEnvGroup, pEnv)
-					logging.Wrap(context.Background(), func(ctx context.Context) error {
-						logging.Info(ctx, "permissionsWanted", zap.String("permissionsWanted", permissionsWanted))
-						return nil
-					})
+				for _, userTeam := range userTeams {
+					permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, userTeam, action, pEnvGroup, pEnv)
 					_, permissionsExist := rbacConfig.Policy.TeamPermissions[permissionsWanted]
 					if permissionsExist {
 						return nil
