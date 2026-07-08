@@ -1627,6 +1627,14 @@ func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction 
 		}
 	}
 
+	logging.Info(ctx, "CheckUserPermissions", zap.Any("user", user), zap.Any("env", env), zap.Any("appTeam", appTeam), zap.Any("group", group), zap.Any("application", application), zap.Any("action", action))
+	logging.Info(ctx, "RBACConfig", zap.Any("RBACConfig", RBACConfig))
+
+	err = auth.CheckUserPermissions(RBACConfig, user, env, appTeam, group, application, action)
+	if err != nil {
+		return err
+	}
+
 	if checkTeam {
 		err = auth.CheckUserTeam(RBACConfig, user, appTeam, action)
 		if err != nil {
@@ -1634,10 +1642,6 @@ func (s *State) checkUserPermissionsFromConfig(ctx context.Context, transaction 
 		}
 	}
 
-	err = auth.CheckUserPermissions(RBACConfig, user, env, appTeam, group, application, action)
-	if err != nil {
-		return err
-	}
 	return err
 }
 

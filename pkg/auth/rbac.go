@@ -18,15 +18,18 @@ package auth
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"slices"
 	"strings"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 )
@@ -320,7 +323,12 @@ func ReadRbacPolicy(dexEnabled bool, DexRbacPolicyPath string) (policy *RBACPoli
 	defer file.Close() //nolint:errcheck
 
 	scanner := bufio.NewScanner(file)
-	policy = &RBACPolicies{Permissions: map[string]Permission{}, TeamPermissions: map[string]TeamPermission{}, Groups: map[string]RBACGroup{}}
+	policy = &RBACPolicies{
+		Permissions:             map[string]Permission{},
+		TeamPermissions:         map[string]TeamPermission{},
+		WildcardTeamPermissions: map[string]TeamPermission{},
+		Groups:                  map[string]RBACGroup{},
+	}
 	for scanner.Scan() {
 		// Trim spaces from policy
 		line := strings.ReplaceAll(scanner.Text(), " ", "")
@@ -430,23 +438,25 @@ func ReadRbacTeam(dexEnabled bool, DexRbacTeamPath string) (teamPermissions *RBA
 
 type PermissionError struct {
 	User        string
+	UserTeam    string
 	Role        string
 	Action      string
 	Environment string
-	Team        string
+	AppTeam     string
 }
 
 func (e PermissionError) Error() string {
 	var msg = fmt.Sprintf(
-		"%s The user '%s' with role '%s' is not allowed to perform the action '%s' on environment '%s'",
+		"%s The user '%s' with role(s) '%s' and team(s) '%s' is not allowed to perform the action '%s' on environment '%s'",
 		codes.PermissionDenied.String(),
 		e.User,
 		e.Role,
+		e.UserTeam,
 		e.Action,
 		e.Environment,
 	)
-	if e.Team != "" {
-		msg += fmt.Sprintf(" for team '%s'", e.Team)
+	if e.AppTeam != "" {
+		msg += fmt.Sprintf(" for app team '%s'", e.AppTeam)
 	}
 	return msg
 }
@@ -509,6 +519,10 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 				// 3. (userTeams contains appTeam) The user's team owns the application
 				for _, t := range userTeams {
 					permissionsWanted := fmt.Sprintf(TeamPermissionTemplate, t, action, pEnvGroup, pEnv)
+					logging.Wrap(context.Background(), func(ctx context.Context) error {
+						logging.Info(ctx, "permissionsWanted", zap.String("permissionsWanted", permissionsWanted))
+						return nil
+					})
 					_, permissionsExist := rbacConfig.Policy.TeamPermissions[permissionsWanted]
 					if permissionsExist {
 						return nil
@@ -534,10 +548,11 @@ func CheckUserPermissions(rbacConfig RBACConfig, user *User, env types.EnvName, 
 	// The permission is not found. Return an error.
 	return PermissionError{
 		User:        user.Name,
+		UserTeam:    strings.Join(userTeams, ", "),
 		Role:        strings.Join(user.DexAuthContext.Role, ", "),
 		Action:      action,
 		Environment: string(env),
-		Team:        appTeam,
+		AppTeam:     appTeam,
 	}
 }
 

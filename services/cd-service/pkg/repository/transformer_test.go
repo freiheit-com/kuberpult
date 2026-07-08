@@ -2955,6 +2955,7 @@ func TestRbacTransformerTest(t *testing.T) {
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
 				User:        "test tester",
+				UserTeam:    "*",
 				Role:        "developer",
 				Action:      "DeployUndeploy",
 				Environment: "*",
@@ -3148,6 +3149,7 @@ func TestRbacTransformerTest(t *testing.T) {
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
 				User:        "test tester",
+				UserTeam:    "*",
 				Role:        "developer",
 				Action:      "DeployRelease",
 				Environment: "staging",
@@ -3188,6 +3190,7 @@ func TestRbacTransformerTest(t *testing.T) {
 			},
 			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
 				User:        "test tester",
+				UserTeam:    "*",
 				Role:        "developer",
 				Action:      "CreateUndeploy",
 				Environment: "*",
@@ -3343,6 +3346,7 @@ func TestRbacTransformerTest(t *testing.T) {
 				fixtureWrapGeneralFailure(
 					auth.PermissionError{
 						User:        "test tester",
+						UserTeam:    "*",
 						Role:        "developer",
 						Action:      "DeployRelease",
 						Environment: "acceptance",
@@ -4022,7 +4026,7 @@ func TestRbacTransformerTest(t *testing.T) {
 				Role:        "developer",
 				Action:      "CreateLock",
 				Environment: "production",
-				Team:        "sre-team",
+				AppTeam:     "sre-team",
 			}),
 		},
 		{
@@ -4213,7 +4217,7 @@ func TestRbacTransformerTest(t *testing.T) {
 				Role:        "developer",
 				Action:      "DeleteLock",
 				Environment: "production",
-				Team:        "sre-team",
+				AppTeam:     "sre-team",
 			}),
 		},
 		{

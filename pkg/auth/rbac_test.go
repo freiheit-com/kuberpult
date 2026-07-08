@@ -379,7 +379,7 @@ func TestCheckUserPermissions(t *testing.T) {
 				Role:        "visitor, Manager",
 				Action:      "CreateLock",
 				Environment: "production",
-				Team:        "random-team",
+				AppTeam:     "random-team",
 			},
 		},
 		{
@@ -405,7 +405,7 @@ func TestCheckUserPermissions(t *testing.T) {
 				Role:        "Developer",
 				Action:      "CreateLock",
 				Environment: "production",
-				Team:        "random-team",
+				AppTeam:     "random-team",
 			},
 		},
 		{
@@ -421,7 +421,7 @@ func TestCheckUserPermissions(t *testing.T) {
 				Role:        "Developer",
 				Action:      "CreateLock",
 				Environment: "production",
-				Team:        "other-team",
+				AppTeam:     "other-team",
 			},
 		},
 		{
@@ -584,10 +584,11 @@ func TestCheckTeamPermissions(t *testing.T) {
 			team: "secteam",
 			WantError: PermissionError{
 				User:        "user",
+				UserTeam:    "sreteam, devteam",
 				Role:        "Developer",
 				Action:      "CreateLock",
 				Environment: "production",
-				Team:        "secteam",
+				AppTeam:     "secteam",
 			},
 		},
 		{
@@ -604,10 +605,11 @@ func TestCheckTeamPermissions(t *testing.T) {
 			team: "sreteam",
 			WantError: PermissionError{
 				User:        "user",
+				UserTeam:    "sreteam, devteam",
 				Role:        "Developer",
 				Action:      "CreateLock",
 				Environment: "production",
-				Team:        "sreteam",
+				AppTeam:     "sreteam",
 			},
 		},
 		{
@@ -624,10 +626,11 @@ func TestCheckTeamPermissions(t *testing.T) {
 			team: "sreteam",
 			WantError: PermissionError{
 				User:        "user",
+				UserTeam:    "sreteam, devteam",
 				Role:        "Developer",
 				Action:      "CreateLock",
 				Environment: "production",
-				Team:        "sreteam",
+				AppTeam:     "sreteam",
 			},
 		},
 	}

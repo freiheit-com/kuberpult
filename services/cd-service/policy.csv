@@ -1,14 +1,12 @@
-p, role:Developer, CreateLock, *:*, *, allow
-p, role:Developer, DeleteLock, *:*, *, allow
-p, role:Developer, CreateRelease, *:*, *, allow
-p, role:Developer, DeployRelease, *:*, *, allow
-p, role:Developer, CreateUndeploy, *:*, *, allow
-p, role:Developer, DeployUndeploy, *:*, *, allow
-p, role:Developer, CreateEnvironment, *:*, *, allow
-p, role:Developer, DeleteEnvironment, *:*, *, allow
-p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
-p, role:Developer, DeployReleaseTrain, *:*, *, allow
-
 t, team:sreteam, CreateLock, *:*, -, allow
+t, team:sreteam, DeleteLock, *:*, -, allow
+t, team:sreteam, CreateRelease, *:*, -, allow
+t, team:sreteam, DeployRelease, *:*, -, allow
+t, team:sreteam, CreateUndeploy, *:*, -, allow
+t, team:sreteam, DeployUndeploy, *:*, -, allow
+t, team:sreteam, CreateEnvironment, *:*, -, allow
+t, team:sreteam, DeleteEnvironment, *:*, -, allow
+t, team:sreteam, DeleteEnvironmentApplication, *:*, -, allow
+t, team:sreteam, DeployReleaseTrain, *:*, -, allow
 
 g, freiheit-com-org:fdc-org-team1, role:admin
