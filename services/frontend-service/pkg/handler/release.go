@@ -605,6 +605,11 @@ func writeCorrespondingResponse(ctx context.Context, w http.ResponseWriter, r *h
 			jsonBlob, err := json.Marshal(firstResponse)
 			writeReleaseResponse(w, r, jsonBlob, err, http.StatusBadRequest)
 		}
+	case *api.CreateReleaseResponse_BracketMoveNotAllowed:
+		{
+			jsonBlob, err := json.Marshal(firstResponse)
+			writeReleaseResponse(w, r, jsonBlob, err, http.StatusUnprocessableEntity)
+		}
 	default:
 		{
 			jsonBlob, err := json.Marshal(releaseResponse)
