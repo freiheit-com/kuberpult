@@ -96,3 +96,24 @@ Only has an effect when using the manifest-repo-export-service.
 If not given, kuberpult generates one Argo CD App per app (and environment).
 If multiple kuberpult apps get the same bracket, kuberpult will generate one manifest that contain multiple apps.
 This will reduce the load on Argo CD.
+
+#### Bracket moves (`manifestRepoExport.allowBracketMove`)
+
+Moving an app from one bracket to another is a complicated operation: the app has to be removed from
+its old bracket and added to the new one, which can leave orphaned resources behind. Kuberpult
+deliberately keeps this deletion logic out of the manifest-repo-export-service. The Helm parameter
+`manifestRepoExport.allowBracketMove` (default `false`) controls what happens on such a move:
+
+* `allowBracketMove: false` (default):
+  * The `/api/release` endpoint **rejects** a release that would move an app from its current bracket to a
+    different one, returning HTTP **422 Unprocessable Entity**.
+  * Assigning a bracket to an app that has none yet, and creating a new app in a new or existing bracket,
+    are always allowed.
+  * Brackets are rendered with `prune: true`.
+* `allowBracketMove: true`:
+  * The bracket-change check is skipped; all bracket changes are allowed.
+  * Brackets are rendered with `prune: false`, so Argo CD does **not** automatically delete the resources
+    left behind by a move.
+  * **Operator action required:** after a bracket move you must manually trigger a "re-render everything"
+    for the affected environment to remove the app from its old bracket. Argo CD will not prune it
+    automatically.
