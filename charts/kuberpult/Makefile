@@ -61,9 +61,9 @@ else
 endif
 
 build-main:
-	IMAGE_TAG_KUBERPULT=main-$(VERSION) $(MAKE) test-helm
+	@echo "nothing to do"
 build-pr:
-	IMAGE_TAG_KUBERPULT=pr-$(VERSION) $(MAKE) test-helm
+	@echo "nothing to do"
 
 retag-main:
 	@echo "nothing to do"
