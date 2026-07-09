@@ -538,7 +538,7 @@ func (c *CreateApplicationVersion) Transform(
 			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not read app for bracket-move check: %w", err))
 		}
 		if existingApp != nil && existingApp.StateChange != db.AppStateChangeDelete {
-			// Normalize the stored bracket the same way as the requested one, so a legacy/migrated app
+			// Normalise the stored bracket the same way as the requested one, so a legacy/migrated app
 			// with a NULL/empty bracket is treated as "no real bracket yet" (== app name), not as a move.
 			defaultBracket := db.ResolveBracketName(c.Application, "")
 			currentBracket := db.ResolveBracketName(c.Application, existingApp.ArgoBracket)

@@ -72,8 +72,6 @@ func fromJson(data []byte) (BracketJsonBlob, error) {
 
 // ResolveBracketName returns the actual bracket name for an app: the given bracketName,
 // unless it's "", in which case the app name is used as the bracket name.
-// This resolution is kept separate from HandleBracketsUpdate so that callers can determine the
-// target bracket name (e.g. to run a precondition check) without mutating the bracket history.
 func ResolveBracketName(app types.AppName, bracketName types.ArgoBracketName) types.ArgoBracketName {
 	if bracketName == "" {
 		return types.ArgoBracketName(app)

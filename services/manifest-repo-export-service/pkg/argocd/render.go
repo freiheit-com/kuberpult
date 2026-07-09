@@ -32,16 +32,10 @@ import (
 )
 
 type RenderOptions struct {
-	RenderApps      bool // do we render apps?
-	RenderBrackets  bool // do we render brackets?
-	PointToBrackets bool // do we point the root app to brackets?
-	// AllowBracketMove:
-	// If false, bracket moves are disallowed (see the /api/release check) and brackets render with prune=true.
-	// If true, apps are allowed to move between brackets. Brackets are then
-	// rendered with prune=false so that Argo CD does not automatically delete the resources left
-	// behind by a move; operators can remove them by resetting allowBracketMove to the default 'false' setting
-	// followed by a manual re-render of the environment.
-	AllowBracketMove bool
+	RenderApps       bool // do we render apps?
+	RenderBrackets   bool // do we render brackets?
+	PointToBrackets  bool // do we point the root app to brackets?
+	AllowBracketMove bool // do we allow moving apps between brackets?
 
 	RootAppFiltering RootAppFiltering
 }

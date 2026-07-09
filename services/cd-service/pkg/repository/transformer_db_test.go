@@ -4233,8 +4233,12 @@ func TestCreateApplicationVersionBracketMoveProtection(t *testing.T) {
 				&CreateEnvironment{Environment: env, Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: env, Latest: true}}},
 			}, tc.Releases...)
 			err := repo.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, transformers...)
-				return applyErr
+				// ApplyTransformersInternal returns a concrete *TransformerBatchApplyError, so we must
+				// guard nil explicitly — returning the typed-nil pointer would become a non-nil error.
+				if _, _, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, transformers...); applyErr != nil {
+					return applyErr
+				}
+				return nil
 			})
 			if tc.expectedError == nil {
 				if err != nil {
