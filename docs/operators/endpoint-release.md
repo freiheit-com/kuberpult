@@ -105,10 +105,12 @@ deliberately keeps this deletion logic out of the manifest-repo-export-service. 
 `manifestRepoExport.allowBracketMove` (default `false`) controls what happens on such a move:
 
 * `allowBracketMove: false` (default):
-  * The `/api/release` endpoint **rejects** a release that would move an app from its current bracket to a
-    different one, returning HTTP **422 Unprocessable Entity**.
-  * Assigning a bracket to an app that has none yet, and creating a new app in a new or existing bracket,
-    are always allowed.
+  * The `/api/release` endpoint **rejects** a release that would move an *existing* app from its current
+    bracket to a different one, returning HTTP **422 Unprocessable Entity**. Note that every app 
+    has a bracket by default if brackets are enabled. If no bracket is set explicitly, the app's own 
+    name is used. Assigning a real bracket to an app that previously used its default (app-name) 
+    bracket is therefore also a move and is rejected.
+  * Creating a **new** app and putting it into a new or existing bracket is always allowed.
   * Brackets are rendered with `prune: true`.
 * `allowBracketMove: true`:
   * The bracket-change check is skipped; all bracket changes are allowed.

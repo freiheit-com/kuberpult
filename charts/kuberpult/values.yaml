@@ -258,8 +258,10 @@ manifestRepoExport:
   # bracket moves to ensure that the move logic remains simple and reliable.
   #
   # allowBracketMove==false (default):
-  #   - The /api/release endpoint disallows bracket changes (returns HTTP 422). Assigning a bracket
-  #     to an app that has none yet, and creating a new app in a new or existing bracket, are always allowed.
+  #   - The /api/release endpoint disallows changing an existing app's bracket (returns HTTP 422).
+  #     Every app already has a bracket (its own name if none is set explicitly), so assigning a real
+  #     bracket to an app that used its default bracket is also a move and is rejected. Only creating a
+  #     new app and putting it into a new or existing bracket is always allowed.
   #   - Brackets are rendered with prune=true.
   # allowBracketMove==true:
   #   - The /api/release bracket-change check is skipped; all bracket changes are allowed.

@@ -529,8 +529,10 @@ func (c *CreateApplicationVersion) Transform(
 	}
 	actualBracketName := db.ResolveBracketName(c.Application, c.ArgoBracket)
 	if !state.AllowBracketMove && slices.Contains(allApps, c.Application) {
-		// Bracket moves are disabled: reject changing an app that already has a (non-default) bracket
-		// to a different one. First-time assignment (current bracket == app name) and new apps stay allowed.
+		// Bracket moves are disabled: reject changing an existing app's bracket. With brackets enabled
+		// every existing app already has a bracket (its own name when none was set explicitly), so moving
+		// it to any different bracket - including from its default app-name bracket to a real one - is a
+		// move. Only creating a new app is exempt (handled by the existingApp==nil / deleted case below).
 		// This check must run before HandleBracketsUpdate so we never mutate the bracket history for a
 		// rejected release.
 		existingApp, err := state.DBHandler.DBSelectApp(ctx, transaction, c.Application)
@@ -539,10 +541,9 @@ func (c *CreateApplicationVersion) Transform(
 		}
 		if existingApp != nil && existingApp.StateChange != db.AppStateChangeDelete {
 			// Normalise the stored bracket the same way as the requested one, so a legacy/migrated app
-			// with a NULL/empty bracket is treated as "no real bracket yet" (== app name), not as a move.
-			defaultBracket := db.ResolveBracketName(c.Application, "")
+			// with a NULL/empty bracket resolves to its app name.
 			currentBracket := db.ResolveBracketName(c.Application, existingApp.ArgoBracket)
-			if currentBracket != defaultBracket && actualBracketName != currentBracket {
+			if actualBracketName != currentBracket {
 				return "", GetCreateReleaseBracketMoveNotAllowed(c.Application, currentBracket, actualBracketName)
 			}
 		}

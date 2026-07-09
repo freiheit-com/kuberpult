@@ -4196,12 +4196,17 @@ func TestCreateApplicationVersionBracketMoveProtection(t *testing.T) {
 			},
 		},
 		{
-			Name:             "assigning a bracket to an app that has none yet is always allowed",
+			Name:             "moving an app from its default bracket to a real bracket is rejected when bracket moves are disabled",
 			AllowBracketMove: false,
 			Releases: []Transformer{
-				// no bracket -> defaults to the app name, i.e. the app has no real bracket yet
+				// no bracket on v1 -> the app's bracket defaults to its app name; assigning a real bracket
+				// on v2 is therefore a move and must be rejected.
 				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, Team: "t", WriteCommitData: true},
 				&CreateApplicationVersion{Application: "app1", Version: 2, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
+			},
+			expectedError: &TransformerBatchApplyError{
+				Index:            2,
+				TransformerError: errMatcher{GetCreateReleaseBracketMoveNotAllowed("app1", "app1", "b1").Error()},
 			},
 		},
 		{
