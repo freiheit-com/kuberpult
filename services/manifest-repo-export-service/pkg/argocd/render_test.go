@@ -243,7 +243,7 @@ spec:
 			},
 		},
 		{
-			Name:             "bracket move allowed disables prune",
+			Name:             "bracket move allowed renders prune false explicitly",
 			Destination:      v1alpha1.ApplicationDestination{},
 			AllowBracketMove: true,
 			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
@@ -280,6 +280,7 @@ spec:
   syncPolicy:
     automated:
       allowEmpty: true
+      prune: false
       selfHeal: true
     syncOptions:
     - ApplyOutOfSyncOnly=true
