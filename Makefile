@@ -192,6 +192,12 @@ $(COMMIT_MSG_FILE):
 
 kuberpult: .git/hooks/commit-msg
 
+.PHONY: sast
+sast: $(addsuffix /sast,$(MAKEDIRS))
+
+$(addsuffix /sast,$(MAKEDIRS)):
+	make -C $(dir $@) sast
+
 .PHONY: lint lint-fix
 lint: $(addsuffix /lint,$(MAKEDIRS))
 
