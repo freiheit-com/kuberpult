@@ -30,8 +30,18 @@ include $(ROOT_DIR)/infrastructure/make/go/include.mk
 PKG_WITHOUT_DOCKER?=0
 PKG_VOLUME=
 
-all: gen lint test
+all: gen lint sast test
 test: gen unit-test
+
+.PHONY: sast
+sast:
+ifeq ($(PKG_WITHOUT_DOCKER),1)
+	@echo "Running SAST without docker"
+	nilaway -exclude-test-files=true ./...
+else
+	@echo "Running SAST in docker $(BUILDER_IMAGE)"
+	docker run --rm -w /kp/pkg -v "$(shell pwd)/..:/kp/" $(BUILDER_IMAGE) sh -c 'nilaway -exclude-test-files=true ./...'
+endif
 
 .PHONY: lint lint-fix
 lint: gen

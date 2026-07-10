@@ -41,6 +41,10 @@ bench-test:
 	docker run --rm -w $(SERVICE_DIR) --network kuberpult-test-net -v ".:$(SERVICE_DIR)" -v $(MIGRATION_VOLUME) $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c "go test $(GO_TEST_ARGS) -run=NONE -bench=. ./..." # run benchmarks only, no tests
 	docker compose -f $(ROOT_DIR)/docker-compose-unittest.yml down
 
+.PHONY: sast
+sast:
+	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'nilaway -exclude-test-files=true $(SERVICE_DIR)/...'
+
 .PHONY: lint
 lint:
 	docker run --rm -w /kp/ -v $(shell pwd)/$(ROOT_DIR):/kp/ $(PKG_VOLUME) $(BUILDER_IMAGE) sh -c 'set -o pipefail; GOFLAGS="-buildvcs=false" golangci-lint run --timeout=15m -j4 --tests=false $(SERVICE_DIR)/... 2>&1 | tee -a /kp/.golangci_lint.log'
@@ -84,12 +88,12 @@ gen-pkg:
 
 test: gen-pkg unit-test
 
-build-pr-internal: gen-pkg lint unit-test bench-test docker release
+build-pr-internal: gen-pkg lint sast unit-test bench-test docker release
 
 build-pr:
 	IMAGE_TAG=pr-$(VERSION) BUILDER_IMAGE=$(DOCKER_REGISTRY_URI)/infrastructure/docker/builder:pr-$(VERSION) $(MAKE) build-pr-internal
 
-build-main-internal: gen-pkg lint unit-test bench-test docker release-main
+build-main-internal: gen-pkg lint sast unit-test bench-test docker release-main
 
 build-main:
 	IMAGE_TAG=main-$(VERSION) $(MAKE) build-main-internal
