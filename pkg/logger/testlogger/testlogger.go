@@ -55,7 +55,7 @@ func AssertLogs(t *testing.T, logs *observer.ObservedLogs, tests ...LogAssertion
 		t.Errorf("expected %d logs, but got %d", len(tests), len(l))
 	} else {
 		for i, j := range l {
-			tests[i](t, j)
+			tests[i](t, j) //nolint:nilaway
 		}
 	}
 }

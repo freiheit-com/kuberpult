@@ -44,7 +44,7 @@ func doRequest(request *http.Request, timeoutSeconds int) (int, []byte, error) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body) //nolint:nilaway
 	if err != nil {
 		return 0, nil, fmt.Errorf("unable to read response: %v with error: %w", resp, err)
 	}

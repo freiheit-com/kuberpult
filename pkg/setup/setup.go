@@ -109,7 +109,11 @@ func Run(ctx context.Context, config ServerConfig) {
 	s := &setup{}
 
 	ctx, cancel := context.WithCancel(ctx)
-	pv, handler, _ := metrics.Init()
+	pv, handler, err := metrics.Init()
+	if err != nil {
+		logging.Fatal(ctx, "metrics.init.error", zap.Error(err))
+	}
+
 	ctx = metrics.WithProvider(ctx, pv)
 
 	_, _ = pv.Meter("setup").Int64ObservableGauge("background_job_ready", metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {

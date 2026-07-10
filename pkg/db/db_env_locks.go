@@ -382,7 +382,9 @@ func (h *DBHandler) DBSelectEnvLockSet(ctx context.Context, tx *sql.Tx, environm
 		if err != nil {
 			return nil, err
 		}
-		envLocks = append(envLocks, *envLock)
+		if envLock != nil {
+			envLocks = append(envLocks, *envLock)
+		}
 	}
 	return envLocks, nil
 }

@@ -394,7 +394,9 @@ func (h *DBHandler) DBSelectTeamLockSet(ctx context.Context, tx *sql.Tx, environ
 		if err != nil {
 			return nil, err
 		}
-		teamLocks = append(teamLocks, *teamLock)
+		if teamLock != nil {
+			teamLocks = append(teamLocks, *teamLock)
+		}
 	}
 	return teamLocks, nil
 }
