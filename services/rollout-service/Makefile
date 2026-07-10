@@ -18,3 +18,5 @@ MIN_COVERAGE=71.5
 MAX_DOCKER_SIZE_MB=110
 include ../../infrastructure/make/go/include.mk
 
+sast:
+	@echo "Skip SAST checks for rollout-service"

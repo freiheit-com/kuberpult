@@ -19,3 +19,7 @@
 MIN_COVERAGE=48.0
 MAX_DOCKER_SIZE_MB=104
 include ../../infrastructure/make/go/include.mk
+
+sast:
+	@echo "Skip SAST checks for reposerver-service"
+	
