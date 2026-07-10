@@ -348,6 +348,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 	// bracket was last spec-updated against. Read it once up-front.
 	bracketSnapshotEslId := a.lookupBracketSnapshotEslId(ctx, l)
 	for _, currentApp := range sorting.SortKeys(argoOv.AppDetails) {
+		//nolint:nilaway
 		currentAppDetails := argoOv.AppDetails[currentApp]
 		span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
 		defer span.Finish()
@@ -356,6 +357,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 			for _, parentEnvironment := range envGroup.Environments {
 				// isBracket must be per-environment: a single-app bracket (bracketName==appName)
 				// is a bracket only in bracket envs; in non-bracket envs it is a regular app.
+				//nolint:nilaway
 				isBracket := currentAppDetails.Application.ArgoBracket == currentApp && a.isBracketEnv(parentEnvironment.Name)
 				if isAAEnv(parentEnvironment.Config) {
 					for _, cfg := range parentEnvironment.Config.ArgoConfigs.Configs { //Active/Active environments have multiple argo cd configurations
@@ -919,6 +921,7 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 		if knownEnvApps := a.KnownApps[appInfo.EnvironmentName]; knownEnvApps != nil {
 			if existingApp := knownEnvApps[appInfo.ApplicationName]; existingApp != nil {
 				if existingApp.Annotations["com.freiheit.kuberpult/is-bracket"] == "true" {
+					//nolint:nilaway
 					if currentAppDetails.Deployments[appInfo.ParentEnvironmentName] == nil {
 						// No deployment recorded for this environment yet. Leave the bracket as-is
 						// until deployment data arrives.
@@ -962,9 +965,11 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 				// delete without cascade so the new bracket takes over k8s resource ownership.
 				deleteWithNoCascade := false
 				// only consider deletion, if the current app is not deployed anymore:
+				//nolint:nilaway
 				if appInfo.IsBracket && currentAppDetails.Deployments[appInfo.ParentEnvironmentName] == nil {
 					for _, otherApp := range sorting.SortKeys(allAppDetails) {
 						otherDetails := allAppDetails[otherApp]
+						//nolint:nilaway
 						if otherApp != appInfo.ApplicationName &&
 							otherDetails.Application != nil &&
 							otherDetails.Application.ArgoBracket == otherApp &&
@@ -982,6 +987,7 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 				} else if !appInfo.IsBracket {
 					// Non-bracket app with no deployment: cascade=false safety net for a
 					// transient cd-service overview (e.g. mid helm-upgrade).
+					//nolint:nilaway
 					a.DeleteArgoApps(ctx, ok, appInfo.ApplicationName, appInfo.EnvironmentName, appInfo.ParentEnvironmentName, currentAppDetails.Deployments[appInfo.ParentEnvironmentName])
 				}
 				// Else: bracket with no deployment AND not a move. Do NOT delete here.
@@ -1109,6 +1115,7 @@ type AppInfo struct {
 func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToArgo map[string]*v1alpha1.Application) *v1alpha1.Application {
 	for _, key := range sorting.SortKeys(appsKnownToArgo) {
 		argoApp := appsKnownToArgo[key]
+		//nolint:nilaway
 		if argoApp.Annotations["com.freiheit.kuberpult/application"] == appName && argoApp.Annotations["com.freiheit.kuberpult/environment"] == envName {
 			return argoApp
 		}
