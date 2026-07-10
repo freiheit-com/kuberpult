@@ -1469,8 +1469,10 @@ func (s *State) WriteAllReleases(ctx context.Context, transaction *sql.Tx, app t
 
 		var manifestsMap = map[types.EnvName]string{}
 		for index := range manifests {
-			manifest := manifests[index]
-			manifestsMap[types.EnvName(manifest.Environment)] = manifest.Content
+			manifest, ok := manifests[index]
+			if ok {
+				manifestsMap[types.EnvName(manifest.Environment)] = manifest.Content
+			}
 		}
 
 		now, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
@@ -2363,8 +2365,10 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
 	}
 	ret := make(map[types.EnvName]config.EnvironmentConfig)
-	for _, env := range *envs {
-		ret[env.Name] = env.Config
+	if envs != nil {
+		for _, env := range *envs {
+			ret[env.Name] = env.Config
+		}
 	}
 	return ret, nil
 }
@@ -2375,8 +2379,10 @@ func (s *State) GetAllEnvironmentConfigsFromDBAtTimestamp(ctx context.Context, t
 		return nil, fmt.Errorf("unable to retrieve environment configurations from the database, error: %w", err)
 	}
 	ret := make(map[types.EnvName]config.EnvironmentConfig)
-	for _, env := range *envs {
-		ret[env.Name] = env.Config
+	if envs != nil {
+		for _, env := range *envs {
+			ret[env.Name] = env.Config
+		}
 	}
 	return ret, nil
 }
