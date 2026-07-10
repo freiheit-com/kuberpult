@@ -782,7 +782,7 @@ func (p *GrpcProxy) ProcessBatch(
 	ctx context.Context,
 	in *api.BatchRequest) (*api.BatchResponse, error) {
 	for i := range in.Actions {
-		batchAction := in.GetActions()[i]
+		batchAction := in.GetActions()[i] //nolint:nilaway
 		switch batchAction.Action.(type) {
 		case *api.BatchAction_CreateRelease:
 			return nil, grpcerrors.PublicError(ctx, fmt.Errorf("action create-release is only supported via http in the frontend-service"))
