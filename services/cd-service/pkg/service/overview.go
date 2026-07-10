@@ -498,6 +498,9 @@ func (o *OverviewServiceServer) getOverview(
 		for envName, config := range envs {
 			var groupName = mapper.DeriveGroupName(config, envName)
 			var envInGroup = getEnvironmentInGroup(result.EnvironmentGroups, groupName, envName)
+			if envInGroup == nil {
+				return nil, fmt.Errorf("unable to find environment %s in group %s", envName, groupName)
+			}
 
 			var argocd api.ArgoCDEnvironmentConfiguration
 			var argocdConfigs = &api.EnvironmentConfig_ArgoConfigs{
@@ -987,7 +990,7 @@ func CalculateWarnings(appDeployments map[types.EnvName]db.Deployment, appLocks 
 				// if the env has no upstream, there's nothing to warn about
 				continue
 			}
-			upstreamEnvName := env.Config.GetUpstream().Environment
+			upstreamEnvName := env.Config.GetUpstream().Environment // nolint:nilaway
 			if upstreamEnvName == nil {
 				// this is already checked on startup and therefore shouldn't happen here
 				continue

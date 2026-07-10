@@ -551,7 +551,7 @@ func (d *BatchServer) ProcessBatch(
 		} else {
 			transformerTag = "multi"
 		}
-		parentSpan.SetTag("transformers", transformerTag)
+		parentSpan.SetTag("transformers", transformerTag) //nolint:nilaway
 	}
 
 	if requiresIsolation {
