@@ -18,6 +18,9 @@ RUN npm install -g pnpm@8.15.9
 ARG GO_CI_LINT_VERSION="v2.9.0"
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin $GO_CI_LINT_VERSION
 
+ARG NILAWAY_VERSION="v0.0.0-20260709164232-fd97c8330720"
+RUN go install go.uber.org/nilaway/cmd/nilaway@${NILAWAY_VERSION}
+
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
