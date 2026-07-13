@@ -79,9 +79,9 @@ func ResolveBracketName(app types.AppName, bracketName types.ArgoBracketName) ty
 	return bracketName
 }
 
-// HandleBracketsUpdate assigns app to newBracketName in the bracket history, removing it from any
+// HandleBracketsHistoryUpdate assigns app to newBracketName in the bracket history, removing it from any
 // previous bracket. newBracketName must already be resolved (see ResolveBracketName).
-func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, newBracketName types.ArgoBracketName, now time.Time, transformerEslId TransformerID) error {
+func HandleBracketsHistoryUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, newBracketName types.ArgoBracketName, now time.Time, transformerEslId TransformerID) error {
 	bracketRow, err := DBSelectBracketHistoryLatest(ctx, h, tx)
 	if err != nil {
 		return fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)

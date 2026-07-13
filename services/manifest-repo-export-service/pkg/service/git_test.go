@@ -2134,7 +2134,7 @@ func prepareDatabaseLikeCdService(ctx context.Context, transaction *sql.Tx, tr r
 		concreteTransformer := tr.(*rp.CreateApplicationVersion)
 		actualBracketName := db.ResolveBracketName(types.AppName(concreteTransformer.Application), concreteTransformer.ArgoBracket)
 		if concreteTransformer.GetEslVersion() > 0 {
-			bracketError := db.HandleBracketsUpdate(ctx, dbHandler, transaction, types.AppName(concreteTransformer.Application), actualBracketName, *now, concreteTransformer.GetEslVersion())
+			bracketError := db.HandleBracketsHistoryUpdate(ctx, dbHandler, transaction, types.AppName(concreteTransformer.Application), actualBracketName, *now, concreteTransformer.GetEslVersion())
 			if bracketError != nil {
 				t.Fatal(bracketError)
 			}

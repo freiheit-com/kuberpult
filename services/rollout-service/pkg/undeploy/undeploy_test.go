@@ -46,12 +46,12 @@ func (m *mockAppDeleter) Delete(ctx context.Context, in *application.Application
 
 func TestProcessRow(t *testing.T) {
 	tcs := []struct {
-		Name             string
-		SeedAttempts     int   // attempts value to insert with the row before processRow runs
-		DeleteErr        error // what the Argo client returns
-		WantArgoAppName  string
-		WantArgoCascade  bool
-		WantRowGone      bool // after processRow, the row should be deleted
+		Name              string
+		SeedAttempts      int   // attempts value to insert with the row before processRow runs
+		DeleteErr         error // what the Argo client returns
+		WantArgoAppName   string
+		WantArgoCascade   bool
+		WantRowGone       bool // after processRow, the row should be deleted
 		WantAttemptsAfter int  // attempts column value if the row is still present
 	}{
 		{
@@ -71,12 +71,12 @@ func TestProcessRow(t *testing.T) {
 			WantRowGone:     true,
 		},
 		{
-			Name:             "transient error: row kept, attempts incremented",
-			SeedAttempts:     0,
-			DeleteErr:        status.Error(codes.Unavailable, "argo down"),
-			WantArgoAppName:  "staging-my-app",
-			WantArgoCascade:  true,
-			WantRowGone:      false,
+			Name:              "transient error: row kept, attempts incremented",
+			SeedAttempts:      0,
+			DeleteErr:         status.Error(codes.Unavailable, "argo down"),
+			WantArgoAppName:   "staging-my-app",
+			WantArgoCascade:   true,
+			WantRowGone:       false,
 			WantAttemptsAfter: 1,
 		},
 		{
@@ -88,12 +88,12 @@ func TestProcessRow(t *testing.T) {
 			WantRowGone:     true,
 		},
 		{
-			Name:             "non-grpc error treated as transient",
-			SeedAttempts:     0,
-			DeleteErr:        errors.New("network blip"),
-			WantArgoAppName:  "staging-my-app",
-			WantArgoCascade:  true,
-			WantRowGone:      false,
+			Name:              "non-grpc error treated as transient",
+			SeedAttempts:      0,
+			DeleteErr:         errors.New("network blip"),
+			WantArgoAppName:   "staging-my-app",
+			WantArgoCascade:   true,
+			WantRowGone:       false,
 			WantAttemptsAfter: 1,
 		},
 	}
@@ -171,12 +171,12 @@ func TestProcessRow(t *testing.T) {
 
 func TestProcessOneBatch(t *testing.T) {
 	tcs := []struct {
-		Name           string
-		SeedRows       int    // number of (app, env) rows to seed before the batch runs
-		DeleteErr      error  // Argo Delete result for all rows
-		WantProcessed  int    // expected return value of processOneBatch
-		WantArgoCalls  int    // number of Argo Delete calls (== rows processed)
-		WantRowsAfter  int    // rows left in the table after one batch
+		Name          string
+		SeedRows      int   // number of (app, env) rows to seed before the batch runs
+		DeleteErr     error // Argo Delete result for all rows
+		WantProcessed int   // expected return value of processOneBatch
+		WantArgoCalls int   // number of Argo Delete calls (== rows processed)
+		WantRowsAfter int   // rows left in the table after one batch
 	}{
 		{
 			Name:          "empty queue: no Argo calls, processed=0",
@@ -388,7 +388,7 @@ func TestProcessOneBatch_SkipsStaleRows(t *testing.T) {
 				if tc.IsBracket {
 					// Also seed bracket membership: appName is a member of bracketName.
 					now := time.Now()
-					if err := db.HandleBracketsUpdate(ctx, dbHandler, tx, appName, db.ResolveBracketName(appName, bracketName), now, 1); err != nil {
+					if err := db.HandleBracketsHistoryUpdate(ctx, dbHandler, tx, appName, db.ResolveBracketName(appName, bracketName), now, 1); err != nil {
 						return err
 					}
 					return dbHandler.UpsertRolloutUndeployCascade(ctx, tx, string(bracketName), envName, true, 0)

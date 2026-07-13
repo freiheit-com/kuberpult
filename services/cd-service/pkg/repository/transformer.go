@@ -548,7 +548,7 @@ func (c *CreateApplicationVersion) Transform(
 			}
 		}
 	}
-	err = db.HandleBracketsUpdate(ctx, state.DBHandler, transaction, c.Application, actualBracketName, *now, c.GetEslVersion())
+	err = db.HandleBracketsHistoryUpdate(ctx, state.DBHandler, transaction, c.Application, actualBracketName, *now, c.GetEslVersion())
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update brackets: %w", err))
 	}
