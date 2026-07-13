@@ -407,7 +407,9 @@ func (h *DBHandler) DBSelectDeploymentHistory(ctx context.Context, tx *sql.Tx, a
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, *row)
+		if row != nil {
+			result = append(result, *row)
+		}
 	}
 	return result, nil
 }
@@ -469,7 +471,9 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 		if err != nil {
 			return nil, err
 		}
-		deployments = append(deployments, *row)
+		if row != nil {
+			deployments = append(deployments, *row)
+		}
 	}
 	return deployments, nil
 }

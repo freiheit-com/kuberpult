@@ -73,6 +73,9 @@ func MapEnvironmentsToGroups(envs map[types.EnvName]config.EnvironmentConfig) []
 	sort.Strings(keys)
 	for _, k := range keys {
 		var bucket = buckets[k]
+		if bucket == nil {
+			continue
+		}
 		// first, find all envs with distance 0
 		for i := 0; i < len(bucket.Environments); i++ {
 			var environment = bucket.Environments[i]
@@ -247,7 +250,7 @@ func calculateEnvironmentPriorities(environments []*api.Environment) {
 			if upstream != nil && upstream.Priority != api.Priority_UPSTREAM {
 				upstream.Priority = api.Priority_PRE_PROD
 			}
-		} else {
+		} else if upstream != nil {
 			// we have two non-UPSTREAM environments to mark.
 			upstream.Priority = api.Priority_CANARY
 			upstreamsUpstream.Priority = api.Priority_PRE_PROD

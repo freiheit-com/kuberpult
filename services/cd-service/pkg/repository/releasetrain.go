@@ -1037,7 +1037,7 @@ func (c *envReleaseTrain) applyPrognosis(
 			eventMessage := ""
 			if len(prognosis.EnvLocks) > 0 {
 				for e := range prognosis.EnvLocks {
-					eventMessage = prognosis.EnvLocks[e].Message
+					eventMessage = prognosis.EnvLocks[e].Message //nolint:nilaway
 					break
 				}
 			}

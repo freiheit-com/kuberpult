@@ -240,6 +240,9 @@ func (t *TreeBuilderFS) load() error {
 		count := tree.EntryCount()
 		for i := uint64(0); i < count; i++ {
 			entry := tree.EntryByIndex(i)
+			if entry == nil {
+				continue
+			}
 			switch entry.Filemode {
 			case git.FilemodeTree:
 				result[entry.Name] = &TreeBuilderFS{

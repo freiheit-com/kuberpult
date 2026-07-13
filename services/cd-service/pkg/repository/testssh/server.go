@@ -63,12 +63,12 @@ func New(workdir string) *TestServer {
 	// Allocate a new listening port
 	//exhaustruct:ignore
 	ts.l, _ = net.ListenTCP("tcp", &net.TCPAddr{})
-	ts.Port = ts.l.Addr().(*net.TCPAddr).Port
+	ts.Port = ts.l.Addr().(*net.TCPAddr).Port // nolint:nilaway
 
 	// Setup a private key for the server and write a known hosts file
 	_, servPriv, _ := ed25519.GenerateKey(nil)
 	ps, _ := ssh.NewSignerFromSigner(servPriv)
-	kh := knownhosts.Line([]string{"127.0.0.1"}, ps.PublicKey())
+	kh := knownhosts.Line([]string{"127.0.0.1"}, ps.PublicKey()) // nolint:nilaway
 	ts.KnownHosts = filepath.Join(workdir, "known_hosts")
 	os.WriteFile(ts.KnownHosts, []byte(kh), 0644)
 	//exhaustruct:ignore
@@ -133,7 +133,13 @@ func (ts *TestServer) handleConn(con net.Conn, workdir string, sc *ssh.ServerCon
 			case "exec":
 				var payload execReq
 				ssh.Unmarshal(req.Payload, &payload)
-				args, _ := shellwords.Parse(payload.Command)
+				args, err := shellwords.Parse(payload.Command)
+				if err != nil || len(args) == 0 {
+					fmt.Printf("testssh: illegal command: %q\n", err)
+					req.Reply(false, nil)
+					ch.Close()
+					return
+				}
 				if args[0] != "git-upload-pack" && args[0] != "git-receive-pack" {
 					fmt.Printf("testssh: illegal command: %q\n", args[0])
 					req.Reply(false, nil)

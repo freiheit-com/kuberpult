@@ -234,6 +234,7 @@ func (r *transformerRunner) Execute(ctx context.Context, t Transformer, transact
 		return err
 	}
 	idx := len(r.Stack) - 1
+	//nolint:nilaway
 	if len(r.Stack[idx]) != 0 {
 		if msg != "" {
 			msg = msg + "\n" + strings.Join(r.Stack[idx], "\n")
@@ -1025,7 +1026,9 @@ func (c *RenderEnvironment) Transform(
 		if err != nil {
 			return "", err
 		}
-		deployments[app] = latestDeployment.ReleaseNumbers
+		if latestDeployment != nil {
+			deployments[app] = latestDeployment.ReleaseNumbers
+		}
 	}
 
 	fs := state.Filesystem

@@ -124,7 +124,7 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 	data.Set("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange")
 	data.Set("scope", "openid email profile offline_access")
 	data.Set("requested_token_type", "urn:ietf:params:oauth:token-type:access_token")
-	data.Set("subject_token", r.Form["subject_token"][0])
+	data.Set("subject_token", r.Form["subject_token"][0]) //nolint:nilaway
 	data.Set("subject_token_type", "urn:ietf:params:oauth:token-type:access_token")
 
 	//exhaustruct:ignore
@@ -153,10 +153,11 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 		return
 	}
 
+	//nolint:nilaway
 	if dexResponse.StatusCode == http.StatusOK {
 		//exhaustruct:ignore
 		var resp = DexResponse{}
-		err = json.NewDecoder(dexResponse.Body).Decode(&resp)
+		err = json.NewDecoder(dexResponse.Body).Decode(&resp) //nolint:nilaway
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
@@ -165,11 +166,11 @@ func (s Server) HandleDex(w http.ResponseWriter, r *http.Request, client *auth.D
 		_, _ = w.Write([]byte(resp.AccessToken))
 	} else {
 		var v []byte
-		_, err := dexResponse.Body.Read(v)
+		_, err := dexResponse.Body.Read(v) //nolint:nilaway
 		if err != nil {
 			return
 		}
-		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s", dexResponse.Status, string(v)), http.StatusBadGateway)
+		http.Error(w, fmt.Sprintf("Dex returned an error: %+v. %s", dexResponse.Status, string(v)), http.StatusBadGateway) //nolint:nilaway
 	}
 }
 

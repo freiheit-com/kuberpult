@@ -25,7 +25,7 @@ CONTEXT?=../
 include ../infrastructure/make/go/include.mk
 
 test: unit-test
-build: lint test docker
+build: lint sast test docker
 
 build-pr-internal: build release
 build-pr:
@@ -34,6 +34,10 @@ build-pr:
 build-main-internal: build release
 build-main:
 	IMAGE_TAG=main-$(VERSION) $(MAKE) build-main-internal
+
+.PHONY: sast
+sast:
+	docker run --rm -w /kp/ -v $(shell pwd)/..:/kp/ $(BUILDER_IMAGE) sh -c 'cd cli && nilaway -exclude-test-files=true ./...'
 
 .PHONY: lint
 lint:

@@ -453,6 +453,9 @@ func MeasureGitSyncStatus(unsyncedApps, syncFailedApps int) error {
 }
 
 func (r *repository) notifyChangedApps(changes *TransformerResult) {
+	if changes == nil {
+		return
+	}
 	var changedAppNames []types.AppName
 	var seen = make(map[types.AppName]bool)
 	for _, app := range changes.ChangedApps {
@@ -843,8 +846,10 @@ func (s *State) GetAllEnvironmentConfigsFromDB(ctx context.Context, transaction 
 		return nil, fmt.Errorf("unable to retrieve manifests for environments %v from the database, error: %w", dbAllEnvs, err)
 	}
 	ret := make(map[types.EnvName]config.EnvironmentConfig)
-	for _, env := range *envs {
-		ret[env.Name] = env.Config
+	if envs != nil {
+		for _, env := range *envs {
+			ret[env.Name] = env.Config
+		}
 	}
 	return ret, nil
 }

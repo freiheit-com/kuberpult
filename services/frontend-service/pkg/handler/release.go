@@ -397,7 +397,7 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 	if !checkParameterCardinality(w, "application", form.Value["application"]) {
 		return
 	}
-	tf.Application = form.Value["application"][0]
+	tf.Application = form.Value["application"][0] //nolint:nilaway
 
 	for k, v := range form.File {
 		match := manifestFieldRx.FindStringSubmatch(k)
