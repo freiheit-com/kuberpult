@@ -287,7 +287,7 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	renderOptions.AllowBracketMove, err = valid.ReadEnvVarBool("KUBERPULT_ALLOW_BRACKET_MOVE")
+	renderOptions.AllowBracketMoves, err = valid.ReadEnvVarBool("KUBERPULT_ALLOW_BRACKET_MOVES")
 	if err != nil {
 		return err
 	}

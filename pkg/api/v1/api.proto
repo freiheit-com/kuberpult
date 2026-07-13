@@ -318,7 +318,7 @@ message CreateReleaseResponseIsNoDownstream {
 }
 
 // CreateReleaseResponseBracketMoveNotAllowed is returned when the release would move an app from
-// its current bracket to a different one, but bracket moves are disabled (allowBracketMove=false).
+// its current bracket to a different one, but bracket moves are disabled (allowBracketMoves=false).
 message CreateReleaseResponseBracketMoveNotAllowed {
   string app_name = 1;
   string current_bracket = 2;

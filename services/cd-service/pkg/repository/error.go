@@ -159,7 +159,7 @@ func GetCreateReleaseBracketMoveNotAllowed(appName types.AppName, currentBracket
 		RequestedBracket: string(requestedBracket),
 		Message: fmt.Sprintf(
 			"application '%s' cannot be moved from bracket '%s' to bracket '%s' because bracket moves are disabled. "+
-				"To allow moving apps between brackets, set the Helm value 'manifestRepoExport.allowBracketMove' to true.",
+				"To allow moving apps between brackets, set the Helm value 'manifestRepoExport.allowBracketMoves' to true.",
 			appName, currentBracket, requestedBracket,
 		),
 	}

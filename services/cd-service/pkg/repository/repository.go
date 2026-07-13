@@ -164,7 +164,7 @@ type RepositoryConfig struct {
 	ArgoCdGenerateFiles bool
 	MinorRegexes        []*regexp.Regexp
 
-	AllowBracketMove bool
+	AllowBracketMoves bool
 
 	DBHandler *db.DBHandler
 }
@@ -487,7 +487,7 @@ func (r *repository) StateAt() (*State, error) {
 		ReleaseVersionsLimit: r.config.ReleaseVersionsLimit,
 		MinorRegexes:         r.config.MinorRegexes,
 		MaxNumThreads:        int(r.config.MaxNumThreads),
-		AllowBracketMove:     r.config.AllowBracketMove,
+		AllowBracketMoves:    r.config.AllowBracketMoves,
 		DBHandler:            r.DB,
 	}, nil
 }
@@ -500,7 +500,7 @@ type State struct {
 	ReleaseVersionsLimit uint
 	MinorRegexes         []*regexp.Regexp
 	MaxNumThreads        int
-	AllowBracketMove     bool
+	AllowBracketMoves    bool
 	// DbHandler will be nil if the DB is disabled
 	DBHandler *db.DBHandler
 }

@@ -4167,8 +4167,8 @@ func TestUndeployBracketCascade(t *testing.T) {
 func TestCreateApplicationVersionBracketMoveProtection(t *testing.T) {
 	const env = envAcceptance
 	tcs := []struct {
-		Name             string
-		AllowBracketMove bool
+		Name              string
+		AllowBracketMoves bool
 		// Releases are applied after a CreateEnvironment (prepended in the loop), so the first
 		// release is at transformer index 1.
 		Releases []Transformer
@@ -4176,8 +4176,8 @@ func TestCreateApplicationVersionBracketMoveProtection(t *testing.T) {
 		expectedError *TransformerBatchApplyError
 	}{
 		{
-			Name:             "moving an app to a different bracket is rejected when bracket moves are disabled",
-			AllowBracketMove: false,
+			Name:              "moving an app to a different bracket is rejected when bracket moves are disabled",
+			AllowBracketMoves: false,
 			Releases: []Transformer{
 				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
 				&CreateApplicationVersion{Application: "app1", Version: 2, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b2", Team: "t", WriteCommitData: true},
@@ -4188,16 +4188,16 @@ func TestCreateApplicationVersionBracketMoveProtection(t *testing.T) {
 			},
 		},
 		{
-			Name:             "moving an app to a different bracket is allowed when bracket moves are enabled",
-			AllowBracketMove: true,
+			Name:              "moving an app to a different bracket is allowed when bracket moves are enabled",
+			AllowBracketMoves: true,
 			Releases: []Transformer{
 				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
 				&CreateApplicationVersion{Application: "app1", Version: 2, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b2", Team: "t", WriteCommitData: true},
 			},
 		},
 		{
-			Name:             "moving an app from its default bracket to a real bracket is rejected when bracket moves are disabled",
-			AllowBracketMove: false,
+			Name:              "moving an app from its default bracket to a real bracket is rejected when bracket moves are disabled",
+			AllowBracketMoves: false,
 			Releases: []Transformer{
 				// no bracket on v1 -> the app's bracket defaults to its app name; assigning a real bracket
 				// on v2 is therefore a move and must be rejected.
@@ -4210,15 +4210,15 @@ func TestCreateApplicationVersionBracketMoveProtection(t *testing.T) {
 			},
 		},
 		{
-			Name:             "creating a new app directly in a bracket is always allowed",
-			AllowBracketMove: false,
+			Name:              "creating a new app directly in a bracket is always allowed",
+			AllowBracketMoves: false,
 			Releases: []Transformer{
 				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
 			},
 		},
 		{
-			Name:             "re-releasing an app into the same bracket is allowed",
-			AllowBracketMove: false,
+			Name:              "re-releasing an app into the same bracket is allowed",
+			AllowBracketMoves: false,
 			Releases: []Transformer{
 				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
 				&CreateApplicationVersion{Application: "app1", Version: 2, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "b1", Team: "t", WriteCommitData: true},
@@ -4232,7 +4232,7 @@ func TestCreateApplicationVersionBracketMoveProtection(t *testing.T) {
 			repo, _ := setupRepositoryTestWithConfig(t, RepositoryConfig{
 				ArgoCdGenerateFiles: true,
 				MaxNumThreads:       1,
-				AllowBracketMove:    tc.AllowBracketMove,
+				AllowBracketMoves:   tc.AllowBracketMoves,
 			})
 			transformers := append([]Transformer{
 				&CreateEnvironment{Environment: env, Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: env, Latest: true}}},

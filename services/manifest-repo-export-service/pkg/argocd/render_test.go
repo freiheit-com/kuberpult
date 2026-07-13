@@ -30,11 +30,11 @@ import (
 
 func TestRender(t *testing.T) {
 	tcs := []struct {
-		Name             string
-		Destination      v1alpha1.ApplicationDestination
-		eInfo            *EnvironmentInfo
-		AllowBracketMove bool
-		ExpectedResult   string
+		Name              string
+		Destination       v1alpha1.ApplicationDestination
+		eInfo             *EnvironmentInfo
+		AllowBracketMoves bool
+		ExpectedResult    string
 	}{
 		{
 			Name:        "deploy",
@@ -243,9 +243,9 @@ spec:
 			},
 		},
 		{
-			Name:             "bracket move allowed renders prune false explicitly",
-			Destination:      v1alpha1.ApplicationDestination{},
-			AllowBracketMove: true,
+			Name:              "bracket move allowed renders prune false explicitly",
+			Destination:       v1alpha1.ApplicationDestination{},
+			AllowBracketMoves: true,
 			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -318,7 +318,7 @@ spec:
 				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
 			ctx := context.Background()
-			actualResult, err := RenderAppEnv(ctx, GitUrl, gitBranch, annotations, tc.eInfo, appData, destination, ignoreDifferences, syncOptions, false, tc.AllowBracketMove)
+			actualResult, err := RenderAppEnv(ctx, GitUrl, gitBranch, annotations, tc.eInfo, appData, destination, ignoreDifferences, syncOptions, false, tc.AllowBracketMoves)
 			if err != nil {
 				t.Fatal(err)
 			}

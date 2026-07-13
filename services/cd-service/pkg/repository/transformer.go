@@ -528,7 +528,7 @@ func (c *CreateApplicationVersion) Transform(
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not get transaction timestamp"))
 	}
 	actualBracketName := db.ResolveBracketName(c.Application, c.ArgoBracket)
-	if !state.AllowBracketMove && slices.Contains(allApps, c.Application) {
+	if !state.AllowBracketMoves && slices.Contains(allApps, c.Application) {
 		// Bracket moves are disabled: reject changing an existing app's bracket. With brackets enabled
 		// every existing app already has a bracket (its own name when none was set explicitly), so moving
 		// it to any different bracket - including from its default app-name bracket to a real one - is a

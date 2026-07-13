@@ -4672,7 +4672,7 @@ func SetupRepositoryTestWithAllOptions(t *testing.T) (Repository, *db.DBHandler)
 		MaxNumThreads:       1,
 		// Bracket moves are allowed by default in tests; TestCreateApplicationVersionBracketMoveProtection
 		// exercises the disabled case explicitly via setupRepositoryTestWithConfig.
-		AllowBracketMove: true,
+		AllowBracketMoves: true,
 	})
 }
 

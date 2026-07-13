@@ -680,7 +680,7 @@ func setupRepositoryTestWithAllOptions(t *testing.T) (repository.Repository, err
 	repoCfg := repository.RepositoryConfig{
 		URL:                 remoteDir,
 		ArgoCdGenerateFiles: true,
-		AllowBracketMove:    true,
+		AllowBracketMoves:   true,
 	}
 	if dbConfig != nil {
 

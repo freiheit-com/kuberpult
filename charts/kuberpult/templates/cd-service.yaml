@@ -252,8 +252,8 @@ spec:
           value: "{{ .Values.cd.lockType }}"
         - name: KUBERPULT_ALLOW_LONG_APP_NAMES
           value: "{{ .Values.cd.allowLongAppNames }}"
-        - name: KUBERPULT_ALLOW_BRACKET_MOVE
-          value: "{{ .Values.manifestRepoExport.allowBracketMove }}"
+        - name: KUBERPULT_ALLOW_BRACKET_MOVES
+          value: "{{ .Values.manifestRepoExport.allowBracketMoves }}"
         - name: KUBERPULT_ALLOWED_DOMAINS
           value: "{{ .Values.cd.allowedDomains }}"
         - name: KUBERPULT_RELEASE_VERSIONS_LIMIT
