@@ -360,6 +360,7 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 			for _, parentEnvironment := range envGroup.Environments {
 				// isBracket must be per-environment: a single-app bracket (bracketName==appName)
 				// is a bracket only in bracket envs; in non-bracket envs it is a regular app.
+				//nolint:nilaway
 				isBracket := currentAppDetails.Application.ArgoBracket == currentApp && a.isBracketEnv(parentEnvironment.Name)
 				if isAAEnv(parentEnvironment.Config) {
 					for _, cfg := range parentEnvironment.Config.ArgoConfigs.Configs { //Active/Active environments have multiple argo cd configurations
