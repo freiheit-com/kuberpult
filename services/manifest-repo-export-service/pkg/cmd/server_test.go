@@ -383,6 +383,7 @@ func TestProcessOneEvent(t *testing.T) {
 		Name                  string
 		withCutoff            *CutoffData
 		expectedError         error
+		initialSyncStatus     db.SyncStatus
 		expectedTransformer   repository.Transformer
 		expectedSleepDuration time.Duration
 		expectedSyncStatus    []GitSyncStatusRow
@@ -407,6 +408,31 @@ func TestProcessOneEvent(t *testing.T) {
 					AuthorEmail: "email two",
 				},
 			},
+			initialSyncStatus:     db.UNSYNCED,
+			expectedError:         nil,
+			expectedTransformer:   nil,
+			expectedSleepDuration: 0,
+			expectedSyncStatus: []GitSyncStatusRow{
+				{
+					TransformerId: 1,
+					EnvName:       env,
+					AppName:       app,
+					Status:        db.SYNCED,
+				},
+			},
+			expectNotification: true,
+		},
+		{
+			Name: "process one transformer from sync failed",
+			withCutoff: &CutoffData{
+				eventType: db.EvtCreateApplicationVersion,
+				data:      nil,
+				metadata: db.ESLMetadata{
+					AuthorName:  "author one",
+					AuthorEmail: "email two",
+				},
+			},
+			initialSyncStatus:     db.SYNC_FAILED,
 			expectedError:         nil,
 			expectedTransformer:   nil,
 			expectedSleepDuration: 0,
@@ -430,6 +456,7 @@ func TestProcessOneEvent(t *testing.T) {
 					AuthorEmail: "email two",
 				},
 			},
+			initialSyncStatus:     db.UNSYNCED,
 			expectedError:         nil,
 			expectedTransformer:   nil,
 			expectedSleepDuration: 0,
@@ -467,7 +494,9 @@ func TestProcessOneEvent(t *testing.T) {
 							t.Fatalf("DBReadEslEventInternal Error: %v", err)
 						}
 						transformerId = db.TransformerID(event.EslVersion)
-						err = dbHandler.DBWriteNewSyncEvent(ctx, transaction, initialSyncData)
+						syncData := *initialSyncData
+						syncData.SyncStatus = tc.initialSyncStatus
+						err = dbHandler.DBWriteNewSyncEvent(ctx, transaction, &syncData)
 						if err != nil {
 							t.Fatalf("DBReadEslEventInternal Error: %v", err)
 						}
