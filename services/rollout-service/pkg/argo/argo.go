@@ -342,6 +342,9 @@ type ArgoOverview struct {
 }
 
 func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logger, argoOv *ArgoOverview) {
+	if argoOv == nil {
+		return
+	}
 	overview := argoOv.Overview
 	// All bracket Argo CD apps emitted from this overview tick should pin the same
 	// brackets_history snapshot, so the reposerver can read the exact app list each
@@ -357,7 +360,6 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 			for _, parentEnvironment := range envGroup.Environments {
 				// isBracket must be per-environment: a single-app bracket (bracketName==appName)
 				// is a bracket only in bracket envs; in non-bracket envs it is a regular app.
-				//nolint:nilaway
 				isBracket := currentAppDetails.Application.ArgoBracket == currentApp && a.isBracketEnv(parentEnvironment.Name)
 				if isAAEnv(parentEnvironment.Config) {
 					for _, cfg := range parentEnvironment.Config.ArgoConfigs.Configs { //Active/Active environments have multiple argo cd configurations
