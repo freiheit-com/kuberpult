@@ -453,9 +453,11 @@ func MeasureGitSyncStatus(unsyncedApps, syncFailedApps int) error {
 }
 
 func (r *repository) notifyChangedApps(changes *TransformerResult) {
+	if changes == nil {
+		return
+	}
 	var changedAppNames []types.AppName
 	var seen = make(map[types.AppName]bool)
-	//nolint:nilaway
 	for _, app := range changes.ChangedApps {
 		if _, ok := seen[app.App]; !ok {
 			seen[app.App] = true
