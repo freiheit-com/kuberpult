@@ -17,6 +17,8 @@ Copyright freiheit.com*/
 package repository
 
 import (
+	"fmt"
+
 	"google.golang.org/protobuf/proto"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -155,6 +157,11 @@ func GetCreateReleaseBracketMoveNotAllowed(appName types.AppName, currentBracket
 		AppName:          string(appName),
 		CurrentBracket:   string(currentBracket),
 		RequestedBracket: string(requestedBracket),
+		Message: fmt.Sprintf(
+			"application '%s' cannot be moved from bracket '%s' to bracket '%s' because bracket moves are disabled. "+
+				"To allow moving apps between brackets, set the Helm value 'manifestRepoExport.allowBracketMove' to true.",
+			appName, currentBracket, requestedBracket,
+		),
 	}
 	return &CreateReleaseError{
 		innerError: nil,

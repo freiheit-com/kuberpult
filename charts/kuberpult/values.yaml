@@ -268,7 +268,7 @@ manifestRepoExport:
   #   - Brackets are rendered with prune=false, so Argo CD does NOT automatically delete resources.
   #
   # NOTE: When allowBracketMove==true, following a bracket move you must manually trigger a
-  # "re-render everything" after resetting to allowBracketMove==false for the affected environment 
+  # "re-render everything" after resetting to allowBracketMove==false for all affected environments 
   # to remove the app from its old bracket. Argo CD will not prune it automatically.
   allowBracketMove: false
 
