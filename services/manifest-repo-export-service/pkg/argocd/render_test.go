@@ -30,10 +30,11 @@ import (
 
 func TestRender(t *testing.T) {
 	tcs := []struct {
-		Name           string
-		Destination    v1alpha1.ApplicationDestination
-		eInfo          *EnvironmentInfo
-		ExpectedResult string
+		Name              string
+		Destination       v1alpha1.ApplicationDestination
+		eInfo             *EnvironmentInfo
+		AllowBracketMoves bool
+		ExpectedResult    string
 	}{
 		{
 			Name:        "deploy",
@@ -241,6 +242,56 @@ spec:
 				IsAAEnv:               true,
 			},
 		},
+		{
+			Name:              "bracket move allowed renders prune false explicitly",
+			Destination:       v1alpha1.ApplicationDestination{},
+			AllowBracketMoves: true,
+			ExpectedResult: `apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/dev/applications/app1/manifests;
+    com.freiheit.kuberpult/aa-parent-environment: dev
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: dev
+    com.freiheit.kuberpult/teams: ""
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/teams: ""
+  name: dev-app1
+spec:
+  destination: {}
+  ignoreDifferences:
+  - group: a.b
+    jqPathExpressions:
+    - c
+    - d
+    kind: bar
+    managedFieldsManagers:
+    - e
+    - f
+    name: foo
+  project: dev
+  sources:
+  - path: environments/dev/applications/app1/manifests
+    repoURL: example.com/github
+    targetRevision: main
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: false
+      selfHeal: true
+    syncOptions:
+    - ApplyOutOfSyncOnly=true
+`,
+			eInfo: &EnvironmentInfo{
+				ArgoCDConfig:          nil,
+				CommonPrefix:          "does-not-matter",
+				ParentEnvironmentName: "dev",
+				IsAAEnv:               false,
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -267,7 +318,7 @@ spec:
 				syncOptions = []string{"ApplyOutOfSyncOnly=true"}
 			)
 			ctx := context.Background()
-			actualResult, err := RenderAppEnv(ctx, GitUrl, gitBranch, annotations, tc.eInfo, appData, destination, ignoreDifferences, syncOptions, false)
+			actualResult, err := RenderAppEnv(ctx, GitUrl, gitBranch, annotations, tc.eInfo, appData, destination, ignoreDifferences, syncOptions, false, tc.AllowBracketMoves)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -743,7 +794,7 @@ spec:
 				CommonPrefix:          "AA",
 				IsAAEnv:               tt.config.ArgoCd.ConcreteEnvName != "",
 			}
-			got, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, environmentInfo, tt.appData, tt.pointToBrackets)
+			got, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, environmentInfo, tt.appData, tt.pointToBrackets, false)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return

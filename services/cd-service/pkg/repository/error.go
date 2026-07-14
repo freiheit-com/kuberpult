@@ -17,6 +17,8 @@ Copyright freiheit.com*/
 package repository
 
 import (
+	"fmt"
+
 	"google.golang.org/protobuf/proto"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -145,6 +147,27 @@ func GetCreateReleaseIsNoDownstream(noDownstream []types.EnvName) *CreateRelease
 		response: api.CreateReleaseResponse{
 			Response: &api.CreateReleaseResponse_IsNoDownstream{
 				IsNoDownstream: &response,
+			},
+		},
+	}
+}
+
+func GetCreateReleaseBracketMoveNotAllowed(appName types.AppName, currentBracket, requestedBracket types.ArgoBracketName) *CreateReleaseError {
+	response := api.CreateReleaseResponseBracketMoveNotAllowed{
+		AppName:          string(appName),
+		CurrentBracket:   string(currentBracket),
+		RequestedBracket: string(requestedBracket),
+		Message: fmt.Sprintf(
+			"application '%s' cannot be moved from bracket '%s' to bracket '%s' because bracket moves are disabled. "+
+				"To allow moving apps between brackets, set the Helm value 'manifestRepoExport.allowBracketMoves' to true.",
+			appName, currentBracket, requestedBracket,
+		),
+	}
+	return &CreateReleaseError{
+		innerError: nil,
+		response: api.CreateReleaseResponse{
+			Response: &api.CreateReleaseResponse_BracketMoveNotAllowed{
+				BracketMoveNotAllowed: &response,
 			},
 		},
 	}

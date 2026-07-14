@@ -454,7 +454,7 @@ func TestHandleBracketUpdates(t *testing.T) {
 
 			for index, appBracket := range tc.AddAppBrackets {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					_, err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time, TransformerID(10+index))
+					err := HandleBracketsHistoryUpdate(ctx, dbHandler, transaction, appBracket.App, ResolveBracketName(appBracket.App, appBracket.Bracket), appBracket.Time, TransformerID(10+index))
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
@@ -557,7 +557,7 @@ func TestDBSelectBracketHistoryPrevious(t *testing.T) {
 
 			for index, appBracket := range tc.AddAppBrackets {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					_, err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time, TransformerID(10+index))
+					err := HandleBracketsHistoryUpdate(ctx, dbHandler, transaction, appBracket.App, ResolveBracketName(appBracket.App, appBracket.Bracket), appBracket.Time, TransformerID(10+index))
 					return err
 				})
 				if err != nil {
@@ -660,7 +660,7 @@ func TestHandleBracketDoubleDeletion(t *testing.T) {
 
 			for index, appBracket := range tc.Setup {
 				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-					_, err := HandleBracketsUpdate(ctx, dbHandler, transaction, appBracket.App, appBracket.Bracket, appBracket.Time, TransformerID(10+index))
+					err := HandleBracketsHistoryUpdate(ctx, dbHandler, transaction, appBracket.App, ResolveBracketName(appBracket.App, appBracket.Bracket), appBracket.Time, TransformerID(10+index))
 					if err != nil {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}

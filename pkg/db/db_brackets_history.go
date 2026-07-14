@@ -70,16 +70,21 @@ func fromJson(data []byte) (BracketJsonBlob, error) {
 	return result, err
 }
 
-// HandleBracketsUpdate returns the actual bracket name. The actual name is the same as the parameter bracketName,
-// unless it's "", then we use the app name as bracket name.
-func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, bracketName types.ArgoBracketName, now time.Time, transformerEslId TransformerID) (types.ArgoBracketName, error) {
-	newBracketName := bracketName
-	if newBracketName == "" {
-		newBracketName = types.ArgoBracketName(app)
+// ResolveBracketName returns the actual bracket name for an app: the given bracketName,
+// unless it's "", in which case the app name is used as the bracket name.
+func ResolveBracketName(app types.AppName, bracketName types.ArgoBracketName) types.ArgoBracketName {
+	if bracketName == "" {
+		return types.ArgoBracketName(app)
 	}
+	return bracketName
+}
+
+// HandleBracketsHistoryUpdate assigns app to newBracketName in the bracket history, removing it from any
+// previous bracket. newBracketName must already be resolved (see ResolveBracketName).
+func HandleBracketsHistoryUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, newBracketName types.ArgoBracketName, now time.Time, transformerEslId TransformerID) error {
 	bracketRow, err := DBSelectBracketHistoryLatest(ctx, h, tx)
 	if err != nil {
-		return "", fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
+		return fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
 	}
 	if bracketRow == nil {
 		bracketRow = &BracketRow{
@@ -96,7 +101,7 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 		if oldIndex >= 0 { // found the app
 			if newBracketName == oldBracketName {
 				// same bracket, nothing to do
-				return oldBracketName, nil
+				return nil
 			}
 			// we found the app but in a different bracket
 			// 1) remove app from old bracket:
@@ -126,10 +131,10 @@ func HandleBracketsUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app typ
 
 	err = DBInsertBracketHistory(ctx, h, tx, *bracketRow, transformerEslId)
 	if err != nil {
-		return "", fmt.Errorf("HandleBracketsUpdate could not insert new bracket: %w", err)
+		return fmt.Errorf("HandleBracketsUpdate could not insert new bracket: %w", err)
 	}
 
-	return newBracketName, nil
+	return nil
 }
 
 func HandleDeleteAppFromBracket(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, deletionBracketName types.ArgoBracketName, now time.Time, transformerEslId TransformerID) error {

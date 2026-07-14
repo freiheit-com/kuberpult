@@ -96,3 +96,8 @@ Only has an effect when using the manifest-repo-export-service.
 If not given, kuberpult generates one Argo CD App per app (and environment).
 If multiple kuberpult apps get the same bracket, kuberpult will generate one manifest that contain multiple apps.
 This will reduce the load on Argo CD.
+
+#### Bracket moves (`manifestRepoExport.allowBracketMoves`)
+Moving an app from one bracket to another is a complicated operation that is deliberately controlled via
+the kuberpult helm parameters. Depending on the kuberpult configuration, requests to the `/api/release` 
+that would result in a bracket move are rejected with a HTTP **422 Unprocessable Entity**.

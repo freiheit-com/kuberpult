@@ -85,6 +85,7 @@ type Config struct {
 
 	AllowLongAppNames   bool
 	ArgoCdGenerateFiles bool
+	AllowBracketMoves   bool
 	AllowedDomains      []string
 
 	GitUrl             string
@@ -152,6 +153,7 @@ func parseEnvVars() (_ *Config, err error) {
 
 	c.AllowLongAppNames = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ALLOW_LONG_APP_NAMES", false)
 	c.ArgoCdGenerateFiles = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ARGO_CD_GENERATE_FILES", true)
+	c.AllowBracketMoves = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ALLOW_BRACKET_MOVES", false)
 	c.AllowedDomains, err = valid.ReadEnvVarAsList("KUBERPULT_ALLOWED_DOMAINS", ",")
 	if err != nil {
 		return nil, err
@@ -382,6 +384,7 @@ func RunServer() {
 			WriteCommitData:      c.GitWriteCommitData,
 			AllowLongAppNames:    c.AllowLongAppNames,
 			ArgoCdGenerateFiles:  c.ArgoCdGenerateFiles,
+			AllowBracketMoves:    c.AllowBracketMoves,
 			DBHandler:            dbHandler,
 		}
 

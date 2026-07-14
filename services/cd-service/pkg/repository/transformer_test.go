@@ -4667,6 +4667,16 @@ func SetupRepositoryTestWithDBOptions(t *testing.T) (Repository, *db.DBHandler) 
 }
 
 func SetupRepositoryTestWithAllOptions(t *testing.T) (Repository, *db.DBHandler) {
+	return setupRepositoryTestWithConfig(t, RepositoryConfig{
+		ArgoCdGenerateFiles: true,
+		MaxNumThreads:       1,
+		// Bracket moves are allowed by default in tests; TestCreateApplicationVersionBracketMoveProtection
+		// exercises the disabled case explicitly via setupRepositoryTestWithConfig.
+		AllowBracketMoves: true,
+	})
+}
+
+func setupRepositoryTestWithConfig(t *testing.T, repoCfg RepositoryConfig) (Repository, *db.DBHandler) {
 	ctx := context.Background()
 	migrationsPath, err := db.CreateMigrationsPath(4)
 	if err != nil {
@@ -4675,11 +4685,6 @@ func SetupRepositoryTestWithAllOptions(t *testing.T) (Repository, *db.DBHandler)
 	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, t.Name())
 	if err != nil {
 		t.Fatalf("SetupPostgres: %v", err)
-	}
-
-	repoCfg := RepositoryConfig{
-		ArgoCdGenerateFiles: true,
-		MaxNumThreads:       1,
 	}
 
 	migErr := db.RunDBMigrations(ctx, *dbConfig)

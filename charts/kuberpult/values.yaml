@@ -250,6 +250,28 @@ manifestRepoExport:
     # If true, `experimentalRenderBrackets` must be true.
     experimentalRootAppsPointToBrackets: false
 
+  # Controls whether apps are allowed to move between brackets.
+  # Moving an app between brackets is a complicated operation: the app's manifest has to be removed
+  # from its old bracket and added to the new one and it has to be ensured that the app is managed by at 
+  # least one of the brackets at all times.
+  # We deliberately do not automate the full bracket-move logic, instead relying on a manual step during
+  # bracket moves to ensure that the move logic remains simple and reliable.
+  #
+  # allowBracketMoves==false (default):
+  #   - The /api/release endpoint disallows changing an existing app's bracket (returns HTTP 422).
+  #     Every app already has a bracket (its own name if none is set explicitly), so assigning a real
+  #     bracket to an app that used its default bracket is also a move and is rejected. Only creating a
+  #     new app and putting it into a new or existing bracket is always allowed.
+  #   - Brackets are rendered with prune=true.
+  # allowBracketMoves==true:
+  #   - The /api/release bracket-change check is skipped; all bracket changes are allowed.
+  #   - Brackets are rendered with prune=false, so Argo CD does NOT automatically delete resources.
+  #
+  # NOTE: When allowBracketMoves==true, following a bracket move you must manually trigger a
+  # "re-render everything" after resetting to allowBracketMoves==false for all affected environments 
+  # to remove the app from its old bracket. Argo CD will not prune it automatically.
+  allowBracketMoves: false
+
   # The initial time in seconds that this service waits when it does not find esl events to process, before trying again.
   # Time increases exponentially (factor 2.0) if errors occur, depending on the type of error.
   # Maximum time to wait is 600sec (cannot be changed).

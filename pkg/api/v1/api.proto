@@ -317,6 +317,16 @@ message CreateReleaseResponseIsNoDownstream {
   repeated string no_downstream = 1;
 }
 
+// CreateReleaseResponseBracketMoveNotAllowed is returned when the release would move an app from
+// its current bracket to a different one, but bracket moves are disabled (allowBracketMoves=false).
+message CreateReleaseResponseBracketMoveNotAllowed {
+  string app_name = 1;
+  string current_bracket = 2;
+  string requested_bracket = 3;
+  // Human-readable explanation of the rejection, including the Helm option that controls bracket moves.
+  string message = 4;
+}
+
 enum DifferingField {
   SOURCE_COMMIT_ID = 0;
   SOURCE_AUTHOR = 1;
@@ -342,6 +352,7 @@ message CreateReleaseResponse {
     CreateReleaseResponseAlreadyExistsDifferent already_exists_different = 6;
     CreateReleaseResponseMissingManifest missing_manifest = 7;
     CreateReleaseResponseIsNoDownstream is_no_downstream = 8;
+    CreateReleaseResponseBracketMoveNotAllowed bracket_move_not_allowed = 9;
   }
 }
 
