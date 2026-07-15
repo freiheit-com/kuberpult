@@ -29,12 +29,8 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argorepo "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
 	"github.com/argoproj/gitops-engine/pkg/health"
+	"github.com/argoproj/gitops-engine/pkg/sync/common"
 	"github.com/cenkalti/backoff/v4"
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/logger"
-	"github.com/freiheit-com/kuberpult/pkg/setup"
-	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc"
@@ -43,6 +39,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/logger"
+	"github.com/freiheit-com/kuberpult/pkg/setup"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -2138,18 +2140,19 @@ func TestDrainPendingDeletionsRetryOnError(t *testing.T) {
 			argoProcessor := &ArgoAppProcessor{
 				ApplicationClient: mockClient,
 				KnownApps: map[string]map[string]*v1alpha1.Application{
-					parentEnvName: {
+					envName: {
 						"bracket-app": {
-							//exhaustruct:ignore
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "staging-bracket",
 								Annotations: map[string]string{"com.freiheit.kuberpult/is-bracket": "true"},
 							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync: v1alpha1.SyncStatus{
+									Status: v1alpha1.SyncStatusCodeSynced,
+								},
+							},
 						},
-					},
-					envName: {
 						appName: {
-							//exhaustruct:ignore
 							ObjectMeta: metav1.ObjectMeta{
 								Name: argoAppName,
 							},
@@ -2161,13 +2164,14 @@ func TestDrainPendingDeletionsRetryOnError(t *testing.T) {
 						EnvironmentName:       envName,
 						ParentEnvironmentName: parentEnvName,
 						AppName:               appName,
+						PlainArgoBracketName:  "bracket-app",
 					},
 				},
 
 				maxProcessedTransformerEslId: &atomic.Int64{},
 			}
 
-			argoProcessor.drainPendingDeletions(ctx, parentEnvName)
+			argoProcessor.drainPendingDeletions(ctx, envName)
 
 			if got := len(argoProcessor.pendingDeletions); got != tc.ExpectedRemaining {
 				t.Errorf("pendingDeletions length: want %d, got %d", tc.ExpectedRemaining, got)
@@ -3116,26 +3120,30 @@ func TestDrainPendingDeletionsByName(t *testing.T) {
 			argoProcessor := &ArgoAppProcessor{
 				ApplicationClient: mockClient,
 				KnownApps: map[string]map[string]*v1alpha1.Application{
-					parentEnvName: {
+					envName: {
 						"bracket": {
-							//exhaustruct:ignore
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "staging-bracket",
 								Annotations: map[string]string{
 									"com.freiheit.kuberpult/is-bracket": "true",
 								},
 							},
+							Status: v1alpha1.ApplicationStatus{
+								Sync: v1alpha1.SyncStatus{
+									Status: v1alpha1.SyncStatusCodeSynced,
+								},
+							},
 						},
 					},
 				},
 				pendingDeletions: []PendingDeletion{
-					{EnvironmentName: envName, ParentEnvironmentName: parentEnvName, AppName: appName},
+					{EnvironmentName: envName, ParentEnvironmentName: parentEnvName, AppName: appName, PlainArgoBracketName: "bracket"},
 				},
 
 				maxProcessedTransformerEslId: &atomic.Int64{},
 			}
 
-			argoProcessor.drainPendingDeletions(ctx, parentEnvName)
+			argoProcessor.drainPendingDeletions(ctx, envName)
 
 			if got := len(argoProcessor.pendingDeletions); got != 0 {
 				t.Errorf("pendingDeletions after drain: want 0, got %d", got)
@@ -3153,6 +3161,219 @@ func TestDrainPendingDeletionsByName(t *testing.T) {
 			if diff := testutil.CmpDiff(true, deleted.NoCascade); diff != "" {
 				t.Errorf("NoCascade mismatch (-want +got):\n%s", diff)
 			}
+		})
+	}
+}
+
+func TestKnowsBracketApp(t *testing.T) {
+	tcs := []struct {
+		Name             string
+		InputEnvName     string
+		InputBracketName string
+		GivenKnownApps   map[string]map[string]*v1alpha1.Application
+		ExpectedResult   bool
+		ExpectedStatus   string
+	}{
+		{
+			Name:             "there are zero known apps",
+			InputEnvName:     "dev",
+			InputBracketName: "b1",
+			GivenKnownApps:   nil,
+			ExpectedResult:   false,
+			ExpectedStatus:   "not a known environment",
+		},
+		{
+			Name:             "there is an app but on the wrong env",
+			InputEnvName:     "dev",
+			InputBracketName: "b1",
+			GivenKnownApps: map[string]map[string]*v1alpha1.Application{
+				"dev2": {
+					"b1": {},
+				},
+			},
+			ExpectedResult: false,
+			ExpectedStatus: "not a known environment",
+		},
+		{
+			Name:             "there is an app but on the wrong env",
+			InputEnvName:     "dev",
+			InputBracketName: "b1",
+			GivenKnownApps: map[string]map[string]*v1alpha1.Application{
+				"dev": {
+					"b2": {},
+				},
+			},
+			ExpectedResult: false,
+			ExpectedStatus: "not a known app: b1",
+		},
+		{
+			Name:             "there is an app but it is not a bracket",
+			InputEnvName:     "dev",
+			InputBracketName: "b1",
+			GivenKnownApps: map[string]map[string]*v1alpha1.Application{
+				"dev": {
+					"b1": {
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"com.freiheit.kuberpult/application": "b1",
+								"com.freiheit.kuberpult/is-bracket":  "false",
+							},
+						},
+					},
+				},
+			},
+			ExpectedResult: false,
+			ExpectedStatus: "known, but annotation is-bracket!=true",
+		},
+		{
+			Name:             "there is an app and none of the 3 status conditions are met",
+			InputEnvName:     "dev",
+			InputBracketName: "b1",
+			GivenKnownApps: map[string]map[string]*v1alpha1.Application{
+				"dev": {
+					"b1": {
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"com.freiheit.kuberpult/application": "b1",
+								"com.freiheit.kuberpult/is-bracket":  "true",
+							},
+						},
+					},
+				},
+			},
+			ExpectedResult: false,
+			ExpectedStatus: "or condition",
+		},
+		{
+			Name:             "there is an app and one condition is met: history",
+			InputEnvName:     "dev",
+			InputBracketName: "b1",
+			GivenKnownApps: map[string]map[string]*v1alpha1.Application{
+				"dev": {
+					"b1": {
+						Status: v1alpha1.ApplicationStatus{
+							History: []v1alpha1.RevisionHistory{
+								{
+									ID: 666, // condition 1: we just need a non-empty slice
+								},
+							},
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"com.freiheit.kuberpult/application": "b1",
+								"com.freiheit.kuberpult/is-bracket":  "true",
+							},
+						},
+					},
+				},
+			},
+			ExpectedResult: true,
+			ExpectedStatus: "",
+		},
+		// TODO SU: add further detailed tests
+		{
+			Name:             "there is an app and one conditions is met: operation state synced",
+			InputEnvName:     "dev",
+			InputBracketName: "b1",
+			GivenKnownApps: map[string]map[string]*v1alpha1.Application{
+				"dev": {
+					"b1": {
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"com.freiheit.kuberpult/application": "b1",
+								"com.freiheit.kuberpult/is-bracket":  "true",
+							},
+						},
+						Status: v1alpha1.ApplicationStatus{
+							OperationState: &v1alpha1.OperationState{
+								Phase:      common.OperationSucceeded,
+								SyncResult: &v1alpha1.SyncOperationResult{}, // anything but "nil"
+							},
+						},
+					},
+				},
+			},
+			ExpectedResult: true,
+			ExpectedStatus: "",
+		},
+		{
+			Name:             "there is an app and one conditions is met: status synced",
+			InputEnvName:     "dev",
+			InputBracketName: "b1",
+			GivenKnownApps: map[string]map[string]*v1alpha1.Application{
+				"dev": {
+					"b1": {
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"com.freiheit.kuberpult/application": "b1",
+								"com.freiheit.kuberpult/is-bracket":  "true",
+							},
+						},
+						Status: v1alpha1.ApplicationStatus{
+							Sync: v1alpha1.SyncStatus{
+								Status: v1alpha1.SyncStatusCodeSynced,
+							},
+						},
+					},
+				},
+			},
+			ExpectedResult: true,
+			ExpectedStatus: "",
+		},
+		{
+			Name:             "there is an app and none of the conditions are met but have data",
+			InputEnvName:     "dev",
+			InputBracketName: "b1",
+			GivenKnownApps: map[string]map[string]*v1alpha1.Application{
+				"dev": {
+					"b1": {
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"com.freiheit.kuberpult/application": "b1",
+								"com.freiheit.kuberpult/is-bracket":  "true",
+							},
+						},
+						Status: v1alpha1.ApplicationStatus{
+							Sync: v1alpha1.SyncStatus{
+								Status: v1alpha1.SyncStatusCodeUnknown,
+							},
+							OperationState: &v1alpha1.OperationState{
+								Phase:      common.OperationSucceeded,
+								SyncResult: nil,
+							},
+						},
+					},
+				},
+			},
+			ExpectedResult: false,
+			ExpectedStatus: "or condition",
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			testutil.WrapTestRoutine(t, context.Background(), "INFO", func(ctx context.Context) {
+				mockClient := &mockApplicationServiceClient{
+					t:      t,
+					cancel: func() {},
+				}
+				argoProcessor := &ArgoAppProcessor{
+					ApplicationClient:     mockClient,
+					ManageArgoAppsEnabled: true,
+					ManageArgoAppsFilter:  []string{"*"},
+					KnownApps:             tc.GivenKnownApps,
+
+					maxProcessedTransformerEslId: &atomic.Int64{},
+				}
+
+				actualBool, actualStatus := argoProcessor.isBracketAppReady(tc.InputEnvName, tc.InputBracketName)
+
+				if diff := testutil.CmpDiff(tc.ExpectedResult, actualBool); diff != "" {
+					t.Errorf("mismatch (-want, +got):\n%s", diff)
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedStatus, actualStatus); diff != "" {
+					t.Errorf("mismatch (-want, +got):\n%s", diff)
+				}
+			})
 		})
 	}
 }
