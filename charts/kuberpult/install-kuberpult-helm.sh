@@ -80,6 +80,7 @@ reposerver:
       memory: 200Mi
       cpu: 0.05
 manifestRepoExport:
+  allowBracketMoves: true
   enabled: false
   eslProcessingIdleTimeSeconds: 10
   resources:

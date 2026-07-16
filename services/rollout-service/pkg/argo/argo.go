@@ -346,11 +346,16 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 		return
 	}
 	overview := argoOv.Overview
+
+	appNames := sorting.SortKeys(argoOv.AppDetails)
+	totalApps := len(appNames)
+	logger.FromContext(ctx).Info("ProcessArgoOverview.start", zap.Int("totalApps", totalApps))
+
 	// All bracket Argo CD apps emitted from this overview tick should pin the same
 	// brackets_history snapshot, so the reposerver can read the exact app list each
 	// bracket was last spec-updated against. Read it once up-front.
 	bracketSnapshotEslId := a.lookupBracketSnapshotEslId(ctx, l)
-	for _, currentApp := range sorting.SortKeys(argoOv.AppDetails) {
+	for index, currentApp := range appNames {
 		//nolint:nilaway
 		currentAppDetails := argoOv.AppDetails[currentApp]
 		span, ctx := tracer.StartSpanFromContext(ctx, "ProcessChangedApp")
@@ -394,7 +399,14 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 			}
 		}
 		span.Finish()
+		if (index+1)%5 == 0 {
+			logger.FromContext(ctx).Info("ProcessArgoOverview.progress",
+				zap.Int("index", index+1),
+				zap.Int("totalApps", totalApps),
+				zap.String("currentApp", currentApp))
+		}
 	}
+	logger.FromContext(ctx).Info("ProcessArgoOverview.done", zap.Int("totalApps", totalApps))
 }
 
 // lookupBracketSnapshotEslId returns the source_transformer_esl_id of the latest
