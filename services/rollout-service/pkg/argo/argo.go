@@ -112,6 +112,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sync/atomic"
+	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/argoproj/argo-cd/v2/pkg/apiclient/application"
@@ -155,6 +156,9 @@ const (
 // the paused spec (per-app reconciles are serialised, so once it is removed no
 // reconcile of the pre-pause spec can still initiate a sync operation).
 const argocdRefreshAnnotation = "argocd.argoproj.io/refresh"
+
+const maxCreateAppRetries = 3
+const maxCreateAppRetryDelay = 2 * time.Second
 
 // this is a simpler version of ApplicationServiceClient from the application package
 type SimplifiedApplicationServiceClient interface {
@@ -402,8 +406,8 @@ func (a *ArgoAppProcessor) ProcessArgoOverview(ctx context.Context, l *zap.Logge
 		if (index+1)%5 == 0 {
 			logger.FromContext(ctx).Info("ProcessArgoOverview.progress",
 				zap.Int("index", index+1),
-				zap.Int("totalApps", totalApps),
-				zap.String("currentApp", currentApp))
+				zap.String("currentApp", currentApp),
+				zap.Int("totalApps", totalApps))
 		}
 	}
 	logger.FromContext(ctx).Info("ProcessArgoOverview.done", zap.Int("totalApps", totalApps))
@@ -1139,6 +1143,11 @@ func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToAr
 }
 
 func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo) {
+	logger.FromContext(ctx).Info("CreateArgoApp.start",
+		zap.String("app", appInfo.ApplicationName),
+		zap.String("env", appInfo.EnvironmentName),
+	)
+
 	selfManaged, err := IsSelfManagedFilterActive(appInfo.TeamName, a)
 	if err != nil {
 		logger.FromContext(ctx).Error("detecting self manage:", zap.Error(err))
@@ -1160,16 +1169,57 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 			Upsert:               &upsert,
 			Validate:             &validate,
 		}
-		_, err := a.ApplicationClient.Create(ctx, appCreateRequest)
-		if err != nil {
-			if status.Code(err) != codes.InvalidArgument {
-				logger.FromContext(ctx).Sugar().Errorf("creating %s, env %s: %v", appToCreate.Name, appInfo.EnvironmentName, err)
-			} else {
+
+		for attempt := 1; attempt <= maxCreateAppRetries; attempt++ {
+			_, err = a.ApplicationClient.Create(ctx, appCreateRequest)
+			if err == nil {
+				break
+			}
+
+			if status.Code(err) == codes.InvalidArgument {
 				// The app exists with a different spec — its watch event has not
 				// arrived yet (KnownApps lag), so the update path was missed.
 				a.upsertExistingArgoApp(ctx, appInfo, appToCreate)
+				break
+			}
+
+			// Reach the maximum number of attempts, log the error and stop.
+			if attempt == maxCreateAppRetries {
+				logger.FromContext(ctx).Error("creating ArgoApp failed after maximum number of attempts",
+					zap.String("name", appToCreate.Name),
+					zap.String("env", appInfo.EnvironmentName),
+					zap.Int("attempts", attempt),
+					zap.Error(err),
+				)
+				break
+			}
+
+			// Backoff strategy:
+			// Wait 1s for 2nd attempt, 2s for 3rd attempt.
+			// Total wait time is 3s.
+			waitTime := time.Duration(attempt) * time.Second
+			logger.FromContext(ctx).Warn("error while creating ArgoApp, retrying",
+				zap.String("name", appToCreate.Name),
+				zap.String("env", appInfo.EnvironmentName),
+				zap.Int("attempt", attempt),
+				zap.Duration("wait", waitTime),
+				zap.Error(err),
+			)
+
+			select {
+			case <-ctx.Done():
+				logger.FromContext(ctx).Error("context cancelled while waiting to retry",
+					zap.String("name", appToCreate.Name),
+					zap.String("env", appInfo.EnvironmentName),
+					zap.Error(ctx.Err()),
+				)
+				createSpan.Finish()
+				return
+			case <-time.After(waitTime):
+				// Wait and proceed to the next attempt
 			}
 		}
+
 		createSpan.Finish()
 	}
 }
