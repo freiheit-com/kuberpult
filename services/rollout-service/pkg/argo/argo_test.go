@@ -3215,8 +3215,7 @@ func TestKnowsBracketApp(t *testing.T) {
 					"b1": {
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								"com.freiheit.kuberpult/application": "b1",
-								"com.freiheit.kuberpult/is-bracket":  "false",
+								"com.freiheit.kuberpult/is-bracket": "false",
 							},
 						},
 					},
@@ -3234,8 +3233,7 @@ func TestKnowsBracketApp(t *testing.T) {
 					"b1": {
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								"com.freiheit.kuberpult/application": "b1",
-								"com.freiheit.kuberpult/is-bracket":  "true",
+								"com.freiheit.kuberpult/is-bracket": "true",
 							},
 						},
 					},
@@ -3260,8 +3258,7 @@ func TestKnowsBracketApp(t *testing.T) {
 						},
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								"com.freiheit.kuberpult/application": "b1",
-								"com.freiheit.kuberpult/is-bracket":  "true",
+								"com.freiheit.kuberpult/is-bracket": "true",
 							},
 						},
 					},
@@ -3280,8 +3277,7 @@ func TestKnowsBracketApp(t *testing.T) {
 					"b1": {
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								"com.freiheit.kuberpult/application": "b1",
-								"com.freiheit.kuberpult/is-bracket":  "true",
+								"com.freiheit.kuberpult/is-bracket": "true",
 							},
 						},
 						Status: v1alpha1.ApplicationStatus{
@@ -3305,8 +3301,7 @@ func TestKnowsBracketApp(t *testing.T) {
 					"b1": {
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								"com.freiheit.kuberpult/application": "b1",
-								"com.freiheit.kuberpult/is-bracket":  "true",
+								"com.freiheit.kuberpult/is-bracket": "true",
 							},
 						},
 						Status: v1alpha1.ApplicationStatus{
@@ -3329,8 +3324,7 @@ func TestKnowsBracketApp(t *testing.T) {
 					"b1": {
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								"com.freiheit.kuberpult/application": "b1",
-								"com.freiheit.kuberpult/is-bracket":  "true",
+								"com.freiheit.kuberpult/is-bracket": "true",
 							},
 						},
 						Status: v1alpha1.ApplicationStatus{
