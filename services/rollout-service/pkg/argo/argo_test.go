@@ -3238,7 +3238,7 @@ func TestKnowsBracketApp(t *testing.T) {
 				},
 			},
 			ExpectedResult: false,
-			ExpectedStatus: "or condition",
+			ExpectedStatus: "not synced",
 		},
 		{
 			Name:             "there is an app and one condition is met: history",
@@ -3265,7 +3265,6 @@ func TestKnowsBracketApp(t *testing.T) {
 			ExpectedResult: true,
 			ExpectedStatus: "",
 		},
-		// TODO SU: add further detailed tests
 		{
 			Name:             "there is an app and one conditions is met: operation state synced",
 			InputEnvName:     "dev",
@@ -3338,7 +3337,7 @@ func TestKnowsBracketApp(t *testing.T) {
 				},
 			},
 			ExpectedResult: false,
-			ExpectedStatus: "or condition",
+			ExpectedStatus: "not synced",
 		},
 	}
 	for _, tc := range tcs {

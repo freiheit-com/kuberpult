@@ -460,7 +460,7 @@ func (a *ArgoAppProcessor) isBracketAppReady(envName string, bareBracketAppName 
 	syncedAtLeastOnce := historyFull || operationStateSynced || statusSynced // either of these is indicating a sync
 
 	if !syncedAtLeastOnce {
-		return false, "or condition"
+		return false, "not synced"
 	}
 	return true, ""
 }
