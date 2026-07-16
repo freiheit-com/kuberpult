@@ -2132,7 +2132,6 @@ func TestDrainPendingDeletionsRetryOnError(t *testing.T) {
 			appName := "my-app"
 			argoAppName := "staging-1-my-app"
 			envName := "staging-1"
-			parentEnvName := "staging"
 
 			mockClient := &mockApplicationServiceClient{
 				deleteErr: tc.DeleteErr,
@@ -2161,10 +2160,9 @@ func TestDrainPendingDeletionsRetryOnError(t *testing.T) {
 				},
 				pendingDeletions: []PendingDeletion{
 					{
-						EnvironmentName:       envName,
-						ParentEnvironmentName: parentEnvName,
-						AppName:               appName,
-						PlainArgoBracketName:  "bracket-app",
+						EnvironmentName:      envName,
+						AppName:              appName,
+						PlainArgoBracketName: "bracket-app",
 					},
 				},
 
@@ -3137,7 +3135,7 @@ func TestDrainPendingDeletionsByName(t *testing.T) {
 					},
 				},
 				pendingDeletions: []PendingDeletion{
-					{EnvironmentName: envName, ParentEnvironmentName: parentEnvName, AppName: appName, PlainArgoBracketName: "bracket"},
+					{EnvironmentName: envName, AppName: appName, PlainArgoBracketName: "bracket"},
 				},
 
 				maxProcessedTransformerEslId: &atomic.Int64{},

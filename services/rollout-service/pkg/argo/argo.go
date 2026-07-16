@@ -183,10 +183,9 @@ type Processor interface {
 }
 
 type PendingDeletion struct {
-	EnvironmentName       string // key into KnownApps for the DeleteArgoApps call
-	ParentEnvironmentName string // key for isBracketEnv / knowsBracketApp check
-	AppName               string
-	PlainArgoBracketName  string // name of the bracket app that this deletion is waiting for (without env name)
+	EnvironmentName      string // key into KnownApps for the DeleteArgoApps call
+	AppName              string
+	PlainArgoBracketName string // name of the bracket app that this deletion is waiting for (without env name)
 }
 
 // PendingSpecUpdate tracks a bracket Argo app that lost members to other brackets
@@ -460,7 +459,7 @@ func (a *ArgoAppProcessor) isBracketAppReady(envName string, bareBracketAppName 
 
 	syncedAtLeastOnce := historyFull || operationStateSynced || statusSynced // either of these is indicating a sync
 
-	if syncedAtLeastOnce == false {
+	if !syncedAtLeastOnce {
 		return false, "or condition"
 	}
 	return true, ""
@@ -1056,10 +1055,9 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 				zap.String("app", appInfo.ApplicationName),
 				zap.String("env", appInfo.EnvironmentName))
 			a.pendingDeletions = append(a.pendingDeletions, PendingDeletion{
-				EnvironmentName:       appInfo.EnvironmentName,
-				ParentEnvironmentName: appInfo.ParentEnvironmentName,
-				AppName:               appInfo.ApplicationName,
-				PlainArgoBracketName:  currentAppDetails.Application.ArgoBracket,
+				EnvironmentName:      appInfo.EnvironmentName,
+				AppName:              appInfo.ApplicationName,
+				PlainArgoBracketName: currentAppDetails.Application.ArgoBracket,
 			})
 		}
 	}
