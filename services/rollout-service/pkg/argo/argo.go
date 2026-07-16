@@ -1174,7 +1174,7 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 				// The app exists with a different spec — its watch event has not
 				// arrived yet (KnownApps lag), so the update path was missed.
 				err = a.upsertExistingArgoApp(ctx, appInfo, appToCreate)
-				if err != nil {
+				if err == nil {
 					break
 				}
 			}
