@@ -11,7 +11,7 @@ trap 'trap - EXIT SIGINT SIGTERM; kill 0' EXIT SIGINT SIGTERM
 
 # This script assumes that the docker images have already been built.
 # To run/debug/develop this locally, you probably want to run like this:
-# rm -rf ./manifests/; make clean; LOCAL_EXECUTION=true ./run-kind.sh
+# rm -rf ./manifests/; make clean; LOCAL_EXECUTION=true GO_TEST_ARGS='' ./run-kind.sh
 
 cd "$(dirname "$0")"
 

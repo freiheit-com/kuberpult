@@ -186,9 +186,9 @@ type Processor interface {
 }
 
 type PendingDeletion struct {
-	EnvironmentName       string // key into KnownApps for the DeleteArgoApps call
-	ParentEnvironmentName string // key for isBracketEnv / knowsBracketApp check
-	AppName               string
+	EnvironmentName      string // key into KnownApps for the DeleteArgoApps call
+	AppName              string
+	PlainArgoBracketName string // name of the bracket app that this deletion is waiting for (without env name)
 }
 
 // PendingSpecUpdate tracks a bracket Argo app that lost members to other brackets
@@ -223,7 +223,7 @@ type ArgoAppProcessor struct {
 	ArgoAppsMetricsEnabled  bool
 	ManageArgoAppsFilter    []string
 	DDMetrics               statsd.ClientInterface
-	KnownApps               map[string]map[string]*v1alpha1.Application
+	KnownApps               map[string]map[string]*v1alpha1.Application // first key is the environment name, second key is the kuberpult app name
 	// DBHandler is read by ProcessArgoOverview to look up the current brackets_history
 	// snapshot so its source_transformer_esl_id can be embedded in each bracket Argo CD
 	// app's Spec.Source.Path (see CreateArgoApplication). Nil in unit tests; non-nil in
@@ -442,17 +442,42 @@ func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, en
 	return commonPrefix + "-" + envName + "-" + argoCDConfig.ConcreteEnvName
 }
 
-func (a *ArgoAppProcessor) isBracketEnv(envName string) bool {
-	return slices.Contains(a.ExperimentalBracketsClusters, envName)
+func (a *ArgoAppProcessor) isBracketEnv(parentEnvName string) bool {
+	return slices.Contains(a.ExperimentalBracketsClusters, parentEnvName)
 }
 
-func (a *ArgoAppProcessor) knowsBracketApp(envName string) bool {
-	for _, appName := range sorting.SortKeys(a.KnownApps[envName]) {
-		if a.KnownApps[envName][appName].Annotations["com.freiheit.kuberpult/is-bracket"] == "true" {
-			return true
-		}
+// isBracketAppReady returns true if the bracket app is part of knownApps and has been synced at least once
+// This is the point where we decide that other apps can be deleted.
+// Parameter bareBracketAppName is the name of the bracket that we want to be ready. It's not the name of the bracket app (that would incl the env name).
+// old name: "knowsBracketApp"
+// envName is the environmentName, NOT the parentEnvironmentName
+func (a *ArgoAppProcessor) isBracketAppReady(envName string, bareBracketAppName string) (bool, string) {
+	knownEnv := a.KnownApps[envName]
+	if knownEnv == nil {
+		return false, "not a known environment"
 	}
-	return false
+	knownBracketApp := knownEnv[bareBracketAppName]
+	bracketAppIsKnown := knownBracketApp != nil
+	if !bracketAppIsKnown {
+		return false, fmt.Sprintf("not a known app: %s", bareBracketAppName)
+	}
+	if knownBracketApp.Annotations["com.freiheit.kuberpult/is-bracket"] != "true" {
+		return false, "known, but annotation is-bracket!=true"
+	}
+
+	// calculate the 3 different OR conditions that each alone serve as proof that the app has been synced
+	stat := knownBracketApp.Status
+
+	historyFull := len(stat.History) > 0
+	operationStateSynced := stat.OperationState != nil && stat.OperationState.Phase.Successful() && stat.OperationState.SyncResult != nil
+	statusSynced := stat.Sync.Status == v1alpha1.SyncStatusCodeSynced
+
+	syncedAtLeastOnce := historyFull || operationStateSynced || statusSynced // either of these is indicating a sync
+
+	if !syncedAtLeastOnce {
+		return false, "not synced"
+	}
+	return true, ""
 }
 
 // ApplicationDeleter is the minimal subset of application.ApplicationServiceClient
@@ -515,7 +540,8 @@ func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnv
 	remaining := a.pendingDeletions[:0]
 	for _, pd := range a.pendingDeletions {
 		// if the app belongs to the bracket:
-		if pd.ParentEnvironmentName == bracketEnvName && a.knowsBracketApp(pd.ParentEnvironmentName) {
+		isBracketReady, reason := a.isBracketAppReady(pd.EnvironmentName, pd.PlainArgoBracketName)
+		if pd.EnvironmentName == bracketEnvName && isBracketReady {
 			l.Info("bracket.drain.pending",
 				zap.String("app", pd.AppName),
 				zap.String("env", pd.EnvironmentName))
@@ -553,6 +579,12 @@ func (a *ArgoAppProcessor) drainPendingDeletions(ctx context.Context, bracketEnv
 				continue
 			}
 		} else {
+			l.Info("bracket.drain.not-ready",
+				zap.String("app", pd.AppName),
+				zap.String("env", pd.EnvironmentName),
+				zap.String("bracket", pd.PlainArgoBracketName),
+				zap.String("reason", reason),
+			)
 			remaining = append(remaining, pd)
 		}
 	}
@@ -959,19 +991,26 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 	}
 	// For non-bracket apps in a bracket env: only delete once the bracket app is established in KnownApps.
 	// This prevents a downtime gap when transitioning an env to bracket mode.
+	knowsBracketApp, reason := a.isBracketAppReady(appInfo.EnvironmentName, currentAppDetails.Application.GetArgoBracket())
+	isBracketEnv := a.isBracketEnv(appInfo.ParentEnvironmentName)
+	// We allow the deletion if either:
+	// * the app itself is a bracket (so it does not depend on another app)
+	// * we are not in bracket mode on this env (in which case nothing is a bracket, no reason to wait)
+	// * or if the corresponding bracket app is known ("parent" bracket was already created and synced once)
 	allowDelete := appInfo.IsBracket ||
-		!a.isBracketEnv(appInfo.ParentEnvironmentName) ||
-		a.knowsBracketApp(appInfo.ParentEnvironmentName)
+		!isBracketEnv ||
+		knowsBracketApp
 	logger.FromContext(ctx).Info("ProcessAppChange",
 		zap.Bool("allow_delete", allowDelete),
 		zap.Bool("isBracket", appInfo.IsBracket),
-		zap.Bool("isBracketEnv", a.isBracketEnv(appInfo.ParentEnvironmentName)),
-		zap.Bool("knowsBracket", a.knowsBracketApp(appInfo.ParentEnvironmentName)),
+		zap.Bool("isBracketEnv", isBracketEnv),
+		zap.Bool("knowsBracket", knowsBracketApp),
+		zap.String("knowsBracketReason", reason),
 		zap.String("app", appInfo.ApplicationName),
 		zap.String("env", appInfo.EnvironmentName))
 	if allowDelete {
 		if ok := a.KnownApps[appInfo.EnvironmentName]; ok != nil { //If argo does not know this application, delete it
-			if !appInfo.IsBracket && a.isBracketEnv(appInfo.ParentEnvironmentName) {
+			if !appInfo.IsBracket && isBracketEnv {
 				// Individual app in a bracket env: delete without cascade so k8s resources
 				// remain under the bracket app's management.
 				if err := a.deleteAppNoCascade(ctx, ok, appInfo.ApplicationName); err != nil {
@@ -1021,7 +1060,7 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 		// Guard against duplicates so a second overview before drain doesn't double-queue.
 		alreadyPending := false
 		for _, existing := range a.pendingDeletions {
-			if existing.AppName == appInfo.ApplicationName && existing.ParentEnvironmentName == appInfo.ParentEnvironmentName {
+			if existing.AppName == appInfo.ApplicationName && existing.EnvironmentName == appInfo.EnvironmentName {
 				alreadyPending = true
 				break
 			}
@@ -1031,9 +1070,9 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 				zap.String("app", appInfo.ApplicationName),
 				zap.String("env", appInfo.EnvironmentName))
 			a.pendingDeletions = append(a.pendingDeletions, PendingDeletion{
-				EnvironmentName:       appInfo.EnvironmentName,
-				ParentEnvironmentName: appInfo.ParentEnvironmentName,
-				AppName:               appInfo.ApplicationName,
+				EnvironmentName:      appInfo.EnvironmentName,
+				AppName:              appInfo.ApplicationName,
+				PlainArgoBracketName: currentAppDetails.Application.ArgoBracket,
 			})
 		}
 	}
@@ -1116,8 +1155,8 @@ func (a *ArgoAppProcessor) ProcessArgoWatchEvent(ctx context.Context, l *zap.Log
 type AppInfo struct {
 	ApplicationName              string
 	TeamName                     string
-	EnvironmentName              string
-	ParentEnvironmentName        string
+	EnvironmentName              string // non-aa: "staging"; aa: <prefix-envName-suffix>
+	ParentEnvironmentName        string // "staging" with or without aa
 	ArgoEnvironmentConfiguration *api.ArgoCDEnvironmentConfiguration
 	IsBracket                    bool
 	// BracketSnapshotEslId is the brackets_history.source_transformer_esl_id that

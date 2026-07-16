@@ -102,7 +102,7 @@ func dumpKuberpultLogs(t *testing.T) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "kubectl get pods: %v\n", err)
 	}
-	for _, dep := range []string{"kuberpult-frontend-service", "kuberpult-cd-service"} {
+	for _, dep := range []string{"kuberpult-frontend-service", "kuberpult-cd-service", "kuberpult-rollout-service", "kuberpult-reposerver-service"} {
 		for _, line := range strings.Fields(string(podsOut)) {
 			podName := strings.TrimPrefix(line, "pod/")
 			if !strings.HasPrefix(podName, dep+"-") {
