@@ -1142,11 +1142,6 @@ func (a *ArgoAppProcessor) isKnownArgoApp(appName, envName string, appsKnownToAr
 }
 
 func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetOverviewResponse, appInfo *AppInfo) {
-	logger.FromContext(ctx).Info("CreateArgoApp.start",
-		zap.String("app", appInfo.ApplicationName),
-		zap.String("env", appInfo.EnvironmentName),
-	)
-
 	selfManaged, err := IsSelfManagedFilterActive(appInfo.TeamName, a)
 	if err != nil {
 		logger.FromContext(ctx).Error("detecting self manage:", zap.Error(err))
