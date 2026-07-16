@@ -91,6 +91,8 @@ type mockApplicationServiceClient struct {
 	// createConflictOnExisting makes Create fail with InvalidArgument for apps
 	// that already exist, like the real Argo CD server does when the specs differ.
 	createConflictOnExisting bool
+	createErr                error
+	createCalls              int
 	grpc.ClientStream
 }
 
@@ -284,6 +286,10 @@ func (m *mockApplicationServiceClient) Update(ctx context.Context, req *applicat
 }
 
 func (m *mockApplicationServiceClient) Create(ctx context.Context, req *application.ApplicationCreateRequest, opts ...grpc.CallOption) (*v1alpha1.Application, error) {
+	m.createCalls++
+	if m.createErr != nil {
+		return nil, m.createErr
+	}
 	newApp := &ArgoApp{
 		App:       req.Application,
 		LastEvent: "ADDED",
@@ -2983,6 +2989,66 @@ func TestProcessAppChangeDeferDeletion(t *testing.T) {
 			}
 			if diff := testutil.CmpDiff(appName, argoProcessor.pendingDeletions[0].AppName); diff != "" {
 				t.Errorf("pendingDeletion AppName mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCreateArgoAppWithRetries(t *testing.T) {
+	tcs := []struct {
+		Name                     string
+		ApplicationServiceClient *mockApplicationServiceClient
+		NumberOfRetries          int
+	}{
+		{
+			Name: "CreateArgoApp should retry max number of times when error occurs",
+			ApplicationServiceClient: &mockApplicationServiceClient{
+				createErr: fmt.Errorf("mock error"),
+			},
+			NumberOfRetries: maxCreateAppRetries,
+		},
+		{
+			Name:                     "CreateArgoApp should call applicationServiceClient only once when no error",
+			ApplicationServiceClient: &mockApplicationServiceClient{},
+			NumberOfRetries:          1,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			envName := "development"
+			appName := "my-app"
+
+			argoProcessor := &ArgoAppProcessor{
+				ApplicationClient:            tc.ApplicationServiceClient,
+				ManageArgoAppsEnabled:        true,
+				ManageArgoAppsFilter:         []string{"test-team"},
+				KnownApps:                    map[string]map[string]*v1alpha1.Application{},
+				ExperimentalBracketsClusters: []string{envName},
+				pendingDeletions:             []PendingDeletion{},
+				trigger:                      make(chan argoTrigger, 10),
+				ArgoApps:                     make(chan *v1alpha1.ApplicationWatchEvent, 10),
+
+				maxProcessedTransformerEslId: &atomic.Int64{},
+			}
+			appInfo := &AppInfo{
+				ApplicationName:       appName,
+				EnvironmentName:       envName,
+				ParentEnvironmentName: envName,
+				IsBracket:             false,
+				TeamName:              "test-team",
+				ArgoEnvironmentConfiguration: &api.ArgoCDEnvironmentConfiguration{
+					//exhaustruct:ignore
+					Destination: &api.ArgoCDEnvironmentConfiguration_Destination{
+						Name: envName,
+					},
+				},
+			}
+
+			argoProcessor.CreateArgoApp(ctx, &api.GetOverviewResponse{}, appInfo)
+
+			if tc.ApplicationServiceClient.createCalls != tc.NumberOfRetries {
+				t.Errorf("Expected %d create calls, got %d", tc.NumberOfRetries, tc.ApplicationServiceClient.createCalls)
 			}
 		})
 	}

@@ -1187,7 +1187,7 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 					zap.Int("attempts", attempt),
 					zap.Error(err),
 				)
-				createSpan.Finish()
+				createSpan.Finish(tracer.WithError(err))
 				return
 			}
 
@@ -1210,7 +1210,7 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 					zap.String("env", appInfo.EnvironmentName),
 					zap.Error(ctx.Err()),
 				)
-				createSpan.Finish()
+				createSpan.Finish(tracer.WithError(ctx.Err()))
 				return
 			case <-time.After(waitTime):
 				// Wait and proceed to the next attempt
