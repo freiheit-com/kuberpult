@@ -158,7 +158,6 @@ const (
 const argocdRefreshAnnotation = "argocd.argoproj.io/refresh"
 
 const maxCreateAppRetries = 3
-const maxCreateAppRetryDelay = 2 * time.Second
 
 // this is a simpler version of ApplicationServiceClient from the application package
 type SimplifiedApplicationServiceClient interface {
@@ -673,18 +672,18 @@ func (a *ArgoAppProcessor) recoverPendingSpecUpdate(ctx context.Context, envName
 // would pin the app to its old spec forever — the fast path sends each change
 // exactly once — so the desired spec is applied as an update instead. An app
 // paused for a bracket move is handed back to the pause protocol.
-func (a *ArgoAppProcessor) upsertExistingArgoApp(ctx context.Context, appInfo *AppInfo, desired *v1alpha1.Application) {
+func (a *ArgoAppProcessor) upsertExistingArgoApp(ctx context.Context, appInfo *AppInfo, desired *v1alpha1.Application) error {
 	//exhaustruct:ignore
 	existing, err := a.ApplicationClient.Get(ctx, &application.ApplicationQuery{Name: conversion.FromString(desired.Name)})
 	if err != nil {
 		logger.FromContext(ctx).Error("argo.create.conflict.get.failed",
 			zap.String("argo.app", desired.Name), zap.Error(err))
-		return
+		return err
 	}
 	if a.recoverPendingSpecUpdate(ctx, appInfo.EnvironmentName, appInfo.ApplicationName, existing) {
-		return
+		return nil
 	}
-	_ = a.updateApplication(ctx, desired, "argo.create.conflict.update")
+	return a.updateApplication(ctx, desired, "argo.create.conflict.update")
 }
 
 // isGoneErr reports whether an application RPC failed because the app does not
@@ -1179,8 +1178,10 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 			if status.Code(err) == codes.InvalidArgument {
 				// The app exists with a different spec — its watch event has not
 				// arrived yet (KnownApps lag), so the update path was missed.
-				a.upsertExistingArgoApp(ctx, appInfo, appToCreate)
-				break
+				err = a.upsertExistingArgoApp(ctx, appInfo, appToCreate)
+				if err != nil {
+					break
+				}
 			}
 
 			// Reach the maximum number of attempts, log the error and stop.
@@ -1191,7 +1192,8 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 					zap.Int("attempts", attempt),
 					zap.Error(err),
 				)
-				break
+				createSpan.Finish()
+				return
 			}
 
 			// Backoff strategy:
@@ -1220,6 +1222,10 @@ func (a *ArgoAppProcessor) CreateArgoApp(ctx context.Context, overview *api.GetO
 			}
 		}
 
+		logger.FromContext(ctx).Info("Create ArgoApp successfully",
+			zap.String("app", appInfo.ApplicationName),
+			zap.String("env", appInfo.EnvironmentName),
+		)
 		createSpan.Finish()
 	}
 }
