@@ -221,7 +221,7 @@ type ArgoAppProcessor struct {
 	ArgoAppsMetricsEnabled  bool
 	ManageArgoAppsFilter    []string
 	DDMetrics               statsd.ClientInterface
-	KnownApps               map[string]map[string]*v1alpha1.Application // first key is the environment name, second key is the argo-app name
+	KnownApps               map[string]map[string]*v1alpha1.Application // first key is the environment name, second key is the kuberpult app name
 	// DBHandler is read by ProcessArgoOverview to look up the current brackets_history
 	// snapshot so its source_transformer_esl_id can be embedded in each bracket Argo CD
 	// app's Spec.Source.Path (see CreateArgoApplication). Nil in unit tests; non-nil in
@@ -428,14 +428,15 @@ func (a *ArgoAppProcessor) extractFullyQualifiedEnvironmentName(commonPrefix, en
 	return commonPrefix + "-" + envName + "-" + argoCDConfig.ConcreteEnvName
 }
 
-func (a *ArgoAppProcessor) isBracketEnv(envName string) bool {
-	return slices.Contains(a.ExperimentalBracketsClusters, envName)
+func (a *ArgoAppProcessor) isBracketEnv(parentEnvName string) bool {
+	return slices.Contains(a.ExperimentalBracketsClusters, parentEnvName)
 }
 
 // isBracketAppReady returns true if the bracket app is part of knownApps and has been synced at least once
 // This is the point where we decide that other apps can be deleted.
 // Parameter bareBracketAppName is the name of the bracket that we want to be ready. It's not the name of the bracket app (that would incl the env name).
 // old name: "knowsBracketApp"
+// envName is the environmentName, NOT the parentEnvironmentName
 func (a *ArgoAppProcessor) isBracketAppReady(envName string, bareBracketAppName string) (bool, string) {
 	knownEnv := a.KnownApps[envName]
 	if knownEnv == nil {
@@ -977,24 +978,25 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 	// For non-bracket apps in a bracket env: only delete once the bracket app is established in KnownApps.
 	// This prevents a downtime gap when transitioning an env to bracket mode.
 	knowsBracketApp, reason := a.isBracketAppReady(appInfo.EnvironmentName, currentAppDetails.Application.GetArgoBracket())
+	isBracketEnv := a.isBracketEnv(appInfo.ParentEnvironmentName)
 	// We allow the deletion if either:
 	// * the app itself is a bracket (so it does not depend on another app)
 	// * we are not in bracket mode on this env (in which case nothing is a bracket, no reason to wait)
 	// * or if the corresponding bracket app is known ("parent" bracket was already created and synced once)
 	allowDelete := appInfo.IsBracket ||
-		!a.isBracketEnv(appInfo.EnvironmentName) ||
+		!isBracketEnv ||
 		knowsBracketApp
 	logger.FromContext(ctx).Info("ProcessAppChange",
 		zap.Bool("allow_delete", allowDelete),
 		zap.Bool("isBracket", appInfo.IsBracket),
-		zap.Bool("isBracketEnv", a.isBracketEnv(appInfo.EnvironmentName)),
+		zap.Bool("isBracketEnv", isBracketEnv),
 		zap.Bool("knowsBracket", knowsBracketApp),
 		zap.String("knowsBracketReason", reason),
 		zap.String("app", appInfo.ApplicationName),
 		zap.String("env", appInfo.EnvironmentName))
 	if allowDelete {
 		if ok := a.KnownApps[appInfo.EnvironmentName]; ok != nil { //If argo does not know this application, delete it
-			if !appInfo.IsBracket && a.isBracketEnv(appInfo.EnvironmentName) {
+			if !appInfo.IsBracket && isBracketEnv {
 				// Individual app in a bracket env: delete without cascade so k8s resources
 				// remain under the bracket app's management.
 				if err := a.deleteAppNoCascade(ctx, ok, appInfo.ApplicationName); err != nil {
