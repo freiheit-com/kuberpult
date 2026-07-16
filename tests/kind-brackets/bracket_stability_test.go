@@ -34,7 +34,7 @@ import (
 
 // runSuffix is a short unique string appended to app names so repeated test
 // runs do not collide with existing Kuberpult releases.
-var runSuffix = fmt.Sprintf("%d", time.Now().Unix()%100000)
+var runSuffix = "su" // fmt.Sprintf("%d", time.Now().Unix()%100000)
 
 const (
 	kuberpultFrontendPort = "5002"
@@ -60,6 +60,9 @@ const (
 	reconcileBuffer     = 10 * time.Second
 	grpcRetryTimeout    = 30 * time.Second
 	grpcRetryInterval   = 2 * time.Second
+
+	argoAppPresentMinDuration = 10 * time.Second
+	argoAppPresentInterval    = 2 * time.Second
 )
 
 // deploymentKey identifies a Deployment by namespace and name.
