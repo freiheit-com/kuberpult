@@ -1326,18 +1326,17 @@ func TestBracketCreationRetry_CreateNewReleasesAfterFailures(t *testing.T) {
 
 	setupCreateRetryTest(t, apps, bracket)
 
-	tLog(t, "step 7: create v2 releases (dev + staging manifests)")
+	tLog(t, "step 6: create v2 releases (dev + staging manifests)")
 	for _, app := range apps {
 		createRelease(t, app, "sreteam", bracket, "2", map[string]string{
-			devNamespace:     stableManifest(app, devNamespace, "2"),
-			stagingNamespace: stableManifest(app, stagingNamespace, "2"),
+			devNamespace: stableManifest(app, devNamespace, "2"),
 		})
 	}
 
-	tLog(t, "step 8: wait for ArgoCD bracket to be created")
+	tLog(t, "step 7: wait for ArgoCD bracket to be created")
 	waitForArgoApp(t, devNamespace+"-"+bracket)
 
-	tLog(t, "step 9: wait for v2 synced in development")
+	tLog(t, "step 8: wait for v2 synced in development")
 	for _, app := range apps {
 		waitForDeploymentAnnotation(t, devNamespace, app+"-bracket-dep", "2")
 	}
@@ -1354,13 +1353,13 @@ func TestBracketCreationRetry_RestartRolloutServiceAfterFailures(t *testing.T) {
 
 	setupCreateRetryTest(t, apps, bracket)
 
-	tLog(t, "step 7: restart rollout service")
+	tLog(t, "step 6: restart rollout service")
 	restartDeployment(t, globalCfg.KuberpultNamespace, "kuberpult-rollout-service")
 
-	tLog(t, "step 8: wait for ArgoCD bracket to be created")
+	tLog(t, "step 7: wait for ArgoCD bracket to be created")
 	waitForArgoApp(t, devNamespace+"-"+bracket)
 
-	tLog(t, "step 9: wait for v1 synced in development")
+	tLog(t, "step 8: wait for v1 synced in development")
 	for _, app := range apps {
 		waitForDeploymentAnnotation(t, devNamespace, app+"-bracket-dep", "1")
 	}
@@ -1370,24 +1369,20 @@ func setupCreateRetryTest(t *testing.T, apps []string, bracket string) {
 	tLog(t, "step 1: upgrade to developement=true (bracket mode)")
 	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: true, StagingEnabled: false, ChannelSize: 50})
 
-	tLog(t, "step 2: clean any changes of ArgoCD RBAC policies caused by previous runs")
-	restoreArgoRBACBasePolicy(t)
-
-	tLog(t, "step 3: deny create permission on ArgoCD bracket for kuberpult's service account")
+	tLog(t, "step 2: deny create permission on ArgoCD bracket for kuberpult's service account")
 	denyArgoAppCreate(t, devNamespace+"-"+bracket)
 
-	tLog(t, "step 4: create v1 releases (dev + staging manifests)")
+	tLog(t, "step 3: create v1 releases (dev + staging manifests)")
 	for _, app := range apps {
 		createRelease(t, app, "sreteam", bracket, "1", map[string]string{
-			devNamespace:     stableManifest(app, devNamespace, "1"),
-			stagingNamespace: stableManifest(app, stagingNamespace, "1"),
+			devNamespace: stableManifest(app, devNamespace, "1"),
 		})
 	}
 
-	tLog(t, "step 5: assert that kuberpult is not able to create ArgoCD bracket")
+	tLog(t, "step 4: assert that kuberpult is not able to create ArgoCD bracket")
 	assertArgoAppAbsent(t, devNamespace+"-"+bracket)
 
-	tLog(t, "step 6: restore to ArgoCD base policy")
+	tLog(t, "step 5: restore to ArgoCD base policy")
 	restoreArgoRBACBasePolicy(t)
 }
 
@@ -1402,9 +1397,9 @@ func assertArgoAppAbsent(t *testing.T, argoAppName string) {
 	t.Helper()
 	deadline := time.Now().Add(argoAppAbsentTimeout)
 	for time.Now().Before(deadline) {
-		_, err := exec.Command("kubectl", "get", "application", argoAppName, "-n", globalCfg.KuberpultNamespace).Output()
+		_, err := exec.Command("kubectl", "get", "application", argoAppName, "-n", globalCfg.KuberpultNamespace).CombinedOutput()
 		if err == nil {
-			t.Fatalf("assertArgoAppAbsent: Argo app appears when it should not: %s", argoAppName)
+			t.Fatalf("assertArgoAppAbsent: Argo app %s appears when it should not", argoAppName)
 		}
 		time.Sleep(argoAppPollInterval)
 	}
@@ -1487,6 +1482,8 @@ func denyArgoAppCreate(t *testing.T, argoAppName string) {
 		t.Fatalf("denyArgoAppCreate: patch %s: %v: %s", argoRBACConfigMap, err, out)
 	}
 	tLogf(t, "  denyArgoAppCreate: denied Argo app creation for %s", argoAppName)
+
+	t.Cleanup(func() { restoreArgoRBACBasePolicy(t) })
 }
 
 // dumpBracketDiagnostics dumps ArgoCD app status, namespace events, and service logs
