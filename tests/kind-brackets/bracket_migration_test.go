@@ -1436,7 +1436,7 @@ func undoDenyArgoAppCreate(t *testing.T) {
 	if got, want := normalizePolicy(string(out)), normalizePolicy(argoRBACBasePolicy); got == want {
 		t.Fatalf("undoDenyArgoAppCreate: pointless call, configmap is in original state")
 	}
-	setArgoRBACPolicy(t, argoRBACConfigMap)
+	setArgoRBACPolicy(t, argoRBACBasePolicy)
 	tLogf(t, "undoDenyArgoAppCreate: done")
 }
 
