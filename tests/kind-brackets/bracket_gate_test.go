@@ -97,7 +97,7 @@ func TestBracketGate(t *testing.T) {
 
 	tLog(t, "step 7a: create release just to trigger the overview")
 	createRelease(t, appAlwaysThere, "sreteam", bracket1, "2", map[string]string{
-		devNamespace: stableManifest(appAlwaysThere, devNamespace, "2"),
+		devNamespace: stableManifest(appTest, devNamespace, "2"),
 	})
 
 	tLog(t, "step 7b: wait for argo app")
