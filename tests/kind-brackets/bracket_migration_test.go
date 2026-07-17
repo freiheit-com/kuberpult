@@ -1326,7 +1326,7 @@ func TestBracketCreationRetry_CreateNewReleasesAfterFailures(t *testing.T) {
 
 	setupCreateRetryTest(t, apps, bracket)
 
-	tLog(t, "step 6: create v2 releases (dev + staging manifests)")
+	tLog(t, "step 6: create v2 releases (dev manifests)")
 	for _, app := range apps {
 		createRelease(t, app, "sreteam", bracket, "2", map[string]string{
 			devNamespace: stableManifest(app, devNamespace, "2"),
@@ -1372,7 +1372,7 @@ func setupCreateRetryTest(t *testing.T, apps []string, bracket string) {
 	tLog(t, "step 2: deny create permission on ArgoCD bracket for kuberpult's service account")
 	denyArgoAppCreate(t, devNamespace+"-"+bracket)
 
-	tLog(t, "step 3: create v1 releases (dev + staging manifests)")
+	tLog(t, "step 3: create v1 releases (dev manifests)")
 	for _, app := range apps {
 		createRelease(t, app, "sreteam", bracket, "1", map[string]string{
 			devNamespace: stableManifest(app, devNamespace, "1"),
