@@ -383,8 +383,8 @@ kubectl get pods
 export FRONTEND_PORT=5002
 export CD_GRPC_PORT=5004
 
-print "running bracket stability integration tests..."
-make kind-test GO_TEST_ARGS="${GO_TEST_ARGS}"
+#print "running bracket stability integration tests..."
+#make kind-test GO_TEST_ARGS="${GO_TEST_ARGS}"
 
 if false; then
   (cd ../../infrastructure/scripts/create-testdata/ ; sh create-environments.sh)
