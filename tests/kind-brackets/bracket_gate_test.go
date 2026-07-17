@@ -95,10 +95,15 @@ func TestBracketGate(t *testing.T) {
 	tLog(t, "step 6: reset argo")
 	undoDenyArgoAppCreate(t)
 
-	tLog(t, "step 7a: wait for argo app")
+	tLog(t, "step 7a: create release just to trigger the overview")
+	createRelease(t, appAlwaysThere, "sreteam", bracket1, "2", map[string]string{
+		devNamespace: stableManifest(appAlwaysThere, devNamespace, "2"),
+	})
+
+	tLog(t, "step 7b: wait for argo app")
 	waitForArgoApp(t, devNamespace+"-"+bracket2)
 
-	tLog(t, "step 7a: wait for argo app")
+	tLog(t, "step 7c: wait for argo app")
 	waitForArgoAppGone(t, devNamespace+"-"+appTest)
 
 }
