@@ -96,7 +96,7 @@ func TestBracketGate(t *testing.T) {
 	undoDenyArgoAppCreate(t)
 
 	tLog(t, "step 7a: create release just to trigger the overview")
-	createRelease(t, appTest, "sreteam", bracket1, "2", map[string]string{
+	createRelease(t, appTest, "sreteam", bracket2, "2", map[string]string{
 		devNamespace: stableManifest(appTest, devNamespace, "2"),
 	})
 
