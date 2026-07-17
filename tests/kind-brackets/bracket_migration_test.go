@@ -18,7 +18,6 @@ package kindbracketstest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -1432,23 +1431,12 @@ func undoDenyArgoAppCreate(t *testing.T) {
 	out, err := exec.Command("kubectl", "get", "configmap", argoRBACConfigMap,
 		"-n", ns, "-o", `jsonpath={.data.policy\.csv}`).CombinedOutput()
 	if err != nil {
-		t.Fatalf("denyArgoAppCreate: read %s: %v: %s", argoRBACConfigMap, err, out)
+		t.Fatalf("undoDenyArgoAppCreate: read %s: %v: %s", argoRBACConfigMap, err, out)
 	}
 	if got, want := normalizePolicy(string(out)), normalizePolicy(argoRBACBasePolicy); got == want {
 		t.Fatalf("undoDenyArgoAppCreate: pointless call, configmap is in original state")
 	}
-
-	newPolicy := argoRBACBasePolicy
-	patch, err := json.Marshal(map[string]any{
-		"data": map[string]string{"policy.csv": newPolicy},
-	})
-	if err != nil {
-		t.Fatalf("undoDenyArgoAppCreate: marshal patch: %v", err)
-	}
-	if out, err := exec.Command("kubectl", "apply", "configmap", argoRBACConfigMap,
-		"-n", ns, string(patch)).CombinedOutput(); err != nil {
-		t.Fatalf("undoDenyArgoAppCreate: patch %s: %v: %s", argoRBACConfigMap, err, out)
-	}
+	setArgoRBACPolicy(t, argoRBACConfigMap)
 	tLogf(t, "undoDenyArgoAppCreate: done")
 }
 
