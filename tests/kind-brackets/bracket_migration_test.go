@@ -1464,11 +1464,18 @@ func setArgoRBACPolicy(t *testing.T, policyCSV string) {
 	}
 	tLogf(t, "setArgoRBACPolicy: policy is now:\n%s", policyCSV)
 }
-func denyArgoAppCreate(t *testing.T, envName, appName string) {
+
+// denyArgoAppCreate forbids the kuberpult role from creating the named Argo
+// Applications (full Argo app names, e.g. "development-<bracket>" or
+// "aa-aa-test-dev-2-<bracket>"), by rewriting policy.csv to the known base plus
+// one casbin "deny" rule per name. An explicit deny overrides the broad allow.
+func denyArgoAppCreate(t *testing.T, argoAppNames ...string) {
 	t.Helper()
-	combinedName := envName + "-" + appName
-	denyLine := fmt.Sprintf("p, role:kuberpult, applications, create, */%s, deny\n", combinedName)
-	setArgoRBACPolicy(t, argoRBACBasePolicy+denyLine)
+	denyLines := ""
+	for _, name := range argoAppNames {
+		denyLines += fmt.Sprintf("p, role:kuberpult, applications, create, */%s, deny\n", name)
+	}
+	setArgoRBACPolicy(t, argoRBACBasePolicy+denyLines)
 	t.Cleanup(func() { setArgoRBACPolicy(t, argoRBACBasePolicy) })
 }
 

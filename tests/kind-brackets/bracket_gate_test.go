@@ -21,6 +21,15 @@ import (
 	"testing"
 )
 
+// manifestsFor returns a stableManifest for the app/version on each given env.
+func manifestsFor(app, version string, envs []string) map[string]string {
+	manifests := map[string]string{}
+	for _, env := range envs {
+		manifests[env] = stableManifest(app, env, version)
+	}
+	return manifests
+}
+
 // TestBracketGate is the regression test for the bug where the faulty
 // gate for app deletions triggered too early
 // The basic setup is (all on dev!):
@@ -37,73 +46,139 @@ import (
 // - 6) undoDenyArgoCreation(bracket b2)
 // - 7a) waitForArgoApp(b2)
 // - 7b) waitForArgoAppGone(plain test-app)
-
 func TestBracketGate(t *testing.T) {
-	cleanupCluster(t)
-	tLogf(t, "runSuffix: %s", runSuffix)
-	appAlwaysThere := "bg-app-always-" + runSuffix
-	appTest := "bg-app-test-" + runSuffix
-	bracket1 := "bg-bracket1-" + runSuffix
-	bracket2 := "bg-bracket2-" + runSuffix
-
-	//versionTested := "v13.55.0"
-	versionTested := ""
-
-	tLog(t, "step 1: upgrade and disable bracket mode")
-	// 13.55.0 is the last version without the bracket gate fix
-	helmUpgrade(t, HelmUpgradeParams{OldVersion: versionTested, BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: false, ChannelSize: 50})
-
-	tLog(t, fmt.Sprintf("step 2a: create v1 release for app %s bracket1", appAlwaysThere))
-	createRelease(t, appAlwaysThere, "sreteam", bracket1, "1", map[string]string{
-		devNamespace: stableManifest(appAlwaysThere, devNamespace, "1"),
-	})
-	tLog(t, fmt.Sprintf("step 2b: create v1 release for app %s in bracket2", appTest))
-	createRelease(t, appTest, "sreteam", bracket2, "1", map[string]string{
-		devNamespace: stableManifest(appTest, devNamespace, "1"),
-	})
-
-	tLog(t, "step 3: configure argo to deny app creation")
-	denyArgoAppCreate(t, devNamespace, bracket2)
-
-	tLog(t, "step 4: dev=true")
-	helmUpgrade(t, HelmUpgradeParams{OldVersion: versionTested, BracketsEnabled: true, DevelopmentEnabled: true, StagingEnabled: false, ChannelSize: 50})
-	// now the rollout-service tries to create 2 brackets, but is allowed to only create one of them
-
-	tLog(t, "step 5a1: wait for argo app "+bracket1)
-	waitForArgoApp(t, devNamespace+"-"+bracket1)
-	tLog(t, "step 5a2: wait for deployment annotation")
-	waitForDeploymentAnnotation(t, devNamespace, appAlwaysThere+"-bracket-dep", "1")
-	tLog(t, "step 5a3: collect creationTimes")
-	creationTimes := map[deploymentKey]string{}
-	for _, app := range []string{appAlwaysThere, appTest} {
-		for _, ns := range []string{devNamespace} { // staging is not deployed at all
-			k := deploymentKey{ns, app + "-bracket-dep"}
-			creationTimes[k] = deploymentCreationTime(t, ns, app+"-bracket-dep")
-			tLogf(t, "  %s/%s: %s", ns, app+"-bracket-dep", creationTimes[k])
-		}
+	tcs := []struct {
+		Name                 string
+		InputNamespace       string // either dev or AA
+		InputIsAA            bool
+		InputAllowedPrefixes []string
+		InputDeniedPrefixes  []string
+	}{
+		{
+			Name:                 "normal env",
+			InputNamespace:       devNamespace,
+			InputIsAA:            false,
+			InputAllowedPrefixes: nil,
+			InputDeniedPrefixes:  []string{devNamespace},
+		},
+		{
+			Name:           "active/active env",
+			InputNamespace: aaNamespace,
+			InputIsAA:      true,
+			// concrete Argo app names are "aa-<aaNamespace>-<concreteEnv>-<app>",
+			// see aa-test/config.json (commonEnvPrefix "aa", concreteEnvs dev-1/dev-2)
+			InputAllowedPrefixes: []string{"aa-" + aaNamespace + "-dev-1"},
+			InputDeniedPrefixes:  []string{"aa-" + aaNamespace + "-dev-2"},
+		},
 	}
 
-	tLog(t, "step 5b: wait for always-there app to disappear due to bracket migration")
-	waitForArgoAppGone(t, devNamespace+"-"+appAlwaysThere)
+	for _, tc := range tcs {
+		cleanupCluster(t)
+		tLogf(t, "runSuffix: %s", runSuffix)
+		appAlwaysThere := "bg-app-always-" + runSuffix
+		appTest := "bg-app-test-" + runSuffix
+		bracket1 := "bg-bracket1-" + runSuffix
+		bracket2 := "bg-bracket2-" + runSuffix
+		allPrefixes := append(append([]string{}, tc.InputAllowedPrefixes...), tc.InputDeniedPrefixes...)
+		manifestEnvs := []string{tc.InputNamespace}
+		if tc.InputIsAA {
+			// aa-test upstreams from development2 (upstream.latest): releases
+			// auto-deploy there and are promoted into aa-test via a release train
+			manifestEnvs = []string{devTwoNamespace, aaNamespace}
+		}
 
-	tLog(t, "step 5c: test app stays present") // this will fail on the old version v13.55.0, but succeed on the current version
-	assertArgoAppStaysPresent(t, devNamespace, appTest)
+		//versionTested := "v13.55.0"
+		versionTested := ""
 
-	tLog(t, "step 5d: wait for b2")
-	waitForArgoAppGone(t, devNamespace+"-"+bracket2)
+		tLog(t, "step 1: upgrade and disable bracket mode")
+		// 13.55.0 is the last version without the bracket gate fix
+		helmUpgrade(t, HelmUpgradeParams{OldVersion: versionTested, BracketsEnabled: true, DevelopmentEnabled: false, StagingEnabled: false, ChannelSize: 50})
 
-	tLog(t, "step 6: reset argo")
-	undoDenyArgoAppCreate(t)
+		tLog(t, fmt.Sprintf("step 2a: create v1 release for app %s bracket1", appAlwaysThere))
+		createRelease(t, appAlwaysThere, "sreteam", bracket1, "1", manifestsFor(appAlwaysThere, "1", manifestEnvs))
+		tLog(t, fmt.Sprintf("step 2b: create v1 release for app %s in bracket2", appTest))
+		createRelease(t, appTest, "sreteam", bracket2, "1", manifestsFor(appTest, "1", manifestEnvs))
 
-	tLog(t, "step 7a: create release just to trigger the overview")
-	createRelease(t, appTest, "sreteam", bracket2, "2", map[string]string{
-		devNamespace: stableManifest(appTest, devNamespace, "2"),
-	})
+		if tc.InputIsAA {
+			// to deploy to AA we need to run a train, because it's not upstream.latest:
+			tLog(t, "step 2c: release train into "+aaNamespace)
+			releaseTrain(t, aaNamespace)
+		}
+		tLog(t, "step 2d: wait for plain argo apps")
+		for _, prefix := range allPrefixes {
+			waitForArgoApp(t, prefix+"-"+appAlwaysThere)
+			waitForArgoApp(t, prefix+"-"+appTest)
+		}
 
-	tLog(t, "step 7b: wait for argo app")
-	waitForArgoApp(t, devNamespace+"-"+bracket2)
+		tLog(t, "step 3: configure argo to deny app creation")
+		deniedApps := make([]string, 0, len(tc.InputDeniedPrefixes))
+		for _, prefix := range tc.InputDeniedPrefixes {
+			deniedApps = append(deniedApps, prefix+"-"+bracket2)
+		}
+		denyArgoAppCreate(t, deniedApps...)
 
-	tLog(t, "step 7c: wait for argo app")
-	waitForArgoAppGone(t, devNamespace+"-"+appTest)
+		tLog(t, "step 4: enable bracket mode")
+		upgradeParams := HelmUpgradeParams{OldVersion: versionTested, BracketsEnabled: true, ChannelSize: 50}
+		if tc.InputIsAA {
+			upgradeParams.AATestEnabled = true
+		} else {
+			upgradeParams.DevelopmentEnabled = true
+		}
+		helmUpgrade(t, upgradeParams)
+		// now the rollout-service tries to create the brackets, but is allowed to only create one of them
 
+		tLog(t, "step 5a1: wait for argo app "+bracket1)
+		for _, prefix := range allPrefixes {
+			waitForArgoApp(t, prefix+"-"+bracket1)
+		}
+
+		tLog(t, "step 5a2: wait for deployment annotation")
+		waitForDeploymentAnnotation(t, tc.InputNamespace, appAlwaysThere+"-bracket-dep", "1")
+		tLog(t, "step 5a3: collect creationTimes")
+		creationTimes := map[deploymentKey]string{}
+		for _, app := range []string{appAlwaysThere, appTest} {
+			k := deploymentKey{tc.InputNamespace, app + "-bracket-dep"}
+			creationTimes[k] = deploymentCreationTime(t, tc.InputNamespace, app+"-bracket-dep")
+			tLogf(t, "  %s/%s: %s", tc.InputNamespace, app+"-bracket-dep", creationTimes[k])
+		}
+
+		tLog(t, "step 5b: wait for always-there app to disappear due to bracket migration")
+		for _, prefix := range allPrefixes {
+			waitForArgoAppGone(t, prefix+"-"+appAlwaysThere)
+		}
+
+		tLog(t, "step 5c: test app stays present")
+		for _, prefix := range tc.InputAllowedPrefixes {
+			waitForArgoApp(t, prefix+"-"+bracket2)
+			waitForArgoAppGone(t, prefix+"-"+appTest)
+		}
+
+		tLog(t, "step 5d: wait for b2")
+		for _, prefix := range tc.InputDeniedPrefixes { // this will fail on the old version v13.55.0, but succeed on the current version
+			assertArgoAppStaysPresent(t, prefix, appTest)
+			waitForArgoAppGone(t, prefix+"-"+bracket2)
+		}
+
+		tLog(t, "step 6: reset argo")
+		undoDenyArgoAppCreate(t)
+
+		tLog(t, "step 7a: create release just to trigger the overview")
+		createRelease(t, appTest, "sreteam", bracket2, "2", manifestsFor(appTest, "2", manifestEnvs))
+
+		if tc.InputIsAA {
+			// to deploy to AA we need to run a train, because it's not upstream.latest:
+			tLog(t, "step 7a2: release train into "+aaNamespace)
+			releaseTrain(t, aaNamespace)
+		}
+		tLog(t, "step 7b: wait for argo app")
+		for _, prefix := range tc.InputDeniedPrefixes { // this will fail on the old version v13.55.0, but succeed on the current version
+			waitForArgoApp(t, prefix+"-"+bracket2)
+		}
+
+		tLog(t, "step 7c: wait for argo app")
+		for _, prefix := range tc.InputDeniedPrefixes { // this will fail on the old version v13.55.0, but succeed on the current version
+			waitForArgoAppGone(t, prefix+"-"+appTest)
+
+		}
+	}
 }
