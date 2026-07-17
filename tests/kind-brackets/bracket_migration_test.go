@@ -18,6 +18,7 @@ package kindbracketstest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -1312,6 +1313,138 @@ func TestBracketMigrateDevelopment(t *testing.T) {
 
 	tLog(t, "step 9: assert pod start times stable (enable development brackets)")
 	assertDeploymentCreationTimesStable(t, creationTimes, "enable development brackets")
+}
+
+func TestBracketCreationRetry(t *testing.T) {
+	cleanupCluster(t)
+
+	tLogf(t, "runSuffix: %s", runSuffix)
+	app1 := "bcr-a1-" + runSuffix
+	app2 := "bcr-a2-" + runSuffix
+	apps := []string{app1, app2}
+	bracket := "bcr-b1-" + runSuffix
+
+	tLog(t, "step 1: upgrade to developement=true (bracket mode)")
+	helmUpgrade(t, HelmUpgradeParams{BracketsEnabled: true, DevelopmentEnabled: true, StagingEnabled: false, ChannelSize: 50})
+
+	tLog(t, "step 2: clean any changes of ArgoCD RBAC policies caused by previous runs")
+	restoreArgoRBACBasePolicy(t)
+
+	tLog(t, "step 3: deny create permission on ArgoCD bracket for kuberpult's service account")
+	denyArgoAppCreate(t, devNamespace+"-"+bracket)
+
+	tLog(t, "step 4: create v1 releases (dev + staging manifests)")
+	for _, app := range apps {
+		createRelease(t, app, "sreteam", bracket, "1", map[string]string{
+			devNamespace:     stableManifest(app, devNamespace, "1"),
+			stagingNamespace: stableManifest(app, stagingNamespace, "1"),
+		})
+	}
+
+	tLog(t, "step 5: assert that kuberpult is not able to create ArgoCD bracket")
+	assertArgoAppAbsent(t, devNamespace+"-"+bracket)
+
+	tLog(t, "step 6: restore ArgoCD base policy")
+	restoreArgoRBACBasePolicy(t)
+
+	tLog(t, "step 7: wait for ArgoCD bracket to be created")
+	waitForArgoApp(t, devNamespace+"-"+bracket)
+
+	tLog(t, "step 8: wait for v1 synced in development")
+	for _, app := range apps {
+		waitForDeploymentAnnotation(t, devNamespace, app+"-bracket-dep", "1")
+	}
+}
+
+func assertArgoAppAbsent(t *testing.T, argoAppName string) {
+	t.Helper()
+	deadline := time.Now().Add(argoAppAbsentTimeout)
+	for time.Now().Before(deadline) {
+		_, err := exec.Command("kubectl", "get", "application", argoAppName, "-n", globalCfg.KuberpultNamespace).Output()
+		if err == nil {
+			t.Fatalf("assertArgoAppAbsent: Argo app appears when it should not: %s", argoAppName)
+		}
+		time.Sleep(argoAppPollInterval)
+	}
+
+	dep := "deployment/kuberpult-rollout-service"
+	if out, err := exec.Command("kubectl", "logs", "-n", globalCfg.KuberpultNamespace, dep, "--since=5m").CombinedOutput(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			if strings.Contains(line, "creating ArgoApp failed after maximum number of attempts") &&
+				strings.Contains(line, "PermissionDenied") && strings.Contains(line, argoAppName) {
+				return // correctly log the retry attempts
+			}
+		}
+	}
+	t.Fatalf("assertArgoAppAbsent: couldn't find the log for failed Argo app creation %s", argoAppName)
+}
+
+const argoRBACConfigMap = "argocd-rbac-cm"
+const argoRBACBasePolicy = `p, role:kuberpult, applications, get, */*, allow
+p, role:kuberpult, applications, create, */*, allow
+p, role:kuberpult, applications, update, */*, allow
+p, role:kuberpult, applications, sync, */*, allow
+p, role:kuberpult, applications, delete, */*, allow
+g, kuberpult, role:kuberpult
+`
+
+func restoreArgoRBACBasePolicy(t *testing.T) {
+	t.Helper()
+	ns := globalCfg.KuberpultNamespace
+
+	out, err := exec.Command("kubectl", "get", "configmap", argoRBACConfigMap,
+		"-n", ns, "-o", `jsonpath={.data.policy\.csv}`).CombinedOutput()
+	if err != nil {
+		t.Fatalf("restoreArgoRBACBasePolicy: read %s: %v: %s", argoRBACConfigMap, err, out)
+	}
+
+	if string(out) == argoRBACBasePolicy {
+		tLogf(t, "restoreArgoRBACBasePolicy: already using base policy")
+		return
+	}
+
+	patch, err := json.Marshal(map[string]any{
+		"data": map[string]string{"policy.csv": argoRBACBasePolicy},
+	})
+	if err != nil {
+		t.Fatalf("restoreArgoRBACBasePolicy: marshal patch: %v", err)
+	}
+	if out, err := exec.Command("kubectl", "patch", "configmap", argoRBACConfigMap,
+		"-n", ns, "--type", "merge", "-p", string(patch)).CombinedOutput(); err != nil {
+		t.Fatalf("restoreArgoRBACBasePolicy: patch %s: %v: %s", argoRBACConfigMap, err, out)
+	}
+}
+
+// denyArgoAppCreate forbids the kuberpult role from creating the Argo
+// Application named argoAppName, by rewriting policy.csv of argocd-rbac-cm to
+// the known base plus a casbin "deny" rule. An explicit deny overrides the broad
+// "create */*, allow", so only this one app is blocked.
+//
+// ArgoCD reloads argocd-rbac-cm without a restart, so none is triggered here.
+func denyArgoAppCreate(t *testing.T, argoAppName string) {
+	t.Helper()
+	ns := globalCfg.KuberpultNamespace
+
+	out, err := exec.Command("kubectl", "get", "configmap", argoRBACConfigMap,
+		"-n", ns, "-o", `jsonpath={.data.policy\.csv}`).CombinedOutput()
+	if err != nil {
+		t.Fatalf("denyArgoAppCreate: read %s: %v: %s", argoRBACConfigMap, err, out)
+	}
+
+	denyLine := fmt.Sprintf("p, role:kuberpult, applications, create, */%s, deny", argoAppName)
+	newPolicy := string(out) + denyLine + "\n"
+
+	patch, err := json.Marshal(map[string]any{
+		"data": map[string]string{"policy.csv": newPolicy},
+	})
+	if err != nil {
+		t.Fatalf("denyArgoAppCreate: marshal patch: %v", err)
+	}
+	if out, err := exec.Command("kubectl", "patch", "configmap", argoRBACConfigMap,
+		"-n", ns, "--type", "merge", "-p", string(patch)).CombinedOutput(); err != nil {
+		t.Fatalf("denyArgoAppCreate: patch %s: %v: %s", argoRBACConfigMap, err, out)
+	}
+	tLogf(t, "  denyArgoAppCreate: denied Argo app creation for %s", argoAppName)
 }
 
 // dumpBracketDiagnostics dumps ArgoCD app status, namespace events, and service logs
