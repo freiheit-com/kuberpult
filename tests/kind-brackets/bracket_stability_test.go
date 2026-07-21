@@ -227,7 +227,7 @@ func cleanupCluster(t *testing.T) {
 		t.Fatalf("kubectl delete applications failed: %v: %s", err, out)
 	}
 	tLogf(t, "  %s", strings.TrimSpace(string(out)))
-	for _, ns := range []string{devNamespace, stagingNamespace, aaNamespace} {
+	for _, ns := range []string{devNamespace, devTwoNamespace, stagingNamespace, aaNamespace} {
 		out2, err := exec.Command("kubectl", "delete", "deployments,pods", "--all", "-n", ns, "--wait=true").CombinedOutput()
 		if err != nil {
 			t.Fatalf("kubectl delete deployment/etc failed: %v: %s", err, out2)

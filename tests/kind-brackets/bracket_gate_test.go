@@ -148,7 +148,7 @@ func TestBracketGate(t *testing.T) {
 				waitForArgoAppGone(t, prefix+"-"+appAlwaysThere)
 			}
 
-			tLog(t, "step 5c: b2 and testApp stay present")
+			tLog(t, "step 5c: wait for b2 present and testApp gone")
 			for _, prefix := range tc.InputAllowedPrefixes {
 				waitForArgoApp(t, prefix+"-"+bracket2)
 				waitForArgoAppGone(t, prefix+"-"+appTest)
@@ -172,12 +172,12 @@ func TestBracketGate(t *testing.T) {
 				releaseTrain(t, aaNamespace)
 			}
 			tLog(t, "step 7b: wait for argo app")
-			for _, prefix := range tc.InputDeniedPrefixes { // this will fail on the old version v13.55.0, but succeed on the current version
+			for _, prefix := range tc.InputDeniedPrefixes {
 				waitForArgoApp(t, prefix+"-"+bracket2)
 			}
 
 			tLog(t, "step 7c: wait for argo app")
-			for _, prefix := range tc.InputDeniedPrefixes { // this will fail on the old version v13.55.0, but succeed on the current version
+			for _, prefix := range tc.InputDeniedPrefixes {
 				waitForArgoAppGone(t, prefix+"-"+appTest)
 
 			}
