@@ -1579,22 +1579,6 @@ func dumpBracketDiagnosticsExpanded(t *testing.T, bracketApps []string, individu
 	}
 }
 
-// argoRBACBasePolicy is the policy.csv a freshly-installed ArgoCD has (see
-// charts/kuberpult/run-kind.sh). denyArgoAppCreate rewrites policy.csv from this
-// base plus a deny rule, and first asserts the live policy still matches this
-// constant so a drift in the ArgoCD setup fails loudly here.
-const argoRBACBasePolicy = `p, role:kuberpult, applications, get, */*, allow
-     p, role:kuberpult, applications, create, */*, allow
-     p, role:kuberpult, applications, update, */*, allow
-     p, role:kuberpult, applications, sync, */*, allow
-     p, role:kuberpult, applications, delete, */*, allow
-     g, kuberpult, role:kuberpult
-     `
-
-// argoRBACConfigMap holds ArgoCD's RBAC policy.csv. It lives in the same
-// namespace as ArgoCD (== the kuberpult namespace): "default" in kind.
-const argoRBACConfigMap = "argocd-rbac-cm"
-
 func undoDenyArgoAppCreate(t *testing.T) {
 	t.Helper()
 	ns := globalCfg.KuberpultNamespace
@@ -1641,7 +1625,7 @@ func setArgoRBACPolicy(t *testing.T, policyCSV string) {
 // Applications (full Argo app names, e.g. "development-<bracket>" or
 // "aa-aa-test-dev-2-<bracket>"), by rewriting policy.csv to the known base plus
 // one casbin "deny" rule per name. An explicit deny overrides the broad allow.
-func denyArgoAppCreate(t *testing.T, argoAppNames ...string) {
+func denyMultipleArgoAppCreate(t *testing.T, argoAppNames ...string) {
 	t.Helper()
 	denyLines := ""
 	for _, name := range argoAppNames {
@@ -1650,43 +1634,6 @@ func denyArgoAppCreate(t *testing.T, argoAppNames ...string) {
 	setArgoRBACPolicy(t, argoRBACBasePolicy+denyLines)
 	t.Cleanup(func() { setArgoRBACPolicy(t, argoRBACBasePolicy) })
 }
-
-//// denyArgoAppCreate forbids the kuberpult role from creating the Argo
-//// Application named argoAppName, by rewriting policy.csv of argocd-rbac-cm to
-//// the known base plus a casbin "deny" rule. An explicit deny overrides the broad
-//// "create */*, allow", so only this one app is blocked.
-////
-//// ArgoCD reloads argocd-rbac-cm without a restart, so none is triggered here.
-//func denyArgoAppCreate(t *testing.T, argoAppName string) {
-//	t.Helper()
-//	ns := globalCfg.KuberpultNamespace
-//
-//	// Guard: fail loudly if ArgoCD's default policy drifted from our constant.
-//	out, err := exec.Command("kubectl", "get", "configmap", argoRBACConfigMap,
-//		"-n", ns, "-o", `jsonpath={.data.policy\.csv}`).CombinedOutput()
-//	if err != nil {
-//		t.Fatalf("denyArgoAppCreate: read %s: %v: %s", argoRBACConfigMap, err, out)
-//	}
-//	if got, want := normalizePolicy(string(out)), normalizePolicy(argoRBACBasePolicy); got != want {
-//		t.Fatalf("denyArgoAppCreate: live ArgoCD policy.csv differs from argoRBACBasePolicy; "+
-//			"update the constant.\n--- live ---\n%s\n--- expected ---\n%s", got, want)
-//	}
-//
-//	denyLine := fmt.Sprintf("p, role:kuberpult, applications, create, */%s, deny", argoAppName)
-//	newPolicy := argoRBACBasePolicy + denyLine + "\n"
-//
-//	patch, err := json.Marshal(map[string]any{
-//		"data": map[string]string{"policy.csv": newPolicy},
-//	})
-//	if err != nil {
-//		t.Fatalf("denyArgoAppCreate: marshal patch: %v", err)
-//	}
-//	if out, err := exec.Command("kubectl", "patch", "configmap", argoRBACConfigMap,
-//		"-n", ns, "--type", "merge", "-p", string(patch)).CombinedOutput(); err != nil {
-//		t.Fatalf("denyArgoAppCreate: patch %s: %v: %s", argoRBACConfigMap, err, out)
-//	}
-//	tLogf(t, "denyArgoAppCreate: denied Argo app creation for %s", argoAppName)
-//}
 
 func normalizePolicy(s string) string {
 	var lines []string

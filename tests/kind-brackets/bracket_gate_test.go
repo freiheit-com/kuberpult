@@ -116,7 +116,7 @@ func TestBracketGate(t *testing.T) {
 			for _, prefix := range tc.InputDeniedPrefixes {
 				deniedApps = append(deniedApps, prefix+"-"+bracket2)
 			}
-			denyArgoAppCreate(t, deniedApps...)
+			denyMultipleArgoAppCreate(t, deniedApps...)
 
 			tLog(t, "step 4: enable bracket mode")
 			upgradeParams := HelmUpgradeParams{OldVersion: versionTested, BracketsEnabled: true, ChannelSize: 50}
