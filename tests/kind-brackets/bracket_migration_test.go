@@ -18,7 +18,6 @@ package kindbracketstest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -1460,30 +1459,7 @@ g, kuberpult, role:kuberpult
 `
 
 func restoreArgoRBACBasePolicy(t *testing.T) {
-	t.Helper()
-	ns := globalCfg.KuberpultNamespace
-
-	out, err := exec.Command("kubectl", "get", "configmap", argoRBACConfigMap,
-		"-n", ns, "-o", `jsonpath={.data.policy\.csv}`).CombinedOutput()
-	if err != nil {
-		t.Fatalf("restoreArgoRBACBasePolicy: read %s: %v: %s", argoRBACConfigMap, err, out)
-	}
-
-	if string(out) == argoRBACBasePolicy {
-		tLogf(t, "restoreArgoRBACBasePolicy: already using base policy")
-		return
-	}
-
-	patch, err := json.Marshal(map[string]any{
-		"data": map[string]string{"policy.csv": argoRBACBasePolicy},
-	})
-	if err != nil {
-		t.Fatalf("restoreArgoRBACBasePolicy: marshal patch: %v", err)
-	}
-	if out, err := exec.Command("kubectl", "patch", "configmap", argoRBACConfigMap,
-		"-n", ns, "--type", "merge", "-p", string(patch)).CombinedOutput(); err != nil {
-		t.Fatalf("restoreArgoRBACBasePolicy: patch %s: %v: %s", argoRBACConfigMap, err, out)
-	}
+	undoDenyArgoAppCreate(t)
 }
 
 func denyArgoAppCreate(t *testing.T, argoAppName string) {
