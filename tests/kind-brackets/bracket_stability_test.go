@@ -53,13 +53,14 @@ const (
 	numTestApps = 2
 
 	// Polling intervals and deadlines.
-	argoAppWaitTimeout  = 2 * time.Minute
-	argoAppGoneTimeout  = 3 * time.Minute
-	argoAppPollInterval = 5 * time.Second
-	podPollInterval     = 3 * time.Second
-	reconcileBuffer     = 10 * time.Second
-	grpcRetryTimeout    = 30 * time.Second
-	grpcRetryInterval   = 2 * time.Second
+	argoAppWaitTimeout   = 2 * time.Minute
+	argoAppGoneTimeout   = 3 * time.Minute
+	argoAppPollInterval  = 5 * time.Second
+	argoAppAbsentTimeout = 45 * time.Second
+	podPollInterval      = 3 * time.Second
+	reconcileBuffer      = 10 * time.Second
+	grpcRetryTimeout     = 30 * time.Second
+	grpcRetryInterval    = 2 * time.Second
 
 	argoAppPresentMinDuration = 10 * time.Second
 	argoAppPresentInterval    = 2 * time.Second
