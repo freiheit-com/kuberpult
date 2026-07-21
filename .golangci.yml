@@ -57,5 +57,3 @@ formatters:
         - prefix(github.com/freiheit-com/kuberpult) # Your local packages.
       section-separators:
         - newLine # Ensures a newline between the sections above.
-run:
-  tests: false
