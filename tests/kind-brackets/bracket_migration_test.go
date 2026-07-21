@@ -58,6 +58,8 @@ func waitForArgoApp(t *testing.T, name string) {
 		}
 		time.Sleep(argoAppPollInterval)
 	}
+	dumpArgoAppResources(t)
+	dumpKuberpultLogs(t)
 	t.Fatalf("Argo app %q never appeared after 2 minutes", name)
 }
 
@@ -69,6 +71,8 @@ func assertArgoAppStaysPresent(t *testing.T, envName, appName string) {
 	for time.Now().Before(deadline) {
 		out, err := exec.Command("kubectl", "get", "application", combinedName, "-n", globalCfg.KuberpultNamespace).CombinedOutput()
 		if err != nil {
+			dumpArgoAppResources(t)
+			dumpKuberpultLogs(t)
 			t.Fatalf("kubectl get: %v\nout:\n%s", err, string(out))
 			return
 		}
@@ -98,6 +102,8 @@ func waitForArgoAppGone(t *testing.T, name string) {
 			}
 		}
 	}
+	dumpArgoAppResources(t)
+	dumpKuberpultLogs(t)
 	t.Fatalf("Argo app %q still present after 3 minutes", name)
 }
 
