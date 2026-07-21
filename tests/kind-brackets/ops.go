@@ -383,8 +383,8 @@ func HelmUpgrade(tb TB, cfg Config, p HelmUpgradeParams) {
 		}
 		return "false"
 	}
-	tb.Logf("HelmUpgrade: brackets=%s development=%s staging=%s aa-test=%s channelSize=%d",
-		boolStr(p.BracketsEnabled), boolStr(p.DevelopmentEnabled), boolStr(p.StagingEnabled), boolStr(p.AATestEnabled), p.ChannelSize)
+	tb.Logf("HelmUpgrade: brackets=%s development=%s staging=%s aa-test=%s channelSize=%d oldVersion=%s",
+		boolStr(p.BracketsEnabled), boolStr(p.DevelopmentEnabled), boolStr(p.StagingEnabled), boolStr(p.AATestEnabled), p.ChannelSize, p.OldVersion)
 
 	var cmd *exec.Cmd
 	switch cfg.Mode {
@@ -398,6 +398,10 @@ func HelmUpgrade(tb TB, cfg Config, p HelmUpgradeParams) {
 			// Old chart predates rollout.experimentalBrackets — skip those flags.
 			cmd = exec.Command("helm", "upgrade", "--install",
 				"--values", valsPath,
+				"--set", "rollout.experimentalBrackets.enabled="+boolStr(p.BracketsEnabled),
+				"--set", "rollout.experimentalBrackets.clusters.development="+boolStr(p.DevelopmentEnabled),
+				"--set", "rollout.experimentalBrackets.clusters.staging="+boolStr(p.StagingEnabled),
+				"--set", "rollout.experimentalBrackets.clusters.aa-test="+boolStr(p.AATestEnabled),
 				"--set", fmt.Sprintf("rollout.kuberpultEventsChannelSize=%d", p.ChannelSize),
 				cfg.HelmReleaseName, chartPath)
 		} else {

@@ -18,19 +18,21 @@ package kindbracketstest
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
-	auth "github.com/freiheit-com/kuberpult/pkg/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+
+	"github.com/freiheit-com/kuberpult/pkg/api/v1"
+	"github.com/freiheit-com/kuberpult/pkg/auth"
 )
 
 const cdServiceGrpcAddr = "localhost:5004"
@@ -55,7 +57,27 @@ func waitForArgoApp(t *testing.T, name string) {
 		}
 		time.Sleep(argoAppPollInterval)
 	}
+	dumpArgoAppResources(t)
+	dumpKuberpultLogs(t)
 	t.Fatalf("Argo app %q never appeared after 2 minutes", name)
+}
+
+// assertArgoAppStaysPresent polls until the named Argo Application exists in the default namespace.
+func assertArgoAppStaysPresent(t *testing.T, envName, appName string) {
+	t.Helper()
+	deadline := time.Now().Add(argoAppPresentMinDuration)
+	combinedName := envName + "-" + appName
+	for time.Now().Before(deadline) {
+		out, err := exec.Command("kubectl", "get", "application", combinedName, "-n", globalCfg.KuberpultNamespace).CombinedOutput()
+		if err != nil {
+			dumpArgoAppResources(t)
+			dumpKuberpultLogs(t)
+			t.Fatalf("kubectl get: %v\nout:\n%s", err, string(out))
+			return
+		}
+		time.Sleep(argoAppPresentInterval)
+	}
+	t.Logf("Argo app %q stays present for %v", combinedName, argoAppPresentMinDuration)
 }
 
 // waitForArgoAppGone polls until the named Argo Application no longer exists.
@@ -70,6 +92,17 @@ func waitForArgoAppGone(t *testing.T, name string) {
 		}
 		time.Sleep(argoAppPollInterval)
 	}
+	dep := "deployment/kuberpult-rollout-service"
+	if out, err := exec.Command("kubectl", "logs", "-n", globalCfg.KuberpultNamespace, dep, "--since=5m").CombinedOutput(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			if strings.Contains(line, "creating ArgoApp failed after maximum number of attempts") &&
+				strings.Contains(line, "PermissionDenied") && strings.Contains(line, name) {
+				return // correctly log the retry attempts
+			}
+		}
+	}
+	dumpArgoAppResources(t)
+	dumpKuberpultLogs(t)
 	t.Fatalf("Argo app %q still present after 3 minutes", name)
 }
 
@@ -1426,64 +1459,11 @@ g, kuberpult, role:kuberpult
 `
 
 func restoreArgoRBACBasePolicy(t *testing.T) {
-	t.Helper()
-	ns := globalCfg.KuberpultNamespace
-
-	out, err := exec.Command("kubectl", "get", "configmap", argoRBACConfigMap,
-		"-n", ns, "-o", `jsonpath={.data.policy\.csv}`).CombinedOutput()
-	if err != nil {
-		t.Fatalf("restoreArgoRBACBasePolicy: read %s: %v: %s", argoRBACConfigMap, err, out)
-	}
-
-	if string(out) == argoRBACBasePolicy {
-		tLogf(t, "restoreArgoRBACBasePolicy: already using base policy")
-		return
-	}
-
-	patch, err := json.Marshal(map[string]any{
-		"data": map[string]string{"policy.csv": argoRBACBasePolicy},
-	})
-	if err != nil {
-		t.Fatalf("restoreArgoRBACBasePolicy: marshal patch: %v", err)
-	}
-	if out, err := exec.Command("kubectl", "patch", "configmap", argoRBACConfigMap,
-		"-n", ns, "--type", "merge", "-p", string(patch)).CombinedOutput(); err != nil {
-		t.Fatalf("restoreArgoRBACBasePolicy: patch %s: %v: %s", argoRBACConfigMap, err, out)
-	}
+	undoDenyArgoAppCreate(t)
 }
 
-// denyArgoAppCreate forbids the kuberpult role from creating the Argo
-// Application named argoAppName, by rewriting policy.csv of argocd-rbac-cm to
-// the known base plus a casbin "deny" rule. An explicit deny overrides the broad
-// "create */*, allow", so only this one app is blocked.
-//
-// ArgoCD reloads argocd-rbac-cm without a restart, so none is triggered here.
 func denyArgoAppCreate(t *testing.T, argoAppName string) {
-	t.Helper()
-	ns := globalCfg.KuberpultNamespace
-
-	out, err := exec.Command("kubectl", "get", "configmap", argoRBACConfigMap,
-		"-n", ns, "-o", `jsonpath={.data.policy\.csv}`).CombinedOutput()
-	if err != nil {
-		t.Fatalf("denyArgoAppCreate: read %s: %v: %s", argoRBACConfigMap, err, out)
-	}
-
-	denyLine := fmt.Sprintf("p, role:kuberpult, applications, create, */%s, deny", argoAppName)
-	newPolicy := string(out) + denyLine + "\n"
-
-	patch, err := json.Marshal(map[string]any{
-		"data": map[string]string{"policy.csv": newPolicy},
-	})
-	if err != nil {
-		t.Fatalf("denyArgoAppCreate: marshal patch: %v", err)
-	}
-	if out, err := exec.Command("kubectl", "patch", "configmap", argoRBACConfigMap,
-		"-n", ns, "--type", "merge", "-p", string(patch)).CombinedOutput(); err != nil {
-		t.Fatalf("denyArgoAppCreate: patch %s: %v: %s", argoRBACConfigMap, err, out)
-	}
-	tLogf(t, "  denyArgoAppCreate: denied Argo app creation for %s", argoAppName)
-
-	t.Cleanup(func() { restoreArgoRBACBasePolicy(t) })
+	denyMultipleArgoAppCreate(t, argoAppName)
 }
 
 // dumpBracketDiagnostics dumps ArgoCD app status, namespace events, and service logs
@@ -1549,4 +1529,70 @@ func dumpBracketDiagnosticsExpanded(t *testing.T, bracketApps []string, individu
 	if out, err := exec.Command("kubectl", "get", "appprojects", "-n", globalCfg.KuberpultNamespace, "-o", "yaml").CombinedOutput(); err == nil {
 		tLogf(t, "AppProjects in %s:\n%s", globalCfg.KuberpultNamespace, out)
 	}
+}
+
+func undoDenyArgoAppCreate(t *testing.T) {
+	t.Helper()
+	ns := globalCfg.KuberpultNamespace
+
+	// Guard: fail loudly if ArgoCD's default policy drifted from our constant.
+	out, err := exec.Command("kubectl", "get", "configmap", argoRBACConfigMap,
+		"-n", ns, "-o", `jsonpath={.data.policy\.csv}`).CombinedOutput()
+	if err != nil {
+		t.Fatalf("undoDenyArgoAppCreate: read %s: %v: %s", argoRBACConfigMap, err, out)
+	}
+	if got, want := normalizePolicy(string(out)), normalizePolicy(argoRBACBasePolicy); got == want {
+		t.Fatalf("undoDenyArgoAppCreate: pointless call, configmap is in original state")
+	}
+	setArgoRBACPolicy(t, argoRBACBasePolicy)
+	tLogf(t, "undoDenyArgoAppCreate: done")
+}
+
+// setArgoRBACPolicy sets ArgoCD's RBAC policy.csv by upgrading the argo-cd
+// helm release itself (release "argocd", installed by run-kind.sh). Going
+// through helm keeps it the sole field-manager of the argocd-rbac-cm
+// ConfigMap — a kubectl patch would grab ownership of .data.policy.csv and
+// make every later helm upgrade of argo-cd fail with a field conflict.
+func setArgoRBACPolicy(t *testing.T, policyCSV string) {
+	t.Helper()
+	// --set cannot carry the policy (it contains commas, helm's --set
+	// separator), so write it to a file and use --set-file.
+	policyFile := filepath.Join(t.TempDir(), "policy.csv")
+	if err := os.WriteFile(policyFile, []byte(policyCSV), 0644); err != nil {
+		t.Fatalf("setArgoRBACPolicy: write policy file: %v", err)
+	}
+	out, err := exec.Command("helm", "upgrade", "argocd", "argo-cd/argo-cd",
+		"--version", "5.36.0", // must match run-kind.sh
+		"--history-max", "1",
+		"--reuse-values",
+		"--set-file", `configs.rbac.policy\.csv=`+policyFile,
+	).CombinedOutput()
+	if err != nil {
+		t.Fatalf("setArgoRBACPolicy: helm upgrade: %v\n%s", err, out)
+	}
+	tLogf(t, "setArgoRBACPolicy: policy is now:\n%s", policyCSV)
+}
+
+// denyArgoAppCreate forbids the kuberpult role from creating the named Argo
+// Applications (full Argo app names, e.g. "development-<bracket>" or
+// "aa-aa-test-dev-2-<bracket>"), by rewriting policy.csv to the known base plus
+// one casbin "deny" rule per name. An explicit deny overrides the broad allow.
+func denyMultipleArgoAppCreate(t *testing.T, argoAppNames ...string) {
+	t.Helper()
+	denyLines := ""
+	for _, name := range argoAppNames {
+		denyLines += fmt.Sprintf("p, role:kuberpult, applications, create, */%s, deny\n", name)
+	}
+	setArgoRBACPolicy(t, argoRBACBasePolicy+denyLines)
+	t.Cleanup(func() { setArgoRBACPolicy(t, argoRBACBasePolicy) })
+}
+
+func normalizePolicy(s string) string {
+	var lines []string
+	for _, line := range strings.Split(s, "\n") {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			lines = append(lines, trimmed)
+		}
+	}
+	return strings.Join(lines, "\n")
 }

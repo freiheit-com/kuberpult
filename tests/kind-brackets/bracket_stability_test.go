@@ -61,6 +61,9 @@ const (
 	reconcileBuffer      = 10 * time.Second
 	grpcRetryTimeout     = 30 * time.Second
 	grpcRetryInterval    = 2 * time.Second
+
+	argoAppPresentMinDuration = 10 * time.Second
+	argoAppPresentInterval    = 2 * time.Second
 )
 
 // deploymentKey identifies a Deployment by namespace and name.
@@ -110,7 +113,7 @@ func dumpKuberpultLogs(t *testing.T) {
 				continue
 			}
 			for _, prev := range []bool{false, true} {
-				args := []string{"logs", "-n", globalCfg.KuberpultNamespace, podName, "--tail=300"}
+				args := []string{"logs", "-n", globalCfg.KuberpultNamespace, podName, "--tail=1000"}
 				label := podName
 				if prev {
 					args = append(args, "--previous")
@@ -125,6 +128,22 @@ func dumpKuberpultLogs(t *testing.T) {
 			}
 		}
 	}
+}
+
+// dumpArgoAppResources prints every Argo Application with its sync state, spec
+// path, and tracked resources. Which app tracks (and would prune) a Deployment
+// is the key fact when a workload vanished during a bracket move.
+func dumpArgoAppResources(t *testing.T) {
+	t.Helper()
+	out, err := exec.Command("kubectl", "get", "applications", "-n", globalCfg.KuberpultNamespace,
+		"-o", `jsonpath={range .items[*]}{.metadata.name}{"  sync="}{.status.sync.status}{"  phase="}{.status.operationState.phase}{"  
+  path="}{.spec.source.path}{"\n"}{range .status.resources[*]}{"    "}{.kind}/{.name}{"  requiresPruning="}{.requiresPruning}{"\n"}{end}{end}`,
+	).CombinedOutput()
+	if err != nil {
+		tLogf(t, "dumpArgoAppResources: %v: %s", err, out)
+		return
+	}
+	tLogf(t, "Argo applications and tracked resources:\n%s", out)
 }
 
 // fatalWithServiceLogs dumps service logs then exits the entire test binary so
@@ -151,6 +170,8 @@ func deploymentCreationTime(t *testing.T, namespace, name string) string {
 		"-o", "jsonpath={.metadata.creationTimestamp}",
 	).Output()
 	if err != nil {
+		dumpArgoAppResources(t)
+		dumpKuberpultLogs(t)
 		t.Fatalf("get deployment %s/%s creationTimestamp: %v", namespace, name, err)
 	}
 	return strings.TrimSpace(string(out))
@@ -163,6 +184,8 @@ func assertDeploymentCreationTimesStable(t *testing.T, times map[deploymentKey]s
 	for k, want := range times {
 		got := deploymentCreationTime(t, k.namespace, k.name)
 		if got != want {
+			dumpArgoAppResources(t)
+			dumpKuberpultLogs(t)
 			t.Fatalf("REGRESSION (%s): deployment %s/%s was deleted and recreated\n  before: %s\n  after:  %s",
 				context, k.namespace, k.name, want, got)
 		}
@@ -225,7 +248,7 @@ func cleanupCluster(t *testing.T) {
 		t.Fatalf("kubectl delete applications failed: %v: %s", err, out)
 	}
 	tLogf(t, "  %s", strings.TrimSpace(string(out)))
-	for _, ns := range []string{devNamespace, stagingNamespace} {
+	for _, ns := range []string{devNamespace, devTwoNamespace, stagingNamespace, aaNamespace} {
 		out2, err := exec.Command("kubectl", "delete", "deployments,pods", "--all", "-n", ns, "--wait=true").CombinedOutput()
 		if err != nil {
 			t.Fatalf("kubectl delete deployment/etc failed: %v: %s", err, out2)

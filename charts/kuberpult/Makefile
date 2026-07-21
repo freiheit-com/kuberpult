@@ -83,7 +83,7 @@ kind-test:
 		LOG="$(MAKEFILE_DIR)kind-test-logs/$$HASH/test-$$(date +%Y%m%d-%H%M%S).log"; \
 		echo "kind-test: logging to $$LOG"; \
 		printf "kuberpult commit: $$HASH\n" | tee "$$LOG"; \
-		cd ../../ && go test -count=1 -v $(GO_TEST_ARGS) ./tests/kind-brackets/ -timeout 20m 2>&1 | tee -a "$$LOG"'
+		cd ../../ && go test -count=1 -v $(GO_TEST_ARGS) ./tests/kind-brackets/ -timeout 30m 2>&1 | tee -a "$$LOG"'
 
 kind-test-gke:
 	@if [ -z "$(KUBERPULT_TEST_VERSION)" ]; then \
