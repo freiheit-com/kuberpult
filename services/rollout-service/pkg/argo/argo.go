@@ -141,13 +141,18 @@ const BracketPausedForMoveAnnotation = "com.freiheit.kuberpult/paused-for-move"
 
 // The pause-protocol phases stored as BracketPausedForMoveAnnotation values.
 const (
-	// BracketMovePhasePaused: auto-sync disabled, manifest path still the old
+	// BracketMovePhasePaused means auto-sync disabled, manifest path still the old
 	// snapshot. An in-flight sync operation executes against the spec path at
 	// execution time, so the path may only move once the app is provably quiet.
 	BracketMovePhasePaused = "paused"
-	// BracketMovePhaseRetargeted: still paused, manifest path moved to the new
+	// BracketMovePhaseRetargeted means still paused, manifest path moved to the new
 	// snapshot; waiting for the disown before auto-sync is restored.
 	BracketMovePhaseRetargeted = "retargeted"
+	// BracketDeleteWhenDisownedAnnotation marks a paused bracket Argo app that must be
+	// deleted (no-cascade) rather than resumed once the gaining bracket has adopted the
+	// moved resources. Set for a source bracket that emptied via a move (lost its last
+	// deployed member in the env). Makes the terminal action recoverable after a restart.
+	BracketDeleteWhenDisownedAnnotation = "com.freiheit.kuberpult/delete-when-disowned"
 )
 
 // argocdRefreshAnnotation requests an app reconcile from the Argo CD application
@@ -208,6 +213,10 @@ type PendingSpecUpdate struct {
 	// Retarget is the prepared paused application at the new path. Nil after a
 	// restart recovery in the paused phase — rebuilt by the next overview tick.
 	Retarget *v1alpha1.Application
+	// DeleteWhenDisowned is true for a source bracket that emptied via a move: once
+	// the disown check clears (the gainer adopted the moved resources) the app is
+	// deleted no-cascade instead of having its auto-sync resumed.
+	DeleteWhenDisowned bool
 }
 
 type ArgoAppProcessor struct {
@@ -688,12 +697,16 @@ func (a *ArgoAppProcessor) recoverPendingSpecUpdate(ctx context.Context, envName
 		zap.String("env", envName),
 		zap.String("phase", phase),
 		zap.String("expected-path", expectedPath))
+	// Recover the terminal action across a rollout-service restart: the in-memory pending
+	// entry is gone, so only the app's own annotation says whether to delete or resume.
+	deleteWhenDisowned := app.Annotations[BracketDeleteWhenDisownedAnnotation] == "true"
 	a.pendingSpecUpdates = append(a.pendingSpecUpdates, &PendingSpecUpdate{
-		EnvironmentName: envName,
-		ApplicationName: appName,
-		ExpectedPath:    expectedPath,
-		Phase:           phase,
-		Retarget:        nil,
+		EnvironmentName:    envName,
+		ApplicationName:    appName,
+		ExpectedPath:       expectedPath,
+		Phase:              phase,
+		Retarget:           nil,
+		DeleteWhenDisowned: deleteWhenDisowned,
 	})
 	return true
 }
@@ -783,7 +796,7 @@ func (a *ArgoAppProcessor) updateApplication(ctx context.Context, app *v1alpha1.
 // must be skipped. A bracket with a pending entry always stays in the protocol,
 // even when a later tick carries no member loss, so sequential moves cannot
 // bypass an unfinished handover.
-func (a *ArgoAppProcessor) deferSpecUpdateIfWaiting(ctx context.Context, appInfo *AppInfo, overview *api.GetOverviewResponse) bool {
+func (a *ArgoAppProcessor) deferSpecUpdateIfWaiting(ctx context.Context, appInfo *AppInfo, overview *api.GetOverviewResponse, deleteWhenDisowned bool) bool {
 	existing := a.findPendingSpecUpdate(appInfo.EnvironmentName, appInfo.ApplicationName)
 	if existing == nil && len(appInfo.LostMembersTo) == 0 {
 		return false
@@ -791,6 +804,9 @@ func (a *ArgoAppProcessor) deferSpecUpdateIfWaiting(ctx context.Context, appInfo
 	retarget := CreateArgoApplication(overview, appInfo)
 	retarget.Spec.SyncPolicy.Automated = nil
 	retarget.Annotations[BracketPausedForMoveAnnotation] = BracketMovePhaseRetargeted
+	if deleteWhenDisowned {
+		retarget.Annotations[BracketDeleteWhenDisownedAnnotation] = "true"
+	}
 	path := retarget.Spec.Source.Path
 	if existing != nil {
 		// Merge: the newest payload wins. If the target moved on after the
@@ -799,6 +815,7 @@ func (a *ArgoAppProcessor) deferSpecUpdateIfWaiting(ctx context.Context, appInfo
 		resend := existing.Phase == BracketMovePhaseRetargeted && existing.ExpectedPath != path
 		existing.Retarget = retarget
 		existing.ExpectedPath = path
+		existing.DeleteWhenDisowned = deleteWhenDisowned
 		if resend {
 			if err := a.updateApplication(ctx, retarget, "bracket.move.retarget"); err != nil && isGoneErr(err) {
 				// The app vanished underneath the protocol (e.g. it was emptied
@@ -823,11 +840,12 @@ func (a *ArgoAppProcessor) deferSpecUpdateIfWaiting(ctx context.Context, appInfo
 		// app has no in-flight sync operations.
 		a.createPausedApplication(ctx, retarget)
 		a.pendingSpecUpdates = append(a.pendingSpecUpdates, &PendingSpecUpdate{
-			EnvironmentName: appInfo.EnvironmentName,
-			ApplicationName: appInfo.ApplicationName,
-			ExpectedPath:    path,
-			Phase:           BracketMovePhaseRetargeted,
-			Retarget:        retarget,
+			EnvironmentName:    appInfo.EnvironmentName,
+			ApplicationName:    appInfo.ApplicationName,
+			ExpectedPath:       path,
+			Phase:              BracketMovePhaseRetargeted,
+			Retarget:           retarget,
+			DeleteWhenDisowned: deleteWhenDisowned,
 		})
 		return true
 	}
@@ -843,6 +861,9 @@ func (a *ArgoAppProcessor) deferSpecUpdateIfWaiting(ctx context.Context, appInfo
 	}
 	pausedApp.Annotations[BracketPausedForMoveAnnotation] = BracketMovePhasePaused
 	pausedApp.Annotations[argocdRefreshAnnotation] = "normal"
+	if deleteWhenDisowned {
+		pausedApp.Annotations[BracketDeleteWhenDisownedAnnotation] = "true"
+	}
 	phase := BracketMovePhasePaused
 	if err := a.updateApplication(ctx, pausedApp, "bracket.move.pause.update"); err != nil && isGoneErr(err) {
 		// The app vanished underneath us (stale KnownApps): skip the in-place
@@ -852,11 +873,12 @@ func (a *ArgoAppProcessor) deferSpecUpdateIfWaiting(ctx context.Context, appInfo
 		phase = BracketMovePhaseRetargeted
 	}
 	a.pendingSpecUpdates = append(a.pendingSpecUpdates, &PendingSpecUpdate{
-		EnvironmentName: appInfo.EnvironmentName,
-		ApplicationName: appInfo.ApplicationName,
-		ExpectedPath:    path,
-		Phase:           phase,
-		Retarget:        retarget,
+		EnvironmentName:    appInfo.EnvironmentName,
+		ApplicationName:    appInfo.ApplicationName,
+		ExpectedPath:       path,
+		Phase:              phase,
+		Retarget:           retarget,
+		DeleteWhenDisowned: deleteWhenDisowned,
 	})
 	return true
 }
@@ -944,7 +966,24 @@ func (a *ArgoAppProcessor) drainPendingSpecUpdates(ctx context.Context) {
 				puSpan.Finish()
 				continue
 			}
-			if err := a.resumeBracketAutoSync(ctx, app); err != nil {
+			// An emptied source bracket has nothing left to manage, so once the gainer has adopted
+			// the moved resources it must be torn down, not resumed onto an empty manifest.
+			if pu.DeleteWhenDisowned {
+				// Emptied-source-bracket move: the gaining bracket has adopted the moved
+				// resources (disown check cleared), so tear the now-empty source bracket
+				// down without cascade — the shared Deployment survives, owned by the gainer.
+				if err := a.deleteAppNoCascade(ctx, a.KnownApps[pu.EnvironmentName], pu.ApplicationName); err != nil {
+					l.Error("bracket.move.deferred-delete.failed",
+						zap.String("app", pu.ApplicationName),
+						zap.String("env", pu.EnvironmentName), zap.Error(err))
+					remaining = append(remaining, pu)
+					puSpan.SetTag("skipReason", fmt.Sprintf("deferred delete failed %s", err.Error()))
+					puSpan.Finish(tracer.WithError(err))
+					continue
+				}
+				// Entry dropped (not re-appended): teardown complete. The DELETED watch
+				// event will also clear KnownApps and any residual pending entry.
+			} else if err := a.resumeBracketAutoSync(ctx, app); err != nil {
 				remaining = append(remaining, pu)
 				puSpan.SetTag("skipReason", fmt.Sprintf("resumeBracketAutoSync failed %s", err.Error()))
 				puSpan.Finish(tracer.WithError(err))
@@ -1037,6 +1076,11 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 					}
 				}
 				if deleteWithNoCascade {
+					// Bracket emptied via a move: pause instead of deleting now, so Argo can't prune the
+					// shared Deployment before the gaining bracket adopts it. true = tear down once disowned.
+					if a.deferSpecUpdateIfWaiting(ctx, appInfo, overview, true) {
+						return
+					}
 					if err := a.deleteAppNoCascade(ctx, ok, appInfo.ApplicationName); err != nil {
 						logger.FromContext(ctx).Error("bracket.move.delete.failed",
 							zap.String("app", appInfo.ApplicationName), zap.Error(err))
@@ -1081,7 +1125,7 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 		// Pause protocol (prune-vs-adopt protection on bracket moves): a bracket
 		// that lost members is retargeted with auto-sync disabled instead of the
 		// normal refresh — see the package comment and deferSpecUpdateIfWaiting.
-		if appInfo.IsBracket && a.deferSpecUpdateIfWaiting(ctx, appInfo, overview) {
+		if appInfo.IsBracket && a.deferSpecUpdateIfWaiting(ctx, appInfo, overview, false) {
 			return
 		}
 		argoApp := a.isKnownArgoApp(appInfo.ApplicationName, appInfo.EnvironmentName, a.KnownApps[appInfo.EnvironmentName])
