@@ -22,6 +22,7 @@ jobs:
   vulnerability-scan:
     needs: [ execution-plan ]
     uses: ./.github/workflows/vulnerability-scan.yml
+    
     with:
       trigger: pull-request
       fullversion: ${{ needs.execution-plan.outputs.fullversion }}
