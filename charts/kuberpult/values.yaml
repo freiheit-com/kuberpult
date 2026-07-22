@@ -289,8 +289,7 @@ manifestRepoExport:
   # its single push must finish comfortably within `networkTimeoutSeconds` above (NOT
   # `git.networkTimeout`, which governs the cd-service). An oversized batch that trips the timeout
   # forces the whole batch to reprocess, which is strictly worse than not
-  # batching. Must be between 1 and 100 (inclusive); the service rejects values
-  # above 100. This is a hard guard against having a excessive configuration.
+  # batching. Must be at least 1; there is no upper bound enforced by the service.
   # For details, view `docs/operators/timeouts.md`.
   maxExportBatchSize: 1
 
