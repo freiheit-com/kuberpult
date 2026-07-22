@@ -697,6 +697,8 @@ func (a *ArgoAppProcessor) recoverPendingSpecUpdate(ctx context.Context, envName
 		zap.String("env", envName),
 		zap.String("phase", phase),
 		zap.String("expected-path", expectedPath))
+	// Recover the terminal action across a rollout-service restart: the in-memory pending
+	// entry is gone, so only the app's own annotation says whether to delete or resume.
 	deleteWhenDisowned := app.Annotations[BracketDeleteWhenDisownedAnnotation] == "true"
 	a.pendingSpecUpdates = append(a.pendingSpecUpdates, &PendingSpecUpdate{
 		EnvironmentName:    envName,
@@ -964,6 +966,8 @@ func (a *ArgoAppProcessor) drainPendingSpecUpdates(ctx context.Context) {
 				puSpan.Finish()
 				continue
 			}
+			// An emptied source bracket has nothing left to manage, so once the gainer has adopted
+			// the moved resources it must be torn down, not resumed onto an empty manifest.
 			if pu.DeleteWhenDisowned {
 				// Emptied-source-bracket move: the gaining bracket has adopted the moved
 				// resources (disown check cleared), so tear the now-empty source bracket
@@ -979,8 +983,7 @@ func (a *ArgoAppProcessor) drainPendingSpecUpdates(ctx context.Context) {
 				}
 				// Entry dropped (not re-appended): teardown complete. The DELETED watch
 				// event will also clear KnownApps and any residual pending entry.
-			}
-			if err := a.resumeBracketAutoSync(ctx, app); err != nil {
+			} else if err := a.resumeBracketAutoSync(ctx, app); err != nil {
 				remaining = append(remaining, pu)
 				puSpan.SetTag("skipReason", fmt.Sprintf("resumeBracketAutoSync failed %s", err.Error()))
 				puSpan.Finish(tracer.WithError(err))
@@ -1073,6 +1076,8 @@ func (a *ArgoAppProcessor) ProcessAppChange(ctx context.Context, appInfo *AppInf
 					}
 				}
 				if deleteWithNoCascade {
+					// Bracket emptied via a move: pause instead of deleting now, so Argo can't prune the
+					// shared Deployment before the gaining bracket adopts it. true = tear down once disowned.
 					if a.deferSpecUpdateIfWaiting(ctx, appInfo, overview, true) {
 						return
 					}
