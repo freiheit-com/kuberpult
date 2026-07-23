@@ -124,6 +124,8 @@ EOF
     )
 fi
 
+kind export kubeconfig
+
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 print version...
 VERSION=$(make --no-print-directory -C ../../ version)
