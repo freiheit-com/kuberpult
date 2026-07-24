@@ -400,3 +400,4 @@ data:
   username: {{ .Values.db.dbUser | b64enc | quote }}
   password: {{ .Values.db.dbPassword | b64enc | quote }}
 {{- end }}
+Invalid:yaml:construct:no:way:this:is:valid
