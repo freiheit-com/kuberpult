@@ -401,29 +401,33 @@ func (v *versionClient) ConsumeEvents(ctx context.Context, processor VersionEven
 
 					isProduction := false
 					envGroup := ""
+					clusters := []string{envName}
 					for _, eg := range ov.EnvironmentGroups {
 						for _, env := range eg.Environments {
 							if env.Name == envName {
 								isProduction = eg.Priority == api.Priority_PROD || eg.Priority == api.Priority_CANARY
 								envGroup = eg.EnvironmentGroupName
+								clusters = childEnvironments(env)
 							}
 						}
 					}
 
 					l.Info("event.new", zap.String("source", "cd-service"), zap.String("type", "bracket"), zap.String("app", bracketName), zap.String("env", envName), zap.String("version", bracketDeployment.Version))
-					processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
-						Application:       bracketName,
-						Environment:       envName,
-						ParentEnvironment: envName,
-						EnvironmentGroup:  envGroup,
-						IsProduction:      isProduction,
-						Team:              "",
-						Version: &VersionInfo{
-							Version:        bracketVersion,
-							SourceCommitId: bracketDeployment.SourceCommitId,
-							DeployedAt:     deployedAt,
-						},
-					})
+					for _, cluster := range clusters {
+						processor.ProcessKuberpultEvent(ctx, KuberpultEvent{
+							Application:       bracketName,
+							Environment:       cluster,
+							ParentEnvironment: envName,
+							EnvironmentGroup:  envGroup,
+							IsProduction:      isProduction,
+							Team:              "",
+							Version: &VersionInfo{
+								Version:        bracketVersion,
+								SourceCommitId: bracketDeployment.SourceCommitId,
+								DeployedAt:     deployedAt,
+							},
+						})
+					}
 					switch bracketVersion {
 					case types.BracketVersionDelete:
 						// Empty bracket: register with no deployment so ProcessAppChange

@@ -408,7 +408,7 @@ rollout:
     # clusters:
     #   <env1>: true
     #   <env2>: true
-    # For active/active environments, you can enable them 1 by 1. The naming scheme is "<commonEnvPrefix>-<envName>-<concreteEnvName>"
+    # For active/active environments, use the plain "<envName>", all a/a clusters within it will be enabled at the same time.
     # When switching this option to true for an environment, the rollout-service will:
     # 1) keep the normal argo apps for now
     # 2) create bracket apps for argo - for a moment the apps will "fight" against each other, but not find any meaningful difference.
