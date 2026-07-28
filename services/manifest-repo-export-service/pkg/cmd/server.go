@@ -714,7 +714,7 @@ func ProcessOneEvent(
 			// the same reason as the SYNC_FAILED path above.
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, b := range batch {
-					if e := dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(b.Esl.EslVersion), db.SYNCED); e != nil {
+					if e := dbHandler.DBBulkUpdateAllApps(ctx, transaction, db.TransformerID(b.Esl.EslVersion), db.TransformerID(b.Esl.EslVersion), db.SYNCED); e != nil {
 						return e
 					}
 				}
