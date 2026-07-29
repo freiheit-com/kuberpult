@@ -4652,10 +4652,14 @@ func TestUndeployApplicationDeletesLingeringDeployments(t *testing.T) {
 func TestDeleteEnvironment(t *testing.T) {
 	const testAppName = "test-app"
 	tcs := []struct {
-		Name          string
-		Transformers  []Transformer
-		EnvsToDelete  []string
-		expectedError *TransformerBatchApplyError
+		Name              string
+		InputDryRun       bool
+		Transformers      []Transformer
+		EnvsToDelete      []string
+		expectedError     *TransformerBatchApplyError
+		ExpectedEnvLocks  int // 0 in most cases, non-zero for dry-run
+		ExpectedAppLocks  int
+		ExpectedTeamLocks int
 	}{
 		{
 			Name: "Delete non-existent environment",
@@ -4934,6 +4938,58 @@ func TestDeleteEnvironment(t *testing.T) {
 				TransformerError: errMatcher{"error at index 0 of transformer batch: rpc error: code = FailedPrecondition desc = error: could not delete environment 'production-2'. 'production-2' is part of environment group 'production-group', which is upstream from 'acceptance' and deleting 'production-2' would result in environment group deletion"},
 			},
 		},
+		{
+			Name:        "Delete Env - Ensure no locks are deleted when using dry run",
+			InputDryRun: true,
+			Transformers: []Transformer{
+				&CreateEnvironment{
+					Environment: envProduction,
+					Config: config.EnvironmentConfig{
+						ArgoCd:           nil,
+						Upstream:         nil,
+						EnvironmentGroup: conversion.FromString("mygroup"),
+					},
+				},
+				&CreateApplicationVersion{
+					Application: testAppName,
+					Manifests: map[types.EnvName]string{
+						envProduction: "productionmanifest",
+					},
+					WriteCommitData: true,
+					Team:            "test-team",
+					Version:         1,
+				},
+				&DeployApplicationVersion{
+					Environment: envProduction,
+					Application: testAppName,
+					Version:     1,
+				},
+				&CreateEnvironmentTeamLock{
+					Environment: envProduction,
+					Team:        "test-team",
+					LockId:      "my-team-lock-for-prod",
+					Message:     "whatever",
+					CiLink:      "",
+				},
+				&CreateEnvironmentApplicationLock{
+					Environment: envProduction,
+					Application: testAppName,
+					LockId:      "my-app-lock-for-prod",
+					Message:     "whatever",
+					CiLink:      "",
+				},
+				&CreateEnvironmentLock{
+					Environment: envProduction,
+					LockId:      "my-env-lock-for-prod",
+					Message:     "whatever",
+					CiLink:      "",
+				},
+			},
+			EnvsToDelete:      []string{envProduction},
+			ExpectedAppLocks:  1,
+			ExpectedEnvLocks:  1,
+			ExpectedTeamLocks: 1,
+		},
 	}
 	for _, tc := range tcs {
 		tc := tc
@@ -4952,7 +5008,7 @@ func TestDeleteEnvironment(t *testing.T) {
 					envName := types.EnvName(env)
 
 					// Perform DeleteEnvironment transforming
-					transformer := []Transformer{&DeleteEnvironment{Environment: envName}}
+					transformer := []Transformer{&DeleteEnvironment{Environment: envName, Dryrun: tc.InputDryRun}}
 					_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, transformer...)
 					if err != nil {
 						return err
@@ -4969,8 +5025,14 @@ func TestDeleteEnvironment(t *testing.T) {
 					if err1 != nil {
 						return err1
 					}
-					if foundEnv != nil {
-						t.Fatalf("Expect environment to be deleted but still exists:\n%s", foundEnv.Name)
+					if tc.InputDryRun {
+						if foundEnv == nil {
+							t.Fatalf("Expect environment to not be deleted but it's gone:\n%s", envName)
+						}
+					} else {
+						if foundEnv != nil {
+							t.Fatalf("Expect environment to be deleted but still exists:\n%s", foundEnv.Name)
+						}
 					}
 
 					// Check for related locks
@@ -4978,15 +5040,15 @@ func TestDeleteEnvironment(t *testing.T) {
 					if err1 != nil {
 						return err1
 					}
-					if len(foundEnvLocks) != 0 {
-						t.Fatalf("Expect all EnvLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundEnvLocks), foundEnv.Name)
+					if len(foundEnvLocks) != tc.ExpectedEnvLocks {
+						t.Fatalf("Expect %d envLocks to remain but %d locks exist:\n%s", tc.ExpectedEnvLocks, len(foundEnvLocks), foundEnv.Name)
 					}
 
 					foundAppLocks, err1 := r.State().DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, envName)
 					if err1 != nil {
 						return err1
 					}
-					if len(foundAppLocks) != 0 {
+					if len(foundAppLocks) != tc.ExpectedAppLocks {
 						t.Fatalf("Expect all AppLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundAppLocks), foundEnv.Name)
 					}
 
@@ -4994,7 +5056,7 @@ func TestDeleteEnvironment(t *testing.T) {
 					if err1 != nil {
 						return err1
 					}
-					if len(foundTeamLocks) != 0 {
+					if len(foundTeamLocks) != tc.ExpectedTeamLocks {
 						t.Fatalf("Expect all TeamLocks of the environment to be deleted but %d locks still exists:\n%s", len(foundTeamLocks), foundEnv.Name)
 					}
 				}

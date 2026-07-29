@@ -2448,11 +2448,31 @@ func (c *DeleteEnvironment) Transform(
 		return "", err
 	}
 
-	// Check and delete env locks and delete if any exists
+	// we want to have the early-exit for dry-run as latest as possible, so we load the locks here:
+
+	// 1) load env locks
 	envLocks, err := state.DBHandler.DBSelectAllEnvLocks(ctx, transaction, c.Environment)
 	if err != nil {
 		return "", err
 	}
+	// 2) load app locks
+	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
+	if err != nil {
+		return "", err
+	}
+	// 3) load team locks
+	teamLocksForEnv, err := state.DBHandler.DBSelectAllTeamLocksForEnv(ctx, transaction, c.Environment)
+	if err != nil {
+		return "", err
+	}
+
+	// 4) dry run check
+	if c.Dryrun {
+		return fmt.Sprintf("Dry run for deleting environment successful '%s'", c.Environment), nil
+	}
+
+	// 5) now we actually start deleting locks
+
 	for _, envLockId := range envLocks {
 		err := state.DBHandler.DBDeleteEnvironmentLock(ctx, transaction, envName, envLockId, db.LockDeletionMetadata{DeletedByUser: user.Name, DeletedByEmail: user.Email})
 		if err != nil {
@@ -2460,11 +2480,6 @@ func (c *DeleteEnvironment) Transform(
 		}
 	}
 
-	// Check and delete app locks and delete if any exists
-	appLocksForEnv, err := state.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, c.Environment)
-	if err != nil {
-		return "", err
-	}
 	for _, appLock := range appLocksForEnv {
 		err := state.DBHandler.DBDeleteApplicationLock(ctx, transaction, envName, appLock.App, appLock.LockID, db.LockDeletionMetadata{
 			DeletedByUser:  user.Name,
@@ -2475,11 +2490,6 @@ func (c *DeleteEnvironment) Transform(
 		}
 	}
 
-	// Check and delete team locks and delete if any exists
-	teamLocksForEnv, err := state.DBHandler.DBSelectAllTeamLocksForEnv(ctx, transaction, c.Environment)
-	if err != nil {
-		return "", err
-	}
 	for _, teamLock := range teamLocksForEnv {
 		err := state.DBHandler.DBDeleteTeamLock(ctx, transaction, envName, teamLock.Team, teamLock.LockID, db.LockDeletionMetadata{
 			DeletedByUser:  user.Name,
@@ -2488,10 +2498,6 @@ func (c *DeleteEnvironment) Transform(
 		if err != nil {
 			return "", err
 		}
-	}
-
-	if c.Dryrun {
-		return fmt.Sprintf("Dry run for deleting environment successful '%s'", c.Environment), nil
 	}
 
 	/*Remove environment from all apps*/
