@@ -1850,6 +1850,89 @@ func TestAllDeployments(t *testing.T) {
 	}
 }
 
+func TestDBSelectAllAppLocks(t *testing.T) {
+	tcs := []struct {
+		Name            string
+		Env             types.EnvName
+		AppName         types.AppName
+		AuthorName      string
+		AuthorEmail     string
+		CiLink          string
+		Locks           []*ApplicationLock
+		ExpectedLockIds []string
+	}{
+		{
+			Name:        "Should return all the application locks",
+			Env:         "dev",
+			AuthorName:  "myself",
+			AuthorEmail: "myself@example.com",
+			AppName:     "my-app",
+			CiLink:      "www.test.com",
+			Locks: []*ApplicationLock{
+				&ApplicationLock{
+					LockID: "lock-1",
+					Metadata: LockMetadata{
+						Message: "This is lock-1",
+					},
+				},
+				&ApplicationLock{
+					LockID: "lock-3",
+					Metadata: LockMetadata{
+						Message: "This is lock-3",
+					},
+				},
+				&ApplicationLock{
+					LockID: "lock-2",
+					Metadata: LockMetadata{
+						Message: "This is lock-2",
+					},
+				},
+			},
+			// the LockIds returned by DBSelectAllAppLocks are sorted
+			ExpectedLockIds: []string{"lock-1", "lock-2", "lock-3"},
+		},
+	}
+
+	for _, tc := range tcs {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, lock := range tc.Locks {
+					err := dbHandler.DBWriteApplicationLock(ctx, transaction, lock.LockID, tc.Env, tc.AppName, LockMetadata{
+						Message: lock.Metadata.Message,
+					})
+					if err != nil {
+						return err
+					}
+				}
+
+				actualLocks, err := dbHandler.DBSelectAllAppLocks(ctx, transaction, tc.Env, tc.AppName)
+				if err != nil {
+					return err
+				}
+
+				if diff := cmp.Diff(len(tc.ExpectedLockIds), len(actualLocks)); diff != "" {
+					t.Fatalf("number of env locks mismatch (-want, +got):\n%s", diff)
+				}
+
+				for i, actualLock := range actualLocks {
+					if diff := cmp.Diff(tc.ExpectedLockIds[i], actualLock); diff != "" {
+						t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
 func TestReadWriteEnvironmentLock(t *testing.T) {
 	tcs := []struct {
 		Name         string
