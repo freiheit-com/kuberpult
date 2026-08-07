@@ -42,7 +42,7 @@ metadata:
 spec:
   type: NodePort
   ports:
-  - port: 5432
+  - port: 2345
   selector:
     app: postgres
 ---
@@ -65,7 +65,7 @@ spec:
           image: 'postgres:13.15'
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 5432
+            - containerPort: 2345
           envFrom:
             - configMapRef:
                 name: postgres-config
