@@ -1131,7 +1131,9 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 			}
 			previousReleaseVersions[appName] = releaseVersion
 		}
-
+		if err = deploymentRows.Err(); err != nil {
+			return err
+		}
 		return nil
 	})
 
