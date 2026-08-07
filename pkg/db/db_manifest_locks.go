@@ -65,14 +65,17 @@ func (h *DBHandler) DBHasActiveManifestLock(ctx context.Context, tx *sql.Tx, app
 		return false, fmt.Errorf("could not query manifest_locks_history: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "DBHasActiveManifestLock")
-	if !rows.Next() {
-		return false, nil
+	if rows.Next() {
+		var exists bool
+		if err := rows.Scan(&exists); err != nil {
+			return false, fmt.Errorf("error scanning DBHasActiveManifestLock result: %w", err)
+		}
+		return exists, nil
 	}
-	var exists bool
-	if err := rows.Scan(&exists); err != nil {
-		return false, fmt.Errorf("error scanning DBHasActiveManifestLock result: %w", err)
+	if err = rows.Err(); err != nil {
+		return false, err
 	}
-	return exists, nil
+	return false, nil
 }
 
 func (h *DBHandler) DBSelectAllActiveManifestLocks(ctx context.Context, tx *sql.Tx) (_ []ManifestLock, err error) {

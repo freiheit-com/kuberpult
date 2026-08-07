@@ -493,7 +493,13 @@ func (h *DBHandler) DBHasAnyDeployment(ctx context.Context, tx *sql.Tx) (bool, e
 		return false, fmt.Errorf("could not select any deployments from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "DBHasAnyDeployment")
-	return rows.Next(), nil
+	if rows.Next() {
+		return true, nil
+	}
+	if err = rows.Err(); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func (h *DBHandler) DBSelectAllDeploymentsForApp(ctx context.Context, tx *sql.Tx, appName types.AppName) (_ map[types.EnvName]types.ReleaseNumbers, err error) {
@@ -599,6 +605,9 @@ func (h *DBHandler) DBSelectDeploymentAttemptHistory(ctx context.Context, tx *sq
 			deployment.ReleaseNumbers.Version = &conv
 		}
 		queuedDeployments = append(queuedDeployments, deployment)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	return queuedDeployments, nil
 }

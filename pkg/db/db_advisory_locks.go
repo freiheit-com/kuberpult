@@ -83,7 +83,7 @@ func (h *DBHandler) DBAcquireAdvisoryLock(ctx context.Context, isShared bool, lo
 			selectQuery = h.AdaptQuery("SELECT pg_advisory_xact_lock(?)")
 		}
 		span.SetTag("query", selectQuery)
-		row, err := transaction.QueryContext(
+		rows, err := transaction.QueryContext(
 			ctx,
 			selectQuery,
 			lockID,
@@ -91,7 +91,10 @@ func (h *DBHandler) DBAcquireAdvisoryLock(ctx context.Context, isShared bool, lo
 		if err != nil {
 			return fmt.Errorf("could not query %s. Error: %w", selectQuery, err)
 		}
-		if !row.Next() {
+		if !rows.Next() {
+			if err = rows.Err(); err != nil {
+				return err
+			}
 			return fmt.Errorf("could not call Next on row: %w", err)
 		}
 		return err

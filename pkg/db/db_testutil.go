@@ -132,18 +132,21 @@ func (h *DBHandler) DBSelectLatestDeploymentAttempt(ctx context.Context, tx *sql
 			logging.Error(ctx, "row closing error.", zap.Error(err))
 		}
 	}(rows)
-	if !rows.Next() {
-		return nil, nil
-	}
-	//exhaustruct:ignore
-	var deployment = QueuedDeployment{}
-	var releaseVersion sql.NullInt64
+	if rows.Next() {
+		//exhaustruct:ignore
+		var deployment = QueuedDeployment{}
+		var releaseVersion sql.NullInt64
 
-	err = rows.Scan(&deployment.Created, &deployment.Env, &deployment.App, &releaseVersion, &deployment.ReleaseNumbers.Revision)
-	if err != nil {
-		return nil, fmt.Errorf("error scanning deployment attempts row from DB. Error: %w", err)
+		err = rows.Scan(&deployment.Created, &deployment.Env, &deployment.App, &releaseVersion, &deployment.ReleaseNumbers.Revision)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning deployment attempts row from DB. Error: %w", err)
+		}
+		conv := uint64(releaseVersion.Int64)
+		deployment.ReleaseNumbers.Version = &conv
+		return &deployment, nil
 	}
-	conv := uint64(releaseVersion.Int64)
-	deployment.ReleaseNumbers.Version = &conv
-	return &deployment, nil
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }

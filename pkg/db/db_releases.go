@@ -87,7 +87,13 @@ func (h *DBHandler) DBHasAnyRelease(ctx context.Context, tx *sql.Tx, ignorePrepu
 			logging.Error(ctx, "release: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
-	return rows.Next(), nil
+	if rows.Next() {
+		return true, nil
+	}
+	if err = rows.Err(); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func (h *DBHandler) DBSelectReleasesWithoutEnvironments(ctx context.Context, tx *sql.Tx) (_ []*DBReleaseWithMetaData, err error) {
@@ -237,6 +243,9 @@ func (h *DBHandler) DBSelectReleaseByVersionAtTimestamp(ctx context.Context, tx 
 		}
 		row.Environments = environments
 		return row, nil
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	return nil, nil
 }
@@ -1151,6 +1160,9 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersionsAtTimestamp(ctx context.Co
 		}
 		result[appName] = metaData.SourceCommitId
 	}
+	if err = metadataRows.Err(); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
@@ -1234,6 +1246,9 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 			return nil, fmt.Errorf("error during json unmarshal of metadata for releases. Error: %w. Data: %s", err, metadataStr)
 		}
 		result[appName] = metaData.SourceCommitId
+	}
+	if err = metadataRows.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }

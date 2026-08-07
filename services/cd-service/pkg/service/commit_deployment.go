@@ -102,8 +102,6 @@ func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, 
 	if err != nil {
 		return err
 	}
-	defer func() { _ = rows.Close() }()
-
 	for rows.Next() {
 		var appName types.AppName
 		var envName types.EnvName
@@ -117,8 +115,10 @@ func getDeploymentsWithReleaseVersion(ctx context.Context, transaction *sql.Tx, 
 		}
 		applicationReleases[appName][envName] = appRelease
 	}
-	err = rows.Close()
-	if err != nil {
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	if err = rows.Close(); err != nil {
 		return err
 	}
 	return nil

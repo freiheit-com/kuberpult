@@ -113,6 +113,9 @@ func (h *DBHandler) DBReadRolloutUndeployCascadeBatch(ctx context.Context, tx *s
 		}
 		result = append(result, &row)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
