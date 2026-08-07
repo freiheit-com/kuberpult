@@ -449,6 +449,9 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 	} else {
 		row = nil
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	return row, nil
 }
 
@@ -491,6 +494,9 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 			}
 			return nil, fmt.Errorf("event_sourcing_light: Error scanning row from DB. Error: %w", err)
 		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	return row, nil
 }
@@ -585,15 +591,18 @@ func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVe
 		return 0, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "DBCountEslEventsNewer")
-	if !rows.Next() {
-		return 0, fmt.Errorf("could not get count from event_sourcing_light table from DB. Error: no row returned")
+	if rows.Next() {
+		count := uint64(0)
+		errScan := rows.Scan(&count)
+		if errScan != nil {
+			return 0, fmt.Errorf("error scanning event_sourcing_light row from DB. Error: %w", err)
+		}
+		return count, nil
 	}
-	count := uint64(0)
-	errScan := rows.Scan(&count)
-	if errScan != nil {
-		return 0, fmt.Errorf("error scanning event_sourcing_light row from DB. Error: %w", err)
+	if err = rows.Err(); err != nil {
+		return 0, err
 	}
-	return count, nil
+	return 0, fmt.Errorf("could not get count from event_sourcing_light table from DB. Error: no row returned")
 }
 
 /*
@@ -1783,6 +1792,9 @@ func (h *DBHandler) DBReadLastFailedEslEvents(ctx context.Context, tx *sql.Tx, p
 		}
 		failedEsls = append(failedEsls, row)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	return failedEsls, nil
 }
 
@@ -1825,6 +1837,9 @@ func (h *DBHandler) DBReadEslFailedEventFromEslVersion(ctx context.Context, tx *
 			return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 		}
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 	return row, nil
 }
 
@@ -1866,6 +1881,9 @@ func (h *DBHandler) DBReadLastEslEvents(ctx context.Context, tx *sql.Tx, limit i
 			return nil, fmt.Errorf("could not read failed events from DB. Error: %w", err)
 		}
 		failedEsls = append(failedEsls, row)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	return failedEsls, nil
 }
@@ -1937,6 +1955,9 @@ func (h *DBHandler) DBReadTransactionTimestamp(ctx context.Context, tx *sql.Tx) 
 		}
 
 		now = now.UTC()
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	return &now, nil
 }
@@ -2044,6 +2065,9 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 		*timestamp = timestamp.UTC()
 	} else {
 		timestamp = nil
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	return timestamp, nil
 }

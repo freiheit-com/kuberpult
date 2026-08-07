@@ -313,10 +313,9 @@ func (h *DBHandler) DBSelectAllAppLocks(ctx context.Context, tx *sql.Tx, environ
 			results = make([]string, 0)
 		}
 		results = append(results, lockId)
-		err = closeRows(rows)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	return results, nil
 }
@@ -336,7 +335,13 @@ func (h *DBHandler) DBHasAnyActiveAppLock(ctx context.Context, tx *sql.Tx) (bool
 		return false, fmt.Errorf("error querying for any app lock")
 	}
 	defer closeRowsAndLog(rows, ctx, "DBHasAnyActiceAppLock")
-	return rows.Next(), nil
+	if rows.Next() {
+		return true, nil
+	}
+	if err = rows.Err(); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func (h *DBHandler) DBSelectAllAppLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) (_ []ApplicationLock, err error) {
@@ -442,6 +447,9 @@ func (h *DBHandler) DBSelectAppLockHistory(ctx context.Context, tx *sql.Tx, envi
 
 		row.DeletionMetadata = deletionMetadataResultJson
 		appLocks = append(appLocks, row)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 	return appLocks, nil
 }

@@ -118,5 +118,8 @@ func (h *DBHandler) DBReadArgoEvent(ctx context.Context, tx *sql.Tx, appName typ
 	} else {
 		toReturn = nil
 	}
+	if err = row.Err(); err != nil {
+		return nil, err
+	}
 	return toReturn, nil
 }

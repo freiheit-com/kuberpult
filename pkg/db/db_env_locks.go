@@ -151,7 +151,13 @@ func (h *DBHandler) DBHasAnyActiveEnvLock(ctx context.Context, tx *sql.Tx) (bool
 			logging.Error(ctx, "environment locks: row could not be closed.", zap.Error(err))
 		}
 	}(rows)
-	return rows.Next(), nil
+	if rows.Next() {
+		return true, nil
+	}
+	if err = rows.Err(); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func (h *DBHandler) DBSelectEnvLocksForEnv(ctx context.Context, tx *sql.Tx, environment types.EnvName) (_ []EnvironmentLock, err error) {

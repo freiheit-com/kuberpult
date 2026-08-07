@@ -76,6 +76,14 @@ func getBatchActions() []*api.BatchAction {
 			Message:     "please",
 		},
 	}
+	opCreateAppLock2 := &api.BatchAction_CreateEnvironmentApplicationLock{
+		CreateEnvironmentApplicationLock: &api.CreateEnvironmentApplicationLockRequest{
+			Environment: "production",
+			Application: "test",
+			LockId:      "applock2",
+			Message:     "please2",
+		},
+	}
 	opDeleteEnvLock := &api.BatchAction_DeleteEnvironmentLock{ // this deletes the existing lock in the transformers
 		DeleteEnvironmentLock: &api.DeleteEnvironmentLockRequest{
 			Environment: "production",
@@ -111,6 +119,7 @@ func getBatchActions() []*api.BatchAction {
 		{Action: opDeploy},
 		{Action: opCreateEnvLock},
 		{Action: opCreateAppLock},
+		{Action: opCreateAppLock2},
 		{Action: opCreateTeamLock},
 	}
 	return ops
@@ -321,6 +330,8 @@ func TestBatchServiceWorks(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
+					fmt.Println("~~~~> appLocks: ", appLocks)
+
 					lock, exists := appLocks["applock"]
 					if !exists {
 						t.Error("lock was not created")

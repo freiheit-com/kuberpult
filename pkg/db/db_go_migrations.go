@@ -80,7 +80,13 @@ func (h *DBHandler) DBHasGoMigrationCutoff(ctx context.Context, tx *sql.Tx, migr
 			logging.Error(ctx, "rows could not be closed.", zap.Error(err))
 		}
 	}(rows)
-	return rows.Next(), nil
+	if rows.Next() {
+		return true, nil
+	}
+	if err = rows.Err(); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 type DBMigration struct {
