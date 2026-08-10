@@ -439,8 +439,8 @@ datadogProfiling:
 					Value: "true",
 				},
 				{
-					Name: "KUBERPULT_DATADOG_API_KEY_LOCATION",
-					Value: "/etc/datadog/api-key",
+					Name:  "KUBERPULT_DATADOG_API_KEY_LOCATION",
+					Value: "/etc/datadog/api_key",
 				},
 			},
 			ExpectedMissing: []core.EnvVar{},

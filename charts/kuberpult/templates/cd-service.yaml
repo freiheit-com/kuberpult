@@ -219,7 +219,7 @@ spec:
           value: "{{ .Values.datadogProfiling.enabled }}"
 {{- if .Values.datadogProfiling.enabled }}
         - name: KUBERPULT_DATADOG_API_KEY_LOCATION
-          value: "/etc/datadog/api-key"
+          value: "/etc/datadog/api_key"
 {{- end }}
         - name: KUBERPULT_MAX_NUMBER_OF_THREADS
           value: "{{ .Values.cd.maxNumberOfThreads }}"
