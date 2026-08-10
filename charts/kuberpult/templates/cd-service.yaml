@@ -178,11 +178,6 @@ spec:
           value: "{{ .Values.datadogTracing.enabled }}"
 {{- end }}
 {{- if .Values.datadogTracing.enabled }}
-        - name: DD_API_KEY_LOCATION
-          value: "/etc/datadog/api-key"
-{{- end }}
-
-{{- if .Values.datadogTracing.enabled }}
         - name: DD_TRACE_DEBUG
           value: "{{ .Values.datadogTracing.debugging }}"
 {{- end }}
@@ -222,6 +217,10 @@ spec:
           value: "{{ .Values.git.enableWritingCommitData }}"
         - name: KUBERPULT_ENABLE_PROFILING
           value: "{{ .Values.datadogProfiling.enabled }}"
+{{- if .Values.datadogProfiling.enabled }}
+        - name: KUBERPULT_DATADOG_API_KEY_LOCATION
+          value: "/etc/datadog/api-key"
+{{- end }}
         - name: KUBERPULT_MAX_NUMBER_OF_THREADS
           value: "{{ .Values.cd.maxNumberOfThreads }}"
 {{- if .Values.db }}
