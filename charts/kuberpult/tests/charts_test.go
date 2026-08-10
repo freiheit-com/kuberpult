@@ -417,6 +417,35 @@ datadogTracing:
 			},
 		},
 		{
+			Name: "DD Profiling enabled",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+datadogTracing:
+  enabled: false
+datadogProfiling:
+  enabled: true
+  existingSecret: "datadog-apikey"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_ENABLE_PROFILING",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_ENABLE_PROFILING",
+					Value: "true",
+				},
+				{
+					Name:  "KUBERPULT_DATADOG_API_KEY_LOCATION",
+					Value: "/etc/datadog/api_key",
+				},
+			},
+			ExpectedMissing: []core.EnvVar{},
+		},
+		{
 			Name: "Two variables involved web hook disabled",
 			Values: `
 git:

@@ -21,7 +21,11 @@ services:
     depends_on:
       datadog-agent:
         condition: service_healthy
+    volumes:
+      - ./datadog-api-key.txt:/etc/datadog/api-key
     environment:
+      - KUBERPULT_DATADOG_API_KEY_LOCATION=/etc/datadog/api-key
+      - KUBERPULT_ENABLE_PROFILING=true
       - KUBERPULT_ENABLE_METRICS=true
       - KUBERPULT_ENABLE_TRACING=true
       - DD_AGENT_HOST=datadog-agent
