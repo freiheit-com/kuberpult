@@ -67,10 +67,16 @@ Run `make kuberpult-freshdb` or `make kuberpult`, it will set up the manifest re
 
 You can then run `infrastructure/scripts/create-testdata/manifest-setup.sh` to create environments and add your first app.
 
-- To enable tracing with Datadog for the services, first create `docker.env` for storing Data API Key under the Kuberpult's root directory:
+- To enable tracing and profiling with Datadog for the services, first create `docker.env` and for storing Datadog API Key under the Kuberpult's root directory:
 ```
 DD_API_KEY=<datadog-api-key>
 ```
+
+Note: Datadog profiling requires the creation of an additional file `datadog-api-key.txt`:
+```
+<datadog-api-key>
+```
+
 - then run below command:
 ```
 DD_ENV=<datadog-environment> make kuberpult-datadog
