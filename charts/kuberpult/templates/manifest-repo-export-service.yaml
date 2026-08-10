@@ -300,7 +300,7 @@ spec:
           sizeLimit: {{ .Values.git.emptyDirSize }}
       - name: ssh
         secret:
-          secretName: kuberpult-ssh
+          secretName: {{ .Values.ssh.existingSecret | default "kuberpult-ssh" }}
 {{- if .Values.datadogProfiling.enabled }}
       - name: datadog
         secret:
