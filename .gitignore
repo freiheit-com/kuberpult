@@ -37,7 +37,7 @@ CHANGELOG.tmp.md
 vendor/
 docker.env
 .golangci_lint.log
-./datadog-api-key.txt
+datadog-api-key.txt
 
 # local setup
 .direnv
