@@ -535,7 +535,11 @@ datadogTracing:
 datadogProfiling:
   # Note that the profiling environment is taken from the field `datadogTracing.environment`
   enabled: false
-  # In order to use the datadog profile, you must provide a datadog api key:
+  # In order to use the datadog profile, you must provide the secret name that contains datadog api key:
+  existingSecret: ""
+  # DEPRECATED
+  # Providing apiKey directly here is no longer recommended due to security issues.
+  # This configuration option will be removed soon.
   apiKey: ""
 
 dogstatsdMetrics:

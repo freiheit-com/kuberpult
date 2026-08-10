@@ -308,7 +308,7 @@ spec:
 {{- if .Values.datadogProfiling.enabled }}
       - name: datadog
         secret:
-          secretName: kuberpult-datadog
+          secretName: {{ .Values.datadogProfiling.existingSecret | default "kuberpult-datadog" }}
 {{- end }}
 {{- if .Values.dogstatsdMetrics.enabled }}
       - name: dsdsocket

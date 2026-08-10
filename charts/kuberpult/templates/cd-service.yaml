@@ -297,7 +297,7 @@ spec:
 {{- if .Values.datadogProfiling.enabled }}
       - name: datadog
         secret:
-          secretName: kuberpult-datadog
+          secretName: {{ .Values.datadogProfiling.existingSecret | default "kuberpult-datadog" }}
 {{- end }}
 {{- if .Values.pgp.keyRing }}
       - name: keyring
@@ -346,13 +346,13 @@ data:
   identity: {{ .Values.ssh.identity | b64enc | quote }}
   ssh_known_hosts: {{ .Values.ssh.known_hosts | b64enc | quote }}
 ---
-{{- if .Values.datadogProfiling.enabled }}
+{{- if and .Values.datadogProfiling.enabled (not .Values.datadogProfiling.existingSecret) }}
 apiVersion: v1
 kind: Secret
 metadata:
   name: kuberpult-datadog
-data:
-  api-key: {{ .Values.datadogProfiling.apiKey | b64enc | quote }}
+  data:
+    api-key: {{ .Values.datadogProfiling.apiKey | b64enc | quote }}
 ---
 {{- end }}
 
