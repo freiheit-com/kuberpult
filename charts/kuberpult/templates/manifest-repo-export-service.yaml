@@ -25,8 +25,8 @@
 {{- if (and (.Values.datadogProfiling.secretName) (.Values.datadogProfiling.apiKey)) }}
 {{ fail "Values.datadogProfiling.apiKey cannot be set when Values.datadogProfiling.secretName is set."}}
 {{ end -}}
-{{- if (and (.Values.ssh.secretName) (or .Values.ssh.identity .Values.ssh.known_hosts)) }}
-{{ fail "Values.ssh.identity and Values.ssh.known_hosts cannot be set when Values.ssh.secretName is already set."}}
+{{- if (and (.Values.ssh.secretName) (or .Values.ssh.identity .Values.ssh.ssh_known_hosts)) }}
+{{ fail "Values.ssh.identity and Values.ssh.ssh_known_hosts cannot be set when Values.ssh.secretName is already set."}}
 {{ end -}}
 # the export service is only enabled, if the DB is enabled and the `enabled` flag is true
 {{- if (.Values.manifestRepoExport.enabled)}}
