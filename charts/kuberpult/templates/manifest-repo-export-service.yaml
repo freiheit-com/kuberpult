@@ -148,7 +148,7 @@ spec:
         - name: KUBERPULT_GIT_SSH_KEY
           value: "/etc/ssh/identity"
         - name: KUBERPULT_GIT_SSH_KNOWN_HOSTS
-          value: "/etc/ssh/ssh_known_hosts"
+          value: "/etc/ssh/known_hosts"
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
           value: {{ .Values.argocd.generateFiles | quote }}
         - name: KUBERPULT_NETWORK_TIMEOUT_SECONDS
@@ -300,11 +300,11 @@ spec:
           sizeLimit: {{ .Values.git.emptyDirSize }}
       - name: ssh
         secret:
-          secretName: {{ .Values.ssh.existingSecret | default "kuberpult-ssh" }}
+          secretName: {{ .Values.ssh.secretName | default "kuberpult-ssh" }}
 {{- if .Values.datadogProfiling.enabled }}
       - name: datadog
         secret:
-          secretName: {{ .Values.datadogProfiling.existingSecret | default "kuberpult-datadog" }}
+          secretName: {{ .Values.datadogProfiling.secretName | default "kuberpult-datadog" }}
 {{- end }}
 {{- if .Values.dogstatsdMetrics.enabled }}
       - name: dsdsocket

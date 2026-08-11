@@ -90,7 +90,7 @@ func TestCertificateStore(t *testing.T) {
 
 func writeFile(t *testing.T, content string) string {
 	d := t.TempDir()
-	p := filepath.Join(d, "ssh_known_hosts")
+	p := filepath.Join(d, "known_hosts")
 	file, err := os.OpenFile(p, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		t.Fatal(err)

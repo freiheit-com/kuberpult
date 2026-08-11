@@ -427,7 +427,7 @@ datadogTracing:
   enabled: false
 datadogProfiling:
   enabled: true
-  existingSecret: "datadog-apikey"
+  secretName: "datadog-apikey"
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{

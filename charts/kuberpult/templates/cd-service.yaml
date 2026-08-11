@@ -292,11 +292,11 @@ spec:
       volumes:
       - name: ssh
         secret:
-          secretName: {{ .Values.ssh.existingSecret | default "kuberpult-ssh" }}
+          secretName: {{ .Values.ssh.secretName | default "kuberpult-ssh" }}
 {{- if .Values.datadogProfiling.enabled }}
       - name: datadog
         secret:
-          secretName: {{ .Values.datadogProfiling.existingSecret | default "kuberpult-datadog" }}
+          secretName: {{ .Values.datadogProfiling.secretName | default "kuberpult-datadog" }}
 {{- end }}
 {{- if .Values.pgp.keyRing }}
       - name: keyring
@@ -337,17 +337,17 @@ spec:
     app: kuberpult-cd-service
   type: NodePort
 ---
-{{- if not .Values.ssh.existingSecret }}
+{{- if not .Values.ssh.secretName }}
 apiVersion: v1
 kind: Secret
 metadata:
   name: kuberpult-ssh
 data:
   identity: {{ .Values.ssh.identity | b64enc | quote }}
-  ssh_known_hosts: {{ .Values.ssh.known_hosts | b64enc | quote }}
+  known_hosts: {{ .Values.ssh.known_hosts | b64enc | quote }}
 ---
 {{- end }}
-{{- if and .Values.datadogProfiling.enabled (not .Values.datadogProfiling.existingSecret) }}
+{{- if and .Values.datadogProfiling.enabled (not .Values.datadogProfiling.secretName) }}
 apiVersion: v1
 kind: Secret
 metadata:
