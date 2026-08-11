@@ -488,6 +488,11 @@ ingress:
     gateway: null
 ssh:
   # This section is necessary to checkout the manifest repo from git. Only ssh is supported (no https).
+  # The secret name containing the ssh identity (aka private key) and known_hosts must be provided 
+  secretName: null
+  # DEPRECATED
+  # Providing ssh identity and known_hosts directly here is no longer recommended due to security issues.
+  # These configuration options will be removed soon.
   identity: "some SSH key"  # This value must be the complete OpenSSH private key file content (i.e. starts with "-----BEGIN OPENSSH PRIVATE KEY-----")
   known_hosts: |
     github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
@@ -536,7 +541,7 @@ datadogProfiling:
   # Note that the profiling environment is taken from the field `datadogTracing.environment`
   enabled: false
   # In order to use the datadog profile, you must provide the secret name that contains datadog api key:
-  existingSecret: ""
+  secretName: null
   # DEPRECATED
   # Providing apiKey directly here is no longer recommended due to security issues.
   # This configuration option will be removed soon.

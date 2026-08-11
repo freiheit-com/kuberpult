@@ -22,6 +22,12 @@
 {{ fail "Cannot point to brackets when not rendering brackets: Values.manifestRepoExport.rendering.experimentalRootAppsPointToBrackets=true requires experimentalRenderBrackets to be true."}}
 {{ end -}}
 
+{{- if (and (.Values.datadogProfiling.secretName) (.Values.datadogProfiling.apiKey)) }}
+{{ fail "Values.datadogProfiling.apiKey cannot be set when Values.datadogProfiling.secretName is set."}}
+{{ end -}}
+{{- if (and (.Values.ssh.secretName) (or .Values.ssh.identity .Values.ssh.known_hosts)) }}
+{{ fail "Values.ssh.identity and Values.ssh.known_hosts cannot be set when Values.ssh.secretName is already set."}}
+{{ end -}}
 # the export service is only enabled, if the DB is enabled and the `enabled` flag is true
 {{- if (.Values.manifestRepoExport.enabled)}}
 
@@ -300,11 +306,11 @@ spec:
           sizeLimit: {{ .Values.git.emptyDirSize }}
       - name: ssh
         secret:
-          secretName: kuberpult-ssh
+          secretName: {{ .Values.ssh.secretName | default "kuberpult-ssh" }}
 {{- if .Values.datadogProfiling.enabled }}
       - name: datadog
         secret:
-          secretName: {{ .Values.datadogProfiling.existingSecret | default "kuberpult-datadog" }}
+          secretName: {{ .Values.datadogProfiling.secretName | default "kuberpult-datadog" }}
 {{- end }}
 {{- if .Values.dogstatsdMetrics.enabled }}
       - name: dsdsocket
