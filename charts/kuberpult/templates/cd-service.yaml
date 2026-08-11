@@ -18,6 +18,13 @@
 {{- if .Values.cd.tag }}
 {{ fail "Values.cd.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
+
+{{- if (and (.Values.datadogProfiling.secretName) (.Values.datadogProfiling.apiKey)) }}
+{{ fail "Values.datadogProfiling.apiKey cannot be set when Values.datadogProfiling.secretName is set."}}
+{{ end -}}
+{{- if (and (.Values.ssh.secretName) (or .Values.ssh.identity .Values.ssh.known_hosts)) }}
+{{ fail "Values.ssh.identity and Values.ssh.known_hosts cannot be set when Values.ssh.secretName is already set."}}
+{{ end -}}
 ---
 apiVersion: apps/v1
 kind: Deployment

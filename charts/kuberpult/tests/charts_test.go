@@ -2472,6 +2472,51 @@ manageArgoApplications:
 				Messages: []string{"bracket apps have no team and cannot be managed under a team-specific filter"},
 			},
 		},
+		{
+			Name: "secretName and apiKey cannot set at the same time for datadogProfiling",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+datadogProfiling:
+  secretName: "api-key-k8s-secret"
+  apiKey: "api-key"
+`,
+			ExpectedError: ContainsErrMatcher{
+				Messages: []string{"Values.datadogProfiling.apiKey cannot be set when Values.datadogProfiling.secretName is set"},
+			},
+		},
+		{
+			Name: "secretName and identity cannot set at the same time for ssh",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+ssh:
+  secretName: "ssh-secret"
+  identity: "private key"
+`,
+			ExpectedError: ContainsErrMatcher{
+				Messages: []string{"Values.ssh.identity and Values.ssh.known_hosts cannot be set when Values.ssh.secretName is already set"},
+			},
+		},
+		{
+			Name: "secretName and known_hosts cannot set at the same time for ssh",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+ssh:
+  secretName: "ssh-secret"
+  known_hosts: "github.com"
+`,
+			ExpectedError: ContainsErrMatcher{
+				Messages: []string{"Values.ssh.identity and Values.ssh.known_hosts cannot be set when Values.ssh.secretName is already set"},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
