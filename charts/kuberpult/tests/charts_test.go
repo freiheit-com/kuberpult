@@ -2499,7 +2499,7 @@ ssh:
   identity: "private key"
 `,
 			ExpectedError: ContainsErrMatcher{
-				Messages: []string{"Values.ssh.identity and Values.ssh.ssh_known_hosts cannot be set when Values.ssh.secretName is already set"},
+				Messages: []string{"Values.ssh.identity and Values.ssh.known_hosts cannot be set when Values.ssh.secretName is already set"},
 			},
 		},
 		{
@@ -2514,7 +2514,7 @@ ssh:
   known_hosts: "github.com"
 `,
 			ExpectedError: ContainsErrMatcher{
-				Messages: []string{"Values.ssh.identity and Values.ssh.ssh_known_hosts cannot be set when Values.ssh.secretName is already set"},
+				Messages: []string{"Values.ssh.identity and Values.ssh.known_hosts cannot be set when Values.ssh.secretName is already set"},
 			},
 		},
 	}

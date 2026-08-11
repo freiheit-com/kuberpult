@@ -72,7 +72,7 @@ services:
       - KUBERPULT_GIT_URL=/kp/kuberpult/repository_remote
       - KUBERPULT_GIT_BRANCH=master
       - KUBERPULT_GIT_SSH_KEY=/etc/ssh/identity
-      - KUBERPULT_GIT_SSH_KNOWN_HOSTS=/etc/ssh/known_hosts
+      - KUBERPULT_GIT_SSH_KNOWN_HOSTS=/etc/ssh/ssh_known_hosts
       - KUBERPULT_ARGO_CD_GENERATE_FILES=true
       - KUBERPULT_RELEASE_VERSIONS_LIMIT=20
       - KUBERPULT_NETWORK_TIMEOUT_SECONDS=120

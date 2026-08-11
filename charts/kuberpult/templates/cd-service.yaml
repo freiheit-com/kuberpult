@@ -22,8 +22,8 @@
 {{- if (and (.Values.datadogProfiling.secretName) (.Values.datadogProfiling.apiKey)) }}
 {{ fail "Values.datadogProfiling.apiKey cannot be set when Values.datadogProfiling.secretName is set."}}
 {{ end -}}
-{{- if (and (.Values.ssh.secretName) (or .Values.ssh.identity .Values.ssh.ssh_known_hosts)) }}
-{{ fail "Values.ssh.identity and Values.ssh.ssh_known_hosts cannot be set when Values.ssh.secretName is already set."}}
+{{- if (and (.Values.ssh.secretName) (or .Values.ssh.identity .Values.ssh.known_hosts)) }}
+{{ fail "Values.ssh.identity and Values.ssh.known_hosts cannot be set when Values.ssh.secretName is already set."}}
 {{ end -}}
 ---
 apiVersion: apps/v1
@@ -351,7 +351,7 @@ metadata:
   name: kuberpult-ssh
 data:
   identity: {{ .Values.ssh.identity | b64enc | quote }}
-  known_hosts: {{ .Values.ssh.ssh_known_hosts | b64enc | quote }}
+  ssh_known_hosts: {{ .Values.ssh.known_hosts | b64enc | quote }}
 ---
 {{- end }}
 {{- if and .Values.datadogProfiling.enabled (not .Values.datadogProfiling.secretName) }}
