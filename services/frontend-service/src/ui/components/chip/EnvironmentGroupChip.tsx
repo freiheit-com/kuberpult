@@ -116,7 +116,7 @@ export const EnvironmentChip = (props: EnvironmentChipProps): JSX.Element => {
     );
     const chip = smallEnvChip ? (
         name[0].toUpperCase()
-    ) : argocdConfigs !== undefined ? (
+    ) : argocdConfigs !== undefined && argocdConfigs.configs.length > 0 ? (
         <ArgoAppMultiEnvLink
             app={app}
             env={name}
