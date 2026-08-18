@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -74,6 +76,8 @@ Callers reconstruct the full team snapshot by reading the latest row, or a histo
 by reading the latest row created_at <= a given timestamp.
 */
 const appsTeamsHistoryTable = "apps_teams_history"
+
+type AppTeamMap = map[string][]types.AppName
 
 // SELECTS
 
@@ -207,37 +211,22 @@ func (h *DBHandler) DBInsertAppsTeamsHistory(ctx context.Context, tx *sql.Tx, ap
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, tx)
+	latestAppsWithTeams, toInsertMap, err := h.DBSelectLatestAppsTeamsHistory(ctx, tx)
 	if err != nil {
 		return err
 	}
 
-	var toInsert []AppWithTeam
-	var latestApp *AppWithTeam
+	if stateChange == AppStateChangeDelete {
+		toInsertMap = RemoveAppFromTeams(toInsertMap, appName)
+	} else {
+		toInsertMap = UpsertAppTeam(toInsertMap, teamName, appName)
+	}
+
 	for _, appWithTeam := range latestAppsWithTeams {
-		if appWithTeam.AppName == appName {
-			latestApp = &appWithTeam
-			break
-		}
-	}
-
-	if stateChange == AppStateChangeCreate || stateChange == AppStateChangeMigrate || (stateChange == AppStateChangeUpdate && latestApp == nil) {
-		toInsert = append(latestAppsWithTeams, AppWithTeam{
-			AppName:  appName,
-			TeamName: teamName,
-		})
-	}
-
-	if latestApp != nil {
-		for _, appWithTeam := range latestAppsWithTeams {
-			if appWithTeam.AppName != appName {
-				toInsert = append(toInsert, appWithTeam)
-			} else if stateChange == AppStateChangeUpdate {
-				toInsert = append(toInsert, AppWithTeam{
-					AppName:  appName,
-					TeamName: teamName,
-				})
-			}
+		if appWithTeam.AppName != appName {
+			toInsertMap = UpsertAppTeam(toInsertMap, appWithTeam.TeamName, appWithTeam.AppName)
+		} else if stateChange == AppStateChangeUpdate {
+			toInsertMap = UpsertAppTeam(toInsertMap, teamName, appName)
 		}
 	}
 
@@ -249,7 +238,7 @@ func (h *DBHandler) DBInsertAppsTeamsHistory(ctx context.Context, tx *sql.Tx, ap
 		}
 	}
 
-	err = h.insertAppsTeamsHistoryRow(ctx, tx, toInsert, ts)
+	err = h.insertAppsTeamsHistoryRow(ctx, tx, toInsertMap, ts)
 	if err != nil {
 		return err
 	}
@@ -311,11 +300,24 @@ func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, 
 	return nil
 }
 
-func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appsWithTeams []AppWithTeam, ts *time.Time) (err error) {
+func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appTeamMap AppTeamMap, ts *time.Time) (err error) {
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO ` + appsTeamsHistoryTable + ` (created_at, apps_teams)
 		VALUES (?, ?);
 	`)
+
+	appsWithTeams := make([]AppWithTeam, 0)
+	for team, v := range appTeamMap {
+		for _, appName := range v {
+			appsWithTeams = append(appsWithTeams, AppWithTeam{
+				AppName:  appName,
+				TeamName: team,
+			})
+		}
+	}
+	slices.SortFunc(appsWithTeams, func(a, b AppWithTeam) int {
+		return strings.Compare(string(a.AppName), string(b.AppName))
+	})
 
 	jsonToInsert, err := json.Marshal(appsWithTeams)
 	if err != nil {
@@ -375,7 +377,7 @@ func (h *DBHandler) DBSelectAppsWithReleasesAtTimestamp(ctx context.Context, tra
 	return apps, nil
 }
 
-func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transaction *sql.Tx) (_ []AppWithTeam, err error) {
+func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transaction *sql.Tx) (_ []AppWithTeam, _ AppTeamMap, err error) {
 	query := h.AdaptQuery(`
 		SELECT apps_teams
 		FROM ` + appsTeamsHistoryTable + `
@@ -386,7 +388,7 @@ func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transact
 	return h.processAppsTeamsRow(rows, err)
 }
 
-func (h *DBHandler) DBSelectAppsTeamsHistoryAtTimestamp(ctx context.Context, transaction *sql.Tx, ts time.Time) (_ []AppWithTeam, err error) {
+func (h *DBHandler) DBSelectAppsTeamsHistoryAtTimestamp(ctx context.Context, transaction *sql.Tx, ts time.Time) (_ []AppWithTeam, _ AppTeamMap, err error) {
 	query := h.AdaptQuery(`
 		SELECT apps_teams
 		FROM ` + appsTeamsHistoryTable + `
@@ -398,26 +400,27 @@ func (h *DBHandler) DBSelectAppsTeamsHistoryAtTimestamp(ctx context.Context, tra
 	return h.processAppsTeamsRow(rows, err)
 }
 
-func (h *DBHandler) processAppsTeamsRow(rows *sql.Rows, err error) ([]AppWithTeam, error) {
+func (h *DBHandler) processAppsTeamsRow(rows *sql.Rows, err error) ([]AppWithTeam, AppTeamMap, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query apps_teams_history table. Error: %w", err)
+		return nil, nil, fmt.Errorf("could not query apps_teams_history table. Error: %w", err)
 	}
 
 	appsWithTeam := make([]AppWithTeam, 0)
 	for rows.Next() {
 		var appsTeamsJson string
 		if err := rows.Scan(&appsTeamsJson); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := json.Unmarshal([]byte(appsTeamsJson), &appsWithTeam); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return appsWithTeam, nil
+	asMap := appsTeamsToMap(appsWithTeam)
+	return appsTeamsFromMap(asMap), asMap, nil
 }
 
 // actual changes in tables
