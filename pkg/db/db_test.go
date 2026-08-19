@@ -6624,7 +6624,7 @@ func TestDBSelectLatestAppsTeamsHistory(t *testing.T) {
 					},
 				},
 				{
-					// creating an existing app again with a new team: last write wins, position kept
+					// creating an existing app again with a new team: last write wins
 					AppStateChange: AppStateChangeCreate,
 					AppWithTeam:    map[types.AppName]string{"app1": "team1-recreated"},
 					ExpectedAppTeamHistory: map[string][]types.AppName{
@@ -6699,7 +6699,7 @@ func TestDBSelectLatestAppsTeamsHistory(t *testing.T) {
 			},
 		},
 		{
-			Name: "should update and fetch apps_teams_history table correctly",
+			Name: "should ignore an unknown app in deletion",
 			Actions: []Action{
 				{
 					AppStateChange: AppStateChangeCreate,
