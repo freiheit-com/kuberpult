@@ -23,7 +23,8 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
-func RemoveAppFromTeams(appTeams AppTeamMap, appName types.AppName) AppTeamMap {
+// removeAppFromTeams removes the given app, and returns the modified map
+func removeAppFromTeams(appTeams TeamToAppsMap, appName types.AppName) TeamToAppsMap {
 	for team, apps := range appTeams {
 		idx := slices.Index(apps, appName)
 		if idx < 0 {
@@ -39,20 +40,21 @@ func RemoveAppFromTeams(appTeams AppTeamMap, appName types.AppName) AppTeamMap {
 	return appTeams
 }
 
-func UpsertAppTeam(appTeams AppTeamMap, teamName string, appName types.AppName) AppTeamMap {
+// upsertAppTeam adds the given app, if it's not already in, and returns the modified map
+func upsertAppTeam(appTeams TeamToAppsMap, teamName string, appName types.AppName) TeamToAppsMap {
 	if appTeams == nil {
-		appTeams = make(AppTeamMap)
+		appTeams = make(TeamToAppsMap)
 	}
 	if slices.Contains(appTeams[teamName], appName) {
 		return appTeams
 	}
-	appTeams = RemoveAppFromTeams(appTeams, appName)
+	appTeams = removeAppFromTeams(appTeams, appName)
 	appTeams[teamName] = append(appTeams[teamName], appName)
 	return appTeams
 }
 
 // appsTeamsFromMap is the inverse of appsTeamsToMap: one entry per app, sorted by app name.
-func appsTeamsFromMap(appTeams AppTeamMap) []AppWithTeam {
+func appsTeamsFromMap(appTeams TeamToAppsMap) []AppWithTeam {
 	result := make([]AppWithTeam, 0, len(appTeams))
 	for team, apps := range appTeams {
 		for _, appName := range apps {
@@ -65,12 +67,12 @@ func appsTeamsFromMap(appTeams AppTeamMap) []AppWithTeam {
 	return result
 }
 
-func appsTeamsToMap(appsWithTeam []AppWithTeam) AppTeamMap {
+func appsTeamsToMap(appsWithTeam []AppWithTeam) TeamToAppsMap {
 	teamByApp := make(map[types.AppName]string, len(appsWithTeam))
 	for _, v := range appsWithTeam {
 		teamByApp[v.AppName] = v.TeamName // last occurrence wins
 	}
-	result := make(AppTeamMap)
+	result := make(TeamToAppsMap)
 	for app, team := range teamByApp {
 		result[team] = append(result[team], app)
 	}

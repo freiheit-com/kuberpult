@@ -6698,6 +6698,34 @@ func TestDBSelectLatestAppsTeamsHistory(t *testing.T) {
 				},
 			},
 		},
+		{
+			Name: "should update and fetch apps_teams_history table correctly",
+			Actions: []Action{
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app1": "team1"},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+					},
+				},
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app2": "team2"},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+						"team2": {"app2"},
+					},
+				},
+				{
+					AppStateChange: AppStateChangeDelete,
+					AppWithTeam:    map[types.AppName]string{"app3": "team1"}, // unknown app
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+						"team2": {"app2"},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
