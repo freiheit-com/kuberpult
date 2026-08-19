@@ -367,7 +367,7 @@ func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transact
 	return h.processAppsTeamsRow(rows, err)
 }
 
-func (h *DBHandler) DBSelectAppsTeamsHistoryAtTimestamp(ctx context.Context, transaction *sql.Tx, ts time.Time) (_ []AppWithTeam, _ TeamToAppsMap, err error) {
+func (h *DBHandler) DBSelectAppsTeamsHistoryAtTimestamp(ctx context.Context, transaction *sql.Tx, ts time.Time) (_ []AppWithTeam, err error) {
 	query := h.AdaptQuery(`
 		SELECT apps_teams
 		FROM ` + appsTeamsHistoryTable + `
@@ -376,7 +376,8 @@ func (h *DBHandler) DBSelectAppsTeamsHistoryAtTimestamp(ctx context.Context, tra
 		LIMIT 1;
 	`)
 	rows, err := transaction.QueryContext(ctx, query, ts)
-	return h.processAppsTeamsRow(rows, err)
+	result, _, err := h.processAppsTeamsRow(rows, err)
+	return result, err
 }
 
 func (h *DBHandler) processAppsTeamsRow(rows *sql.Rows, err error) ([]AppWithTeam, TeamToAppsMap, error) {

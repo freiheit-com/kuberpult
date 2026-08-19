@@ -324,7 +324,7 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 		span.Finish(tracer.WithError(err))
 	}()
 
-	teamAppSlice, _, err := h.DBSelectAppsTeamsHistoryAtTimestamp(ctx, tx, ts)
+	teamAppSlice, err := h.DBSelectAppsTeamsHistoryAtTimestamp(ctx, tx, ts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not select apps teams history: %w", err)
 	}
