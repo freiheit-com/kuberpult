@@ -6570,12 +6570,13 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 				for envName, expectedApps := range tc.ExpectedEnvironmentApplications {
 					apps, err := dbHandler.DBSelectEnvironmentApplications(ctx, transaction, envName)
 					if err != nil {
-						return fmt.Errorf("Couldn't retrieve environment %s applications, error: %w", envName, err)
+						t.Fatalf("couldn't retrieve environment %s applications, error: %v", envName, err)
 					}
 					if diff := cmp.Diff(expectedApps, apps); diff != "" {
-						return fmt.Errorf("environment applications mismatch (-want, +got):\n%s", diff)
+						t.Fatalf("environment applications mismatch (-want, +got):\n%s", diff)
 					}
 				}
+
 				return nil
 			})
 			if err != nil {
@@ -6589,105 +6590,138 @@ func TestDBSelectLatestAppsTeamsHistory(t *testing.T) {
 	type Action struct {
 		AppStateChange         AppStateChange
 		AppWithTeam            map[types.AppName]string
-		ExpectedAppTeamHistory []AppWithTeam
+		ExpectedAppTeamHistory map[string][]types.AppName
 	}
 	tcs := []struct {
 		Name    string
 		Actions []Action
 	}{
 		{
+			Name: "re-creating an existing app must not duplicate entries",
+			Actions: []Action{
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app1": "team1"},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+					},
+				},
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app2": "team2"},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+						"team2": {"app2"},
+					},
+				},
+				{
+					// app1 already exists: the list must stay at 2 entries, not double to 4
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app1": "team1"},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+						"team2": {"app2"},
+					},
+				},
+				{
+					// creating an existing app again with a new team: last write wins
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app1": "team1-recreated"},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1-recreated": {"app1"},
+						"team2":           {"app2"},
+					},
+				},
+				{
+					// Migrate takes the same code path as Create
+					AppStateChange: AppStateChangeMigrate,
+					AppWithTeam:    map[types.AppName]string{"app2": "team2-migrated"},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1-recreated": {"app1"},
+						"team2-migrated":  {"app2"},
+					},
+				},
+			},
+		},
+		{
 			Name: "should update and fetch apps_teams_history table correctly",
 			Actions: []Action{
 				{
 					AppStateChange: AppStateChangeCreate,
 					AppWithTeam:    map[types.AppName]string{"app1": "team1"},
-					ExpectedAppTeamHistory: []AppWithTeam{
-						{
-							AppName:  "app1",
-							TeamName: "team1",
-						},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
 					},
 				},
 				{
 					AppStateChange: AppStateChangeCreate,
 					AppWithTeam:    map[types.AppName]string{"app2": "team2"},
-					ExpectedAppTeamHistory: []AppWithTeam{
-						{
-							AppName:  "app1",
-							TeamName: "team1",
-						},
-						{
-							AppName:  "app2",
-							TeamName: "team2",
-						},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+						"team2": {"app2"},
 					},
 				},
 				{
 					AppStateChange: AppStateChangeCreate,
 					AppWithTeam:    map[types.AppName]string{"app3": "team3"},
-					ExpectedAppTeamHistory: []AppWithTeam{
-						{
-							AppName:  "app1",
-							TeamName: "team1",
-						},
-						{
-							AppName:  "app2",
-							TeamName: "team2",
-						},
-						{
-							AppName:  "app3",
-							TeamName: "team3",
-						},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+						"team2": {"app2"},
+						"team3": {"app3"},
 					},
 				},
 				{
 					AppStateChange: AppStateChangeUpdate,
 					AppWithTeam:    map[types.AppName]string{"app1": "team1-updated"},
-					ExpectedAppTeamHistory: []AppWithTeam{
-						{
-							AppName:  "app1",
-							TeamName: "team1-updated",
-						},
-						{
-							AppName:  "app2",
-							TeamName: "team2",
-						},
-						{
-							AppName:  "app3",
-							TeamName: "team3",
-						},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1-updated": {"app1"},
+						"team2":         {"app2"},
+						"team3":         {"app3"},
 					},
 				},
 				{
 					AppStateChange: AppStateChangeDelete,
 					AppWithTeam:    map[types.AppName]string{"app2": "team2"},
-					ExpectedAppTeamHistory: []AppWithTeam{
-						{
-							AppName:  "app1",
-							TeamName: "team1-updated",
-						},
-						{
-							AppName:  "app3",
-							TeamName: "team3",
-						},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1-updated": {"app1"},
+						"team3":         {"app3"},
 					},
 				},
 				{
 					AppStateChange: AppStateChangeCreate,
 					AppWithTeam:    map[types.AppName]string{"app4": "team4"},
-					ExpectedAppTeamHistory: []AppWithTeam{
-						{
-							AppName:  "app1",
-							TeamName: "team1-updated",
-						},
-						{
-							AppName:  "app3",
-							TeamName: "team3",
-						},
-						{
-							AppName:  "app4",
-							TeamName: "team4",
-						},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1-updated": {"app1"},
+						"team3":         {"app3"},
+						"team4":         {"app4"},
+					},
+				},
+			},
+		},
+		{
+			Name: "should ignore an unknown app in deletion",
+			Actions: []Action{
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app1": "team1"},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+					},
+				},
+				{
+					AppStateChange: AppStateChangeCreate,
+					AppWithTeam:    map[types.AppName]string{"app2": "team2"},
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+						"team2": {"app2"},
+					},
+				},
+				{
+					AppStateChange: AppStateChangeDelete,
+					AppWithTeam:    map[types.AppName]string{"app3": "team1"}, // unknown app
+					ExpectedAppTeamHistory: map[string][]types.AppName{
+						"team1": {"app1"},
+						"team2": {"app2"},
 					},
 				},
 			},
@@ -6701,7 +6735,7 @@ func TestDBSelectLatestAppsTeamsHistory(t *testing.T) {
 			dbHandler := setupDB(t)
 
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				for _, action := range tc.Actions {
+				for index, action := range tc.Actions {
 					for appName, teamName := range action.AppWithTeam {
 						err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appName, action.AppStateChange, DBAppMetaData{
 							Team: teamName,
@@ -6711,13 +6745,13 @@ func TestDBSelectLatestAppsTeamsHistory(t *testing.T) {
 						}
 					}
 
-					appsWithTeam, err := dbHandler.DBSelectLatestAppsTeamsHistory(ctx, transaction)
+					_, teamAppMap, err := dbHandler.DBSelectLatestAppsTeamsHistory(ctx, transaction)
 					if err != nil {
-						return fmt.Errorf("error while selecting apps teams history: %w", err)
+						return fmt.Errorf("error at action [%d] while selecting apps teams history: %w", index, err)
 					}
 
-					if diff := cmp.Diff(action.ExpectedAppTeamHistory, appsWithTeam); diff != "" {
-						return fmt.Errorf("apps teams history mismatch (-want, +got):\n%s", diff)
+					if diff := cmp.Diff(action.ExpectedAppTeamHistory, teamAppMap); diff != "" {
+						return fmt.Errorf("apps teams history mismatch at action [%d] (-want, +got):\n%s", index, diff)
 					}
 				}
 				return nil

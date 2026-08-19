@@ -75,6 +75,8 @@ by reading the latest row created_at <= a given timestamp.
 */
 const appsTeamsHistoryTable = "apps_teams_history"
 
+type TeamToAppsMap = map[string][]types.AppName
+
 // SELECTS
 
 func (h *DBHandler) DBSelectApp(ctx context.Context, tx *sql.Tx, appName types.AppName) (*DBAppWithMetaData, error) {
@@ -207,38 +209,15 @@ func (h *DBHandler) DBInsertAppsTeamsHistory(ctx context.Context, tx *sql.Tx, ap
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	latestAppsWithTeams, err := h.DBSelectLatestAppsTeamsHistory(ctx, tx)
+	_, toInsertMap, err := h.DBSelectLatestAppsTeamsHistory(ctx, tx)
 	if err != nil {
 		return err
 	}
 
-	var toInsert []AppWithTeam
-	var latestApp *AppWithTeam
-	for _, appWithTeam := range latestAppsWithTeams {
-		if appWithTeam.AppName == appName {
-			latestApp = &appWithTeam
-			break
-		}
-	}
-
-	if stateChange == AppStateChangeCreate || stateChange == AppStateChangeMigrate || (stateChange == AppStateChangeUpdate && latestApp == nil) {
-		toInsert = append(latestAppsWithTeams, AppWithTeam{
-			AppName:  appName,
-			TeamName: teamName,
-		})
-	}
-
-	if latestApp != nil {
-		for _, appWithTeam := range latestAppsWithTeams {
-			if appWithTeam.AppName != appName {
-				toInsert = append(toInsert, appWithTeam)
-			} else if stateChange == AppStateChangeUpdate {
-				toInsert = append(toInsert, AppWithTeam{
-					AppName:  appName,
-					TeamName: teamName,
-				})
-			}
-		}
+	if stateChange == AppStateChangeDelete {
+		toInsertMap = removeAppFromTeams(toInsertMap, appName)
+	} else {
+		toInsertMap = upsertAppTeam(toInsertMap, teamName, appName)
 	}
 
 	if ts == nil {
@@ -249,7 +228,7 @@ func (h *DBHandler) DBInsertAppsTeamsHistory(ctx context.Context, tx *sql.Tx, ap
 		}
 	}
 
-	err = h.insertAppsTeamsHistoryRow(ctx, tx, toInsert, ts)
+	err = h.insertAppsTeamsHistoryRow(ctx, tx, toInsertMap, ts)
 	if err != nil {
 		return err
 	}
@@ -311,11 +290,13 @@ func (h *DBHandler) DBMigrateAppsHistoryToAppsTeamsHistory(ctx context.Context, 
 	return nil
 }
 
-func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appsWithTeams []AppWithTeam, ts *time.Time) (err error) {
+func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *sql.Tx, appTeamMap TeamToAppsMap, ts *time.Time) (err error) {
 	insertQuery := h.AdaptQuery(`
 		INSERT INTO ` + appsTeamsHistoryTable + ` (created_at, apps_teams)
 		VALUES (?, ?);
 	`)
+
+	appsWithTeams := appsTeamsFromMap(appTeamMap)
 
 	jsonToInsert, err := json.Marshal(appsWithTeams)
 	if err != nil {
@@ -375,7 +356,7 @@ func (h *DBHandler) DBSelectAppsWithReleasesAtTimestamp(ctx context.Context, tra
 	return apps, nil
 }
 
-func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transaction *sql.Tx) (_ []AppWithTeam, err error) {
+func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transaction *sql.Tx) (_ []AppWithTeam, _ TeamToAppsMap, err error) {
 	query := h.AdaptQuery(`
 		SELECT apps_teams
 		FROM ` + appsTeamsHistoryTable + `
@@ -395,29 +376,31 @@ func (h *DBHandler) DBSelectAppsTeamsHistoryAtTimestamp(ctx context.Context, tra
 		LIMIT 1;
 	`)
 	rows, err := transaction.QueryContext(ctx, query, ts)
-	return h.processAppsTeamsRow(rows, err)
+	result, _, err := h.processAppsTeamsRow(rows, err)
+	return result, err
 }
 
-func (h *DBHandler) processAppsTeamsRow(rows *sql.Rows, err error) ([]AppWithTeam, error) {
+func (h *DBHandler) processAppsTeamsRow(rows *sql.Rows, err error) ([]AppWithTeam, TeamToAppsMap, error) {
 	if err != nil {
-		return nil, fmt.Errorf("could not query apps_teams_history table. Error: %w", err)
+		return nil, nil, fmt.Errorf("could not query apps_teams_history table. Error: %w", err)
 	}
 
 	appsWithTeam := make([]AppWithTeam, 0)
 	for rows.Next() {
 		var appsTeamsJson string
 		if err := rows.Scan(&appsTeamsJson); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := json.Unmarshal([]byte(appsTeamsJson), &appsWithTeam); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	err = closeRows(rows)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return appsWithTeam, nil
+	asMap := appsTeamsToMap(appsWithTeam)
+	return appsTeamsFromMap(asMap), asMap, nil
 }
 
 // actual changes in tables

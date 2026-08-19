@@ -324,7 +324,7 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 		span.Finish(tracer.WithError(err))
 	}()
 
-	appsWithTeam, err := h.DBSelectAppsTeamsHistoryAtTimestamp(ctx, tx, ts)
+	teamAppSlice, err := h.DBSelectAppsTeamsHistoryAtTimestamp(ctx, tx, ts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not select apps teams history: %w", err)
 	}
@@ -338,16 +338,17 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 		appsWithReleaseMap[app] = struct{}{}
 	}
 
-	var appNames = []types.AppName{}
+	// filter out apps without release:
+	var appNamesWithRelease = []types.AppName{}
 	var appNamesWithTeam = []AppWithTeam{}
-	for _, appWithTeam := range appsWithTeam {
+	for _, appWithTeam := range teamAppSlice {
 		if _, ok := appsWithReleaseMap[appWithTeam.AppName]; ok {
-			appNames = append(appNames, appWithTeam.AppName)
+			appNamesWithRelease = append(appNamesWithRelease, appWithTeam.AppName)
 			appNamesWithTeam = append(appNamesWithTeam, appWithTeam)
 		}
 	}
 
-	return appNames, appNamesWithTeam, nil
+	return appNamesWithRelease, appNamesWithTeam, nil
 }
 
 // INSERT, UPDATE, DELETE
