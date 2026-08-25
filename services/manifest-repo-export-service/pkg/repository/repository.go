@@ -1006,6 +1006,69 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 	return errorGroup.Wait()
 }
 
+func calculateRenderTargets(
+	ctx context.Context,
+	env types.EnvName,
+	cfg config.EnvironmentConfig,
+	opts *argocd.RenderOptions,
+	projectNames *argocd.AllArgoProjectNameOverrides,
+) (renderTargets []*argocd.EnvironmentInfo) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "calculateRenderTargets")
+	defer func() {
+		span.Finish()
+	}()
+	var argoCDConfigs []*config.EnvironmentConfigArgoCd
+	isAAEnv := config.IsAAEnv(&cfg)
+
+	commonEnvPrefix := ""
+	// Unified types between the legacy `cfg.ArgoCd` and new `cfg.ArgoCdConfigs` types.
+	if isAAEnv {
+		if cfg.ArgoCdConfigs != nil {
+			argoCDConfigs = cfg.ArgoCdConfigs.ArgoCdConfigurations
+			if cfg.ArgoCdConfigs.CommonEnvPrefix != nil {
+				commonEnvPrefix = *cfg.ArgoCdConfigs.CommonEnvPrefix
+			}
+		}
+	} else if cfg.ArgoCd != nil {
+		// This covers the legacy configuration of the envs via the ArgoCd field.
+		argoCDConfigs = []*config.EnvironmentConfigArgoCd{cfg.ArgoCd}
+	} else if cfg.ArgoCd == nil && len(cfg.ArgoCdConfigs.ArgoCdConfigurations) > 0 {
+		// This covers the 'new' way to define regular non-active-active environments.
+		// In non-AA environments, each environment should contain only a single cluster and thus
+		// a single argocd configuration.
+		argoCDConfigs = []*config.EnvironmentConfigArgoCd{cfg.ArgoCdConfigs.ArgoCdConfigurations[0]}
+	}
+
+	rootAppFilteringActive := opts != nil && opts.RootAppFiltering.Enabled
+	for _, argoCDConfig := range argoCDConfigs {
+		envInfo := &argocd.EnvironmentInfo{
+			ArgoCDConfig:          argoCDConfig,
+			CommonPrefix:          commonEnvPrefix,
+			ParentEnvironmentName: env,
+			IsAAEnv:               isAAEnv,
+			// ArgoProjectNameOverride is filled in by renderApp, which owns the overrides:
+			ArgoProjectNameOverride: "",
+		}
+		envFQDN := envInfo.GetFullyQualifiedName()
+		if projectNames != nil && projectNames.ActiveActiveEnvironments != nil && projectNames.Environments != nil {
+			names := projectNames.Environments
+			if isAAEnv {
+				names = projectNames.ActiveActiveEnvironments
+			}
+			envInfo.ArgoProjectNameOverride = (*names)[types.EnvName(envFQDN)]
+		}
+		if rootAppFilteringActive {
+			isEnabledEnv := slices.Contains(opts.RootAppFiltering.EnabledEnvironments, types.EnvName(envFQDN))
+			if !isEnabledEnv {
+				logging.Info(ctx, "rootAppFiltering excludes environment", zap.String("env", envFQDN))
+				continue
+			}
+		}
+		renderTargets = append(renderTargets, envInfo)
+	}
+	return nil
+}
+
 func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time, eslVersion db.TransformerID, fsMutex *sync.Mutex) (err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "updateArgoCdApps")
 	defer func() {
@@ -1015,86 +1078,24 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	if !r.config.ArgoCdGenerateFiles {
 		return nil
 	}
-
 	if cfg.ArgoCd == nil && (cfg.ArgoCdConfigs == nil || len(cfg.ArgoCdConfigs.ArgoCdConfigurations) == 0) {
-		logging.Error(ctx, "No argo cd configuration found for environment.", zap.String("env", string(env)))
+		logging.Info(ctx, "No argo cd configuration found for environment.", zap.String("env", string(env)))
 		return nil
 	}
-
-	opts := r.config.ArgoRenderOptions
-	if config.IsAAEnv(&cfg) {
-		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
-			if opts != nil && opts.RootAppFiltering.Enabled {
-				aaEnvName := types.EnvName(*cfg.ArgoCdConfigs.CommonEnvPrefix + "-" + string(env) + "-" + currentArgoCdConfiguration.ConcreteEnvName)
-				if !slices.Contains(opts.RootAppFiltering.EnabledEnvironments, aaEnvName) {
-					logging.Info(ctx, "rootAppFiltering enabled for active/active env", zap.String("env", string(aaEnvName)))
-					continue
-				}
-			}
-			err := r.processApp(ctx, transaction, state, env, cfg.ArgoCdConfigs.CommonEnvPrefix, currentArgoCdConfiguration, true, ts, eslVersion, fsMutex)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		if opts != nil && opts.RootAppFiltering.Enabled && !slices.Contains(opts.RootAppFiltering.EnabledEnvironments, env) {
-			logging.Info(ctx, "rootAppFiltering enabled for normal env", zap.String("env", string(env)))
-			return nil
-		}
-		var conf *config.EnvironmentConfigArgoCd
-		if cfg.ArgoCd == nil {
-			conf = cfg.ArgoCdConfigs.ArgoCdConfigurations[0]
-		} else {
-			conf = cfg.ArgoCd
-		}
-
-		err := r.processApp(ctx, transaction, state, env, nil, conf, false, ts, eslVersion, fsMutex)
-
-		if err != nil {
-			return err
+	renderTargets := calculateRenderTargets(ctx, env, cfg, r.config.ArgoRenderOptions, r.ArgoProjectNames)
+	if len(renderTargets) == 0 {
+		return nil
+	}
+	appData, err := collectArgoAppDataForEnv(ctx, transaction, state.DBHandler, env, ts, eslVersion)
+	if err != nil {
+		return fmt.Errorf("could not collect app data for env '%s': %w", env, err)
+	}
+	for _, target := range renderTargets {
+		if err = r.renderRootAppForCluster(ctx, target, appData, state.Filesystem, fsMutex); err != nil {
+			return fmt.Errorf("cannot render root app for cluster '%s': %w", target.GetFullyQualifiedName(), err)
 		}
 	}
 	return nil
-}
-
-func (r *repository) processApp(
-	ctx context.Context,
-	transaction *sql.Tx,
-	state *State,
-	env types.EnvName,
-	commonEnvPrefix *string,
-	currentArgoCdConfiguration *config.EnvironmentConfigArgoCd,
-	isAAEnv bool,
-	ts time.Time,
-	eslVersion db.TransformerID,
-	fsMutex *sync.Mutex,
-) error {
-	prefix := ""
-	if commonEnvPrefix != nil {
-		prefix = *commonEnvPrefix
-	}
-	environmentInfo := &argocd.EnvironmentInfo{
-		ArgoCDConfig:          currentArgoCdConfiguration,
-		CommonPrefix:          prefix,
-		ParentEnvironmentName: env,
-		IsAAEnv:               isAAEnv,
-	}
-	projectNameOverride := types.ArgoProjectName("")
-	if r.ArgoProjectNames != nil && r.ArgoProjectNames.ActiveActiveEnvironments != nil && r.ArgoProjectNames.Environments != nil {
-		ok := false
-		if isAAEnv {
-			projectNameOverride, ok = (*r.ArgoProjectNames.ActiveActiveEnvironments)[types.EnvName(environmentInfo.GetFullyQualifiedName())]
-		} else {
-			projectNameOverride, ok = (*r.ArgoProjectNames.Environments)[types.EnvName(environmentInfo.GetFullyQualifiedName())]
-		}
-		if ok {
-			environmentInfo.ArgoProjectNameOverride = projectNameOverride
-		} else {
-			environmentInfo.ArgoProjectNameOverride = ""
-		}
-	}
-	err := r.processArgoAppForEnv(ctx, transaction, state, environmentInfo, ts, eslVersion, fsMutex)
-	return err
 }
 
 func appTeamsToMap(appTeams []db.AppWithTeam) map[types.AppName]string {
@@ -1105,35 +1106,49 @@ func appTeamsToMap(appTeams []db.AppWithTeam) map[types.AppName]string {
 	return result
 }
 
-func (r *repository) processArgoAppForEnv(ctx context.Context, transaction *sql.Tx, state *State, info *argocd.EnvironmentInfo, timestamp time.Time, eslVersion db.TransformerID, fsMutex *sync.Mutex) error {
-	_, appTeams, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, info.ParentEnvironmentName, timestamp)
+func collectArgoAppDataForEnv(
+	ctx context.Context,
+	transaction *sql.Tx,
+	dbHandler *db.DBHandler,
+	parentEnvName types.EnvName,
+	timestamp time.Time,
+	eslVersion db.TransformerID,
+) (appData []argocd.AppData, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "collectArgoAppDataForEnv")
+	defer span.Finish(tracer.WithError(err))
+	_, appTeams, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, parentEnvName, timestamp)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("could not select environment applications at timestamp: %w", err)
 	}
-	spanCollectData, ctx := tracer.StartSpanFromContext(ctx, "collectData")
-	defer spanCollectData.Finish()
-	deploymentsPerApp, err := db_history.DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, state.DBHandler, transaction, info.ParentEnvironmentName, timestamp)
+	deploymentsPerApp, err := db_history.DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, dbHandler, transaction, parentEnvName, timestamp)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("could not select apps with deployment in env at timestamp: %w", err)
 	}
-	allBrackets, err := db.DBSelectBracketHistoryById(ctx, state.DBHandler, transaction, eslVersion)
+	allBrackets, err := db.DBSelectBracketHistoryById(ctx, dbHandler, transaction, eslVersion)
 	if err != nil {
-		return fmt.Errorf("could not find bracket at %v: %w", eslVersion, err)
+		return nil, fmt.Errorf("could not find bracket at %v: %w", eslVersion, err)
 	}
-	appData := CalculateAppDataWithBrackets(ctx, allBrackets, appTeams, deploymentsPerApp)
-	spanCollectData.Finish()
+	appData = CalculateAppDataWithBrackets(ctx, allBrackets, appTeams, deploymentsPerApp)
+	return appData, nil
+}
 
-	spanRenderAndWrite, ctx := tracer.StartSpanFromContext(ctx, "RenderAndWrite")
-	defer spanRenderAndWrite.Finish()
+func (r *repository) renderRootAppForCluster(
+	ctx context.Context,
+	info *argocd.EnvironmentInfo,
+	appData []argocd.AppData,
+	fileSystem billy.Filesystem,
+	fsMutex *sync.Mutex,
+) (err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "renderRootAppForCluster")
+	span.SetTag("argoEnvFQDN", info.GetFullyQualifiedName())
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	manifests, err := argocd.Render(ctx, r.config.URL, r.config.Branch, info, appData, r.config.ArgoRenderOptions)
 	if err != nil {
 		return err
 	}
-	err = writeArgoCdRootEnvManifestsSynced(ctx, state.Filesystem, info, manifests, fsMutex)
-	if err != nil {
-		return err
-	}
-	return nil
+	return writeArgoCdRootEnvManifestsSynced(ctx, fileSystem, info, manifests, fsMutex)
 }
 
 // CalculateAppDataWithBrackets returns the list of AppData that needs to be rendered in render.go
