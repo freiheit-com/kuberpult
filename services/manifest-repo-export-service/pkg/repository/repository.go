@@ -1032,7 +1032,7 @@ func calculateRenderTargets(
 	} else if cfg.ArgoCd != nil {
 		// This covers the legacy configuration of the envs via the ArgoCd field.
 		argoCDConfigs = []*config.EnvironmentConfigArgoCd{cfg.ArgoCd}
-	} else if cfg.ArgoCd == nil && len(cfg.ArgoCdConfigs.ArgoCdConfigurations) > 0 {
+	} else if cfg.ArgoCdConfigs != nil && len(cfg.ArgoCdConfigs.ArgoCdConfigurations) > 0 {
 		// This covers the 'new' way to define regular non-active-active environments.
 		// In non-AA environments, each environment should contain only a single cluster and thus
 		// a single argocd configuration.
@@ -1042,12 +1042,11 @@ func calculateRenderTargets(
 	rootAppFilteringActive := opts != nil && opts.RootAppFiltering.Enabled
 	for _, argoCDConfig := range argoCDConfigs {
 		envInfo := &argocd.EnvironmentInfo{
-			ArgoCDConfig:          argoCDConfig,
-			CommonPrefix:          commonEnvPrefix,
-			ParentEnvironmentName: env,
-			IsAAEnv:               isAAEnv,
-			// ArgoProjectNameOverride is filled in by renderApp, which owns the overrides:
-			ArgoProjectNameOverride: "",
+			ArgoCDConfig:            argoCDConfig,
+			CommonPrefix:            commonEnvPrefix,
+			ParentEnvironmentName:   env,
+			IsAAEnv:                 isAAEnv,
+			ArgoProjectNameOverride: "", // may be overridden below
 		}
 		envFQDN := envInfo.GetFullyQualifiedName()
 		if projectNames != nil && projectNames.ActiveActiveEnvironments != nil && projectNames.Environments != nil {
@@ -1066,7 +1065,7 @@ func calculateRenderTargets(
 		}
 		renderTargets = append(renderTargets, envInfo)
 	}
-	return nil
+	return renderTargets
 }
 
 func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, state *State, env types.EnvName, cfg config.EnvironmentConfig, ts time.Time, eslVersion db.TransformerID, fsMutex *sync.Mutex) (err error) {
@@ -1115,7 +1114,9 @@ func collectArgoAppDataForEnv(
 	eslVersion db.TransformerID,
 ) (appData []argocd.AppData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "collectArgoAppDataForEnv")
-	defer span.Finish(tracer.WithError(err))
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	_, appTeams, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, parentEnvName, timestamp)
 	if err != nil {
 		return nil, fmt.Errorf("could not select environment applications at timestamp: %w", err)
