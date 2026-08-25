@@ -82,7 +82,6 @@ type ArgoCdIgnoreDifference struct {
 // IsAAEnv
 // Note that there is also a function isAAEnv in argo.go for a similar type.
 // Keep them in sync.
-// TODO(ccreinatz): Validate that it is intended behaviour that we can return `isAAEnv=true`  when `ArgoCDConfigs=nil`.
 func IsAAEnv(config *EnvironmentConfig) bool {
 	if config.IsActiveActive != nil {
 		return *config.IsActiveActive
