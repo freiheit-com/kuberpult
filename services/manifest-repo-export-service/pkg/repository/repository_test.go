@@ -1246,6 +1246,232 @@ func TestArgoCDRootAppFilterAAEnv(t *testing.T) {
 	}
 }
 
+func TestArgoCDRootAppContent(t *testing.T) {
+	const envName = types.EnvName("staging")
+	const appOne = "app-one"
+	const appTwo = "app-two"
+	const teamOne = "team-one"
+	const teamTwo = "team-two"
+	aaPrefix := "aa"
+	meta := TransformerMetadata{AuthorName: "test", AuthorEmail: "test@test.com"}
+
+	// appProject renders the AppProject document, which is the first document of every root app file.
+	appProject := func(fullyQualifiedName, destinationName, destinationServer string) string {
+		return fmt.Sprintf(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: %s
+spec:
+  description: %s
+  destinations:
+  - name: %s
+    server: %s
+  sourceRepos:
+  - '*'
+`, fullyQualifiedName, fullyQualifiedName, destinationName, destinationServer)
+	}
+	// application renders one Application document of a root app file.
+	application := func(fullyQualifiedName, argoProjectName, appName, teamName, destinationName, destinationServer string) string {
+		return fmt.Sprintf(`apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/%s/applications/%s/manifests;
+    com.freiheit.kuberpult/aa-parent-environment: %s
+    com.freiheit.kuberpult/application: %s
+    com.freiheit.kuberpult/environment: %s
+    com.freiheit.kuberpult/teams: %s
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/teams: %s
+  name: %s-%s
+spec:
+  destination:
+    name: %s
+    server: %s
+  project: %s
+  sources:
+  - path: environments/%s/applications/%s/manifests
+    repoURL: test
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`, envName, appName, envName, appName, fullyQualifiedName, teamName, teamName, fullyQualifiedName, appName,
+			destinationName, destinationServer, argoProjectName, envName, appName)
+	}
+	// rootApp joins the documents of one root app file the same way argocd.Render does.
+	rootApp := func(documents ...string) []byte {
+		return []byte(strings.Join(documents, "---\n"))
+	}
+
+	tcs := []struct {
+		Name          string
+		EnvConfig     config.EnvironmentConfig
+		ProjectNames  *argocd.AllArgoProjectNameOverrides
+		ExpectedFiles []*FilenameAndData
+	}{
+		{
+			Name: "every cluster of an active/active environment renders the same applications",
+			EnvConfig: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+				ArgoCdConfigs: &config.ArgoCDConfigs{
+					CommonEnvPrefix: &aaPrefix,
+					ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+						testutil.MakeArgoCdConfigDestination("c1", "destination-1", "server-1"),
+						testutil.MakeArgoCdConfigDestination("c2", "destination-2", "server-2"),
+					},
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path: "argocd/v1alpha1/aa-staging-c1.yaml",
+					fileData: rootApp(
+						appProject("aa-staging-c1", "destination-1", "server-1"),
+						application("aa-staging-c1", "aa-staging-c1", appOne, teamOne, "destination-1", "server-1"),
+						application("aa-staging-c1", "aa-staging-c1", appTwo, teamTwo, "destination-1", "server-1"),
+					),
+				},
+				{
+					path: "argocd/v1alpha1/aa-staging-c2.yaml",
+					fileData: rootApp(
+						appProject("aa-staging-c2", "destination-2", "server-2"),
+						application("aa-staging-c2", "aa-staging-c2", appOne, teamOne, "destination-2", "server-2"),
+						application("aa-staging-c2", "aa-staging-c2", appTwo, teamTwo, "destination-2", "server-2"),
+					),
+				},
+			},
+		},
+		{
+			Name: "the argo project name override applies to the configured cluster only",
+			EnvConfig: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+				ArgoCdConfigs: &config.ArgoCDConfigs{
+					CommonEnvPrefix: &aaPrefix,
+					ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+						testutil.MakeArgoCdConfigDestination("c1", "destination-1", "server-1"),
+						testutil.MakeArgoCdConfigDestination("c2", "destination-2", "server-2"),
+					},
+				},
+			},
+			ProjectNames: &argocd.AllArgoProjectNameOverrides{
+				ActiveActiveEnvironments: &argocd.ArgoProjectNamesPerEnv{"aa-staging-c1": "custom-project"},
+				Environments:             &argocd.ArgoProjectNamesPerEnv{},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					// The AppProject is always created with the default name, only the
+					// applications point to the overridden project.
+					path: "argocd/v1alpha1/aa-staging-c1.yaml",
+					fileData: rootApp(
+						appProject("aa-staging-c1", "destination-1", "server-1"),
+						application("aa-staging-c1", "custom-project", appOne, teamOne, "destination-1", "server-1"),
+						application("aa-staging-c1", "custom-project", appTwo, teamTwo, "destination-1", "server-1"),
+					),
+				},
+				{
+					path: "argocd/v1alpha1/aa-staging-c2.yaml",
+					fileData: rootApp(
+						appProject("aa-staging-c2", "destination-2", "server-2"),
+						application("aa-staging-c2", "aa-staging-c2", appOne, teamOne, "destination-2", "server-2"),
+						application("aa-staging-c2", "aa-staging-c2", appTwo, teamTwo, "destination-2", "server-2"),
+					),
+				},
+			},
+		},
+		{
+			Name: "a non active/active environment renders the first argocd configuration",
+			EnvConfig: config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+				ArgoCdConfigs: &config.ArgoCDConfigs{
+					ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+						testutil.MakeArgoCdConfigDestination("c1", "destination-1", "server-1"),
+						testutil.MakeArgoCdConfigDestination("c2", "destination-2", "server-2"),
+					},
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path: "argocd/v1alpha1/staging.yaml",
+					fileData: rootApp(
+						appProject("staging", "destination-1", "server-1"),
+						application("staging", "staging", appOne, teamOne, "destination-1", "server-1"),
+						application("staging", "staging", appTwo, teamTwo, "destination-1", "server-1"),
+					),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+			// The rendered files contain the git url, which otherwise depends on the temporary directory of the test:
+			repo.config.URL = "test"
+			repo.ArgoProjectNames = tc.ProjectNames
+			ctx := testutilauth.MakeTestContext()
+
+			transformers := []Transformer{
+				&CreateEnvironment{
+					Environment:         envName,
+					Config:              tc.EnvConfig,
+					TransformerMetadata: meta,
+				},
+				&CreateApplicationVersion{
+					Application:         appOne,
+					Team:                teamOne,
+					Manifests:           map[types.EnvName]string{envName: "manifest-one"},
+					Version:             1,
+					TransformerMetadata: meta,
+				},
+				&DeployApplicationVersion{
+					Application:         appOne,
+					Environment:         envName,
+					Version:             1,
+					TransformerMetadata: meta,
+				},
+				&CreateApplicationVersion{
+					Application:         appTwo,
+					Team:                teamTwo,
+					Manifests:           map[types.EnvName]string{envName: "manifest-two"},
+					Version:             1,
+					TransformerMetadata: meta,
+				},
+				&DeployApplicationVersion{
+					Application:         appTwo,
+					Environment:         envName,
+					Version:             1,
+					TransformerMetadata: meta,
+				},
+			}
+
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, tr := range transformers {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "test", "test@test.com")
+				}
+				return nil
+			})
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for i, tr := range transformers {
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, tr)
+					if applyErr != nil {
+						t.Fatalf("Unexpected error applying transformer[%d]: %v", i, applyErr)
+					}
+				}
+				return nil
+			})
+
+			state := repo.State()
+			if err := verifyContent(state.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Errorf("root app content mismatch: %v\nFiles:\n%s", err, strings.Join(listFiles(state.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
 func TestArgoCDFileGenerationAcrossTimestamps(t *testing.T) {
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
