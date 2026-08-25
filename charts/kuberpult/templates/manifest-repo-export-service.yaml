@@ -196,6 +196,8 @@ spec:
           value: "{{ .Values.db.location }}"
         - name: KUBERPULT_DB_MIGRATIONS_LOCATION
           value: /migrations/postgres
+        - name: KUBERPULT_DB_MIGRATIONS_TIMEOUT
+          value: "{{ .Values.db.migrations.timeout }}"
         - name: KUBERPULT_DB_NAME
           value: "{{ .Values.db.dbName }}"
         - name: KUBERPULT_DB_USER_NAME
