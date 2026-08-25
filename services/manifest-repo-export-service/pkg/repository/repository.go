@@ -1016,6 +1016,11 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 		return nil
 	}
 
+	if cfg.ArgoCd == nil && (cfg.ArgoCdConfigs == nil || len(cfg.ArgoCdConfigs.ArgoCdConfigurations) == 0) {
+		logging.Error(ctx, "No argo cd configuration found for environment.", zap.String("env", string(env)))
+		return nil
+	}
+
 	opts := r.config.ArgoRenderOptions
 	if config.IsAAEnv(&cfg) {
 		for _, currentArgoCdConfiguration := range cfg.ArgoCdConfigs.ArgoCdConfigurations {
@@ -1036,12 +1041,7 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 			logging.Info(ctx, "rootAppFiltering enabled for normal env", zap.String("env", string(env)))
 			return nil
 		}
-		if cfg.ArgoCd == nil && (cfg.ArgoCdConfigs == nil || len(cfg.ArgoCdConfigs.ArgoCdConfigurations) == 0) {
-			logging.Error(ctx, "No argo cd configuration found for environment.", zap.String("env", string(env)))
-			return nil
-		}
 		var conf *config.EnvironmentConfigArgoCd
-
 		if cfg.ArgoCd == nil {
 			conf = cfg.ArgoCdConfigs.ArgoCdConfigurations[0]
 		} else {
