@@ -834,6 +834,174 @@ func TestArgoCDFileGeneration(t *testing.T) {
 	}
 }
 
+func TestCalculateRenderTargets(t *testing.T) {
+	const envName = types.EnvName("staging")
+	aaPrefix := "aa"
+	isActiveActive := true
+	// legacyConfig is the old way to configure a single cluster via config.EnvironmentConfig.ArgoCd:
+	legacyConfig := testutil.MakeArgoCdConfigDestination("", "legacy-destination", "legacy-server")
+	// clusterConfig1 and clusterConfig2 are the two clusters of an active/active environment:
+	clusterConfig1 := testutil.MakeArgoCdConfigDestination("c1", "destination-1", "server-1")
+	clusterConfig2 := testutil.MakeArgoCdConfigDestination("c2", "destination-2", "server-2")
+
+	tcs := []struct {
+		Name            string
+		Config          config.EnvironmentConfig
+		RenderOptions   *argocd.RenderOptions
+		ProjectNames    *argocd.AllArgoProjectNameOverrides
+		ExpectedTargets []*argocd.EnvironmentInfo
+	}{
+		{
+			Name:   "legacy argoCd configuration results in one render target",
+			Config: config.EnvironmentConfig{ArgoCd: legacyConfig},
+			ExpectedTargets: []*argocd.EnvironmentInfo{
+				{ArgoCDConfig: legacyConfig, CommonPrefix: "", ParentEnvironmentName: envName, IsAAEnv: false, ArgoProjectNameOverride: ""},
+			},
+		},
+		{
+			Name: "non active/active environment uses only the first argoCd configuration",
+			Config: config.EnvironmentConfig{
+				ArgoCdConfigs: &config.ArgoCDConfigs{
+					ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{clusterConfig1, clusterConfig2},
+				},
+			},
+			ExpectedTargets: []*argocd.EnvironmentInfo{
+				{ArgoCDConfig: clusterConfig1, CommonPrefix: "", ParentEnvironmentName: envName, IsAAEnv: false, ArgoProjectNameOverride: ""},
+			},
+		},
+		{
+			Name: "active/active environment results in one render target per cluster",
+			Config: config.EnvironmentConfig{
+				ArgoCdConfigs: &config.ArgoCDConfigs{
+					CommonEnvPrefix:      &aaPrefix,
+					ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{clusterConfig1, clusterConfig2},
+				},
+			},
+			ExpectedTargets: []*argocd.EnvironmentInfo{
+				{ArgoCDConfig: clusterConfig1, CommonPrefix: "aa", ParentEnvironmentName: envName, IsAAEnv: true, ArgoProjectNameOverride: ""},
+				{ArgoCDConfig: clusterConfig2, CommonPrefix: "aa", ParentEnvironmentName: envName, IsAAEnv: true, ArgoProjectNameOverride: ""},
+			},
+		},
+		{
+			Name: "root app filter renders only the listed cluster of an active/active environment",
+			Config: config.EnvironmentConfig{
+				ArgoCdConfigs: &config.ArgoCDConfigs{
+					CommonEnvPrefix:      &aaPrefix,
+					ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{clusterConfig1, clusterConfig2},
+				},
+			},
+			RenderOptions: &argocd.RenderOptions{
+				RootAppFiltering: argocd.RootAppFiltering{Enabled: true, EnabledEnvironments: []types.EnvName{"aa-staging-c2"}},
+			},
+			ExpectedTargets: []*argocd.EnvironmentInfo{
+				{ArgoCDConfig: clusterConfig2, CommonPrefix: "aa", ParentEnvironmentName: envName, IsAAEnv: true, ArgoProjectNameOverride: ""},
+			},
+		},
+		{
+			Name: "root app filter on the parent environment name renders no cluster",
+			Config: config.EnvironmentConfig{
+				ArgoCdConfigs: &config.ArgoCDConfigs{
+					CommonEnvPrefix:      &aaPrefix,
+					ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{clusterConfig1, clusterConfig2},
+				},
+			},
+			RenderOptions: &argocd.RenderOptions{
+				RootAppFiltering: argocd.RootAppFiltering{Enabled: true, EnabledEnvironments: []types.EnvName{envName}},
+			},
+			ExpectedTargets: nil,
+		},
+		{
+			Name:   "root app filter with an empty list renders nothing",
+			Config: config.EnvironmentConfig{ArgoCd: legacyConfig},
+			RenderOptions: &argocd.RenderOptions{
+				RootAppFiltering: argocd.RootAppFiltering{Enabled: true, EnabledEnvironments: []types.EnvName{}},
+			},
+			ExpectedTargets: nil,
+		},
+		{
+			Name:   "disabled root app filter ignores the list of environments",
+			Config: config.EnvironmentConfig{ArgoCd: legacyConfig},
+			RenderOptions: &argocd.RenderOptions{
+				RootAppFiltering: argocd.RootAppFiltering{Enabled: false, EnabledEnvironments: []types.EnvName{"some-other-env"}},
+			},
+			ExpectedTargets: []*argocd.EnvironmentInfo{
+				{ArgoCDConfig: legacyConfig, CommonPrefix: "", ParentEnvironmentName: envName, IsAAEnv: false, ArgoProjectNameOverride: ""},
+			},
+		},
+		{
+			Name: "argo project name override is applied to the matching cluster only",
+			Config: config.EnvironmentConfig{
+				ArgoCdConfigs: &config.ArgoCDConfigs{
+					CommonEnvPrefix:      &aaPrefix,
+					ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{clusterConfig1, clusterConfig2},
+				},
+			},
+			ProjectNames: &argocd.AllArgoProjectNameOverrides{
+				ActiveActiveEnvironments: &argocd.ArgoProjectNamesPerEnv{"aa-staging-c1": "custom-project"},
+				Environments:             &argocd.ArgoProjectNamesPerEnv{},
+			},
+			ExpectedTargets: []*argocd.EnvironmentInfo{
+				{ArgoCDConfig: clusterConfig1, CommonPrefix: "aa", ParentEnvironmentName: envName, IsAAEnv: true, ArgoProjectNameOverride: "custom-project"},
+				{ArgoCDConfig: clusterConfig2, CommonPrefix: "aa", ParentEnvironmentName: envName, IsAAEnv: true, ArgoProjectNameOverride: ""},
+			},
+		},
+		{
+			Name: "overrides for normal environments are not applied to active/active environments",
+			Config: config.EnvironmentConfig{
+				ArgoCdConfigs: &config.ArgoCDConfigs{
+					CommonEnvPrefix:      &aaPrefix,
+					ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{clusterConfig1},
+				},
+			},
+			ProjectNames: &argocd.AllArgoProjectNameOverrides{
+				ActiveActiveEnvironments: &argocd.ArgoProjectNamesPerEnv{},
+				Environments:             &argocd.ArgoProjectNamesPerEnv{"aa-staging-c1": "wrong-project"},
+			},
+			ExpectedTargets: []*argocd.EnvironmentInfo{
+				{ArgoCDConfig: clusterConfig1, CommonPrefix: "aa", ParentEnvironmentName: envName, IsAAEnv: true, ArgoProjectNameOverride: ""},
+			},
+		},
+		{
+			Name:   "override of a normal environment is applied",
+			Config: config.EnvironmentConfig{ArgoCd: legacyConfig},
+			ProjectNames: &argocd.AllArgoProjectNameOverrides{
+				ActiveActiveEnvironments: &argocd.ArgoProjectNamesPerEnv{},
+				Environments:             &argocd.ArgoProjectNamesPerEnv{envName: "custom-project"},
+			},
+			ExpectedTargets: []*argocd.EnvironmentInfo{
+				{ArgoCDConfig: legacyConfig, CommonPrefix: "", ParentEnvironmentName: envName, IsAAEnv: false, ArgoProjectNameOverride: "custom-project"},
+			},
+		},
+		{
+			Name: "active/active environment without any cluster renders nothing",
+			Config: config.EnvironmentConfig{
+				ArgoCdConfigs: &config.ArgoCDConfigs{
+					CommonEnvPrefix:      &aaPrefix,
+					ArgoCdConfigurations: nil,
+				},
+			},
+			ExpectedTargets: nil,
+		},
+		{
+			Name:            "active/active environment without argoCdConfigs renders nothing",
+			Config:          config.EnvironmentConfig{IsActiveActive: &isActiveActive, ArgoCd: legacyConfig},
+			ExpectedTargets: nil,
+		},
+		{
+			Name:            "environment without any argoCd configuration renders nothing",
+			Config:          config.EnvironmentConfig{},
+			ExpectedTargets: nil,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			actualTargets := calculateRenderTargets(context.Background(), envName, tc.Config, tc.RenderOptions, tc.ProjectNames)
+			testutil.DiffOrFail(t, "render targets", tc.ExpectedTargets, actualTargets)
+		})
+	}
+}
+
 func TestArgoCDRootAppFilter(t *testing.T) {
 	tcs := []struct {
 		Name             string
