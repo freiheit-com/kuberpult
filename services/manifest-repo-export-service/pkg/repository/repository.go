@@ -1084,7 +1084,8 @@ func (r *repository) updateArgoCdApps(ctx context.Context, transaction *sql.Tx, 
 	if len(renderTargets) == 0 {
 		return nil
 	}
-	appData, err := collectArgoAppDataForEnv(ctx, transaction, state.DBHandler, env, ts, eslVersion)
+	pointToBrackets := r.config.ArgoRenderOptions != nil && r.config.ArgoRenderOptions.PointToBrackets
+	appData, err := collectArgoAppDataForEnv(ctx, transaction, state.DBHandler, env, ts, eslVersion, pointToBrackets)
 	if err != nil {
 		return fmt.Errorf("could not collect app data for env '%s': %w", env, err)
 	}
@@ -1111,6 +1112,7 @@ func collectArgoAppDataForEnv(
 	parentEnvName types.EnvName,
 	timestamp time.Time,
 	eslVersion db.TransformerID,
+	pointToBrackets bool,
 ) (appData []argocd.AppData, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "collectArgoAppDataForEnv")
 	defer func() {
@@ -1124,9 +1126,16 @@ func collectArgoAppDataForEnv(
 	if err != nil {
 		return nil, fmt.Errorf("could not select apps with deployment in env at timestamp: %w", err)
 	}
-	allBrackets, err := db.DBSelectBracketHistoryAtOrBeforeId(ctx, dbHandler, transaction, eslVersion)
-	if err != nil {
-		return nil, fmt.Errorf("could not find bracket at %v: %w", eslVersion, err)
+	var allBrackets *db.BracketRow
+	if pointToBrackets {
+		// Bracket names are only relevant for rendering if pointToBracket==true.
+		// By only getting the brackets conditionally, we prevent CalculateAppDataWithBrackets
+		// from accidentally using bracket data when it's not wanted.
+		// This is only an issue if pointsToBracket==false && there are bracket apps.
+		allBrackets, err = db.DBSelectBracketHistoryAtOrBeforeId(ctx, dbHandler, transaction, eslVersion)
+		if err != nil {
+			return nil, fmt.Errorf("could not find bracket at %v: %w", eslVersion, err)
+		}
 	}
 	appData = CalculateAppDataWithBrackets(ctx, allBrackets, appTeams, deploymentsPerApp)
 	return appData, nil
