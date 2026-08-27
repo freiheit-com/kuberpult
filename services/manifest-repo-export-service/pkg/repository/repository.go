@@ -1133,6 +1133,7 @@ func collectArgoAppDataForEnv(
 	return appData, nil
 }
 
+// renderRootAppForCluster renders the argocd root app for one specific cluster in an environment.
 func (r *repository) renderRootAppForCluster(
 	ctx context.Context,
 	info *argocd.EnvironmentInfo,
