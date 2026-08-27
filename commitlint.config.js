@@ -41,12 +41,12 @@ module.exports = {
       rules: {
         'check-story-reference': ({body}) => {
           if (body === null) {
-            return [false, 'Commit message must contain a valid reference to a story'];
+            return [false, 'Commit message and PR description must contain a valid reference to a story'];
           }
           const REF_PATTERN = /Ref:\s*\[?SRX-[A-Z0-9]{6}/;
           return [
             REF_PATTERN.test(body),
-            'Commit message must contain a valid reference to a story, e.g. "Ref: SRX-ABCDEF"',
+            'Commit message and PR description must contain a valid reference to a story, e.g. "Ref: SRX-ABCDEF"',
           ];
         },
       },
