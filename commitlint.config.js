@@ -5,7 +5,7 @@ module.exports = {
       "header-min-length": [2, "always", 10],
       "subject-empty": [2, "never"],
       "subject-min-length": [2, "always", 10],
-      "type-enum": [2, "always", ['fix', 'feat', 'chore', 'revert']],
+      "type-enum": [2, "always", ['fix', 'feat']],
       "type-empty": [2, "never"],
   
       "body-max-line-length": [1, "never", 80],
