@@ -9,8 +9,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Lint commit message
+      - name: Lint git commit message
         run: |
           make commitlint
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lint the commit message that squash-merge will create
+        run: |
+          # Squash merge is the only enabled merge method on this repo, and it builds
+          # the commit from the PR title and body - so that is what has to be linted.
+          # Pre-creating commitlint.msg makes the make target skip its `git log -1` recipe.
+          printf '%s (#%s)\n\n%s\n' "$PR_TITLE" "$PR_NUMBER" "$PR_BODY" > commitlint.msg
+          make commitlint
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
