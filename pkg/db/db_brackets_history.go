@@ -237,7 +237,7 @@ func DBSelectBracketHistoryPrevious(ctx context.Context, h *DBHandler, tx *sql.T
 }
 
 func DBSelectBracketHistoryAtOrBeforeId(ctx context.Context, h *DBHandler, tx *sql.Tx, maxEslVersion TransformerID) (result *BracketRow, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryById")
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryAtOrBeforeId")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
