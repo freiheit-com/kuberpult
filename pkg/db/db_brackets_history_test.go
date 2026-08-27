@@ -178,6 +178,129 @@ func TestSelectBracketsHistoryByTimestamp(t *testing.T) {
 	}
 }
 
+// TestSelectBracketsHistoryAtOrBeforeId covers the point-in-time lookback, as opposed to
+// DBSelectBracketHistoryById, which matches one transformer id exactly.
+//
+// A brackets_history row is only written by a release that actually changes a bracket, so the rows
+// are sparse. A caller that replays esl events one by one - the manifest-repo-export-service - asks
+// for arbitrary transformer ids and needs the newest row at or before the one it asks for.
+func TestSelectBracketsHistoryAtOrBeforeId(t *testing.T) {
+	calcTime := func(sec int) time.Time { return time.Date(2000, 1, 1, 0, 0, sec, 0, time.UTC) }
+	// The two rows sit at esl id 1 and 4 on purpose: the gap between them is what tells a lookback
+	// apart from both an exact match and a plain "give me the newest row".
+	rowAtOne := BracketRow{
+		CreatedAt: calcTime(1),
+		AllBracketsJsonBlob: BracketJsonBlob{
+			BracketMap: map[types.ArgoBracketName]AppNames{
+				"b1": {"app1", "app2"},
+			},
+		},
+		SourceTransformerEslId: 1,
+	}
+	rowAtFour := BracketRow{
+		CreatedAt: calcTime(4),
+		AllBracketsJsonBlob: BracketJsonBlob{
+			BracketMap: map[types.ArgoBracketName]AppNames{
+				"b1": {"app3", "app2"},
+			},
+		},
+		SourceTransformerEslId: 4,
+	}
+	bothRows := []BracketRow{rowAtOne, rowAtFour}
+
+	tcs := []struct {
+		Name                   string
+		PreparedBracketRows    []BracketRow
+		TransformerIndexToTest TransformerID
+		ExpectedBracketRow     *BracketRow
+	}{
+		{
+			Name:                   "no data",
+			PreparedBracketRows:    []BracketRow{},
+			TransformerIndexToTest: 1,
+			ExpectedBracketRow:     nil,
+		},
+		{
+			Name:                   "nothing at or before the oldest row",
+			PreparedBracketRows:    bothRows,
+			TransformerIndexToTest: 0,
+			ExpectedBracketRow:     nil,
+		},
+		{
+			Name:                   "exact match on the oldest row",
+			PreparedBracketRows:    bothRows,
+			TransformerIndexToTest: 1,
+			ExpectedBracketRow:     &rowAtOne,
+		},
+		{
+			// This is the case the manifest-repo-export-service hits: it renders at the esl id of
+			// whatever transformer it is replaying, and most transformers write no bracket row at all.
+			// An exact match finds nothing here, and returning the newest row would give the wrong one.
+			Name:                   "a transformer id inside the gap looks back to the older row",
+			PreparedBracketRows:    bothRows,
+			TransformerIndexToTest: 2,
+			ExpectedBracketRow:     &rowAtOne,
+		},
+		{
+			Name:                   "exact match on the newest row",
+			PreparedBracketRows:    bothRows,
+			TransformerIndexToTest: 4,
+			ExpectedBracketRow:     &rowAtFour,
+		},
+		{
+			Name:                   "a transformer id after the newest row looks back to it",
+			PreparedBracketRows:    bothRows,
+			TransformerIndexToTest: 5,
+			ExpectedBracketRow:     &rowAtFour,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			dbHandler := setupDB(t)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// brackets_history.source_transformer_esl_id has a foreign key on
+				// event_sourcing_light, so every esl id used below has to exist first.
+				for range 10 {
+					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(nil), ESLMetadata{})
+					if err != nil {
+						return fmt.Errorf("error while writing esl event, error: %w", err)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, bracketRow := range tc.PreparedBracketRows {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					// Insert each row at its own SourceTransformerEslId, so that the test data can
+					// leave gaps between the esl ids.
+					return DBInsertBracketHistory(ctx, dbHandler, transaction, bracketRow, bracketRow.SourceTransformerEslId)
+				})
+				if err != nil {
+					t.Fatalf("error while writing bracket history, error: %v", err)
+				}
+			}
+
+			err = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				bracketRow, err := DBSelectBracketHistoryAtOrBeforeId(ctx, dbHandler, transaction, tc.TransformerIndexToTest)
+				if err != nil {
+					return err
+				}
+				testutil.DiffOrFail(t, "bracketRow", tc.ExpectedBracketRow, bracketRow)
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while reading bracket history, error: %v", err)
+			}
+		})
+	}
+}
+
 func TestHandleBracketUpdates(t *testing.T) {
 	calcTime := func(sec int) time.Time { return time.Date(2000, 1, 1, 0, 0, sec, 0, time.UTC) }
 	timeFirst := calcTime(1)
