@@ -555,7 +555,7 @@ func (s *State) GetEnvironmentLocksFromDB(ctx context.Context, transaction *sql.
 }
 
 func (s *State) GetApplicationLocksForEnv(ctx context.Context, transaction *sql.Tx, environment types.EnvName) (_ map[types.AppName]map[string]Lock, err error) {
-	span, _ := tracer.StartSpanFromContext(ctx, "GetApplicationLocksForEnv")
+	span, ctx := tracer.StartSpanFromContext(ctx, "GetApplicationLocksForEnv")
 	defer func() { span.Finish(tracer.WithError(err)) }()
 
 	appLocks, err := s.DBHandler.DBSelectAllAppLocksForEnv(ctx, transaction, environment)

@@ -51,7 +51,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
 	time2 "github.com/freiheit-com/kuberpult/pkg/time"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
@@ -1244,12 +1243,14 @@ func writeArgoCdRootEnvManifestsSynced(
 	info *argocd.EnvironmentInfo,
 	manifests map[argocd.ApiVersion][]byte,
 	fsMutex *sync.Mutex,
-) error {
-	span, _, _ := tracing.StartSpanFromContext(ctx, "writeArgoCdRootEnvManifestsSynced") // We have a separate span here to see how long we wait for the mutex
-	defer span.Finish()
+) (err error) {
+	span, subCtx := tracer.StartSpanFromContext(ctx, "writeArgoCdRootEnvManifestsSynced") // We have a separate span here to see how long we wait for the mutex
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
-	return writeArgoCdRootEnvManifests(ctx, filesystem, info, manifests)
+	return writeArgoCdRootEnvManifests(subCtx, filesystem, info, manifests)
 }
 
 func writeArgoCdRootEnvManifests(
@@ -1257,16 +1258,18 @@ func writeArgoCdRootEnvManifests(
 	filesystem billy.Filesystem,
 	info *argocd.EnvironmentInfo,
 	manifests map[argocd.ApiVersion][]byte,
-) error {
-	span, _, onErr := tracing.StartSpanFromContext(ctx, "writeArgoCdRootEnvManifests")
-	defer span.Finish()
+) (err error) {
+	span, _ := tracer.StartSpanFromContext(ctx, "writeArgoCdRootEnvManifests")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 	for apiVersion, content := range manifests {
-		if err := filesystem.MkdirAll(filesystem.Join("argocd", string(apiVersion)), 0777); err != nil {
-			return onErr(err)
+		if err = filesystem.MkdirAll(filesystem.Join("argocd", string(apiVersion)), 0777); err != nil {
+			return err
 		}
 		target := getArgoCdAAEnvFileName(filesystem, types.EnvName(info.CommonPrefix), info.ParentEnvironmentName, types.EnvName(info.ArgoCDConfig.ConcreteEnvName), info.IsAAEnv)
-		if err := util.WriteFile(filesystem, target, content, 0666); err != nil {
-			return onErr(err)
+		if err = util.WriteFile(filesystem, target, content, 0666); err != nil {
+			return err
 		}
 	}
 	return nil
