@@ -43,11 +43,11 @@ module.exports = {
           if (body === null) {
             return [false, 'Commit message must contain a valid reference to a story'];
           }
-          const REF_PATTERN = /Ref: SRX-[A-Z0-9]{6}/;
-  	return [
-  	  REF_PATTERN.test(body),
-  	  'Commit message must contain a valid reference to a story',
-  	];
+          const REF_PATTERN = /Ref:\s*\[?SRX-[A-Z0-9]{6}/;
+          return [
+            REF_PATTERN.test(body),
+            'Commit message must contain a valid reference to a story, e.g. "Ref: SRX-ABCDEF"',
+          ];
         },
       },
     },
