@@ -1472,6 +1472,217 @@ spec:
 	}
 }
 
+// TestArgoCDRootAppContentWithBrackets is the bracket-mode counterpart of TestArgoCDRootAppContent:
+// with PointToBrackets, the root app must contain one Application per *bracket*, not per app.
+//
+// The esl versions below are the point of this test. A brackets_history row is only written by a
+// release that changes a bracket, so the newest row here sits at esl 4 while the last render happens
+// at esl 5. Looking up the bracket history by an exact esl id therefore finds nothing, and
+// CalculateAppDataWithBrackets silently falls back to one bracket per app - which used to render one
+// Application per app, pointing at brackets/<appName> directories that are never written.
+func TestArgoCDRootAppContentWithBrackets(t *testing.T) {
+	const envName = types.EnvName("staging")
+	const appOne = "app-one"
+	const appTwo = "app-two"
+	const teamOne = "team-one"
+	const teamTwo = "team-two"
+	const bracketOne = "bracket-one"
+	const bracketTwo = "bracket-two"
+	meta := TransformerMetadata{AuthorName: "test", AuthorEmail: "test@test.com"}
+
+	// appProject renders the AppProject document, which is the first document of every root app file.
+	appProject := func(destinationName, destinationServer string) string {
+		return fmt.Sprintf(`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: %s
+spec:
+  description: %s
+  destinations:
+  - name: %s
+    server: %s
+  sourceRepos:
+  - '*'
+`, envName, envName, destinationName, destinationServer)
+	}
+	// bracketApplication renders one Application document that points at a bracket directory rather
+	// than at a single app's manifests directory. teamNames is the joined annotation value, so it
+	// carries one entry per app in the bracket (sorted and de-duplicated by argocd.Render).
+	bracketApplication := func(bracket, teamNames, destinationName, destinationServer string) string {
+		return fmt.Sprintf(`apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/%s/brackets/%s;
+    com.freiheit.kuberpult/aa-parent-environment: %s
+    com.freiheit.kuberpult/application: %s
+    com.freiheit.kuberpult/environment: %s
+    com.freiheit.kuberpult/teams: %s
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/teams: %s
+  name: %s-%s
+spec:
+  destination:
+    name: %s
+    server: %s
+  project: %s
+  sources:
+  - path: environments/%s/brackets/%s
+    repoURL: test
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`, envName, bracket, envName, bracket, envName, teamNames, teamNames, envName, bracket,
+			destinationName, destinationServer, envName, envName, bracket)
+	}
+	// rootApp joins the documents of one root app file the same way argocd.Render does.
+	rootApp := func(documents ...string) []byte {
+		return []byte(strings.Join(documents, "---\n"))
+	}
+
+	tcs := []struct {
+		Name          string
+		BracketOfOne  types.ArgoBracketName
+		BracketOfTwo  types.ArgoBracketName
+		ExpectedFiles []*FilenameAndData
+	}{
+		{
+			// The whole point of brackets: two kuberpult apps collapse into a single Argo CD app.
+			Name:         "two apps in one bracket render a single application",
+			BracketOfOne: bracketOne,
+			BracketOfTwo: bracketOne,
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path: "argocd/v1alpha1/staging.yaml",
+					fileData: rootApp(
+						appProject("destination-1", "server-1"),
+						bracketApplication(bracketOne, teamOne+"_"+teamTwo, "destination-1", "server-1"),
+					),
+				},
+			},
+		},
+		{
+			// Two brackets still render two applications, but named after the brackets - not the apps.
+			// CalculateAppDataWithBrackets sorts the result by bracket name.
+			Name:         "two apps in two brackets render one application each",
+			BracketOfOne: bracketOne,
+			BracketOfTwo: bracketTwo,
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path: "argocd/v1alpha1/staging.yaml",
+					fileData: rootApp(
+						appProject("destination-1", "server-1"),
+						bracketApplication(bracketOne, teamOne, "destination-1", "server-1"),
+						bracketApplication(bracketTwo, teamTwo, "destination-1", "server-1"),
+					),
+				},
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			r, dbHandler, _ := SetupRepositoryTestWithDB(t)
+			repo := r.(*repository)
+			// The rendered files contain the git url, which otherwise depends on the temporary directory of the test:
+			repo.config.URL = "test"
+			repo.config.ArgoRenderOptions = &argocd.RenderOptions{
+				RenderApps:      false,
+				RenderBrackets:  true,
+				PointToBrackets: true,
+			}
+			ctx := testutilauth.MakeTestContext()
+
+			transformers := []Transformer{
+				&CreateEnvironment{
+					Environment: envName,
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+						ArgoCdConfigs: &config.ArgoCDConfigs{
+							ArgoCdConfigurations: []*config.EnvironmentConfigArgoCd{
+								testutil.MakeArgoCdConfigDestination("c1", "destination-1", "server-1"),
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata:   meta,
+				},
+				&CreateApplicationVersion{
+					Application:           appOne,
+					ArgoBracket:           tc.BracketOfOne,
+					Team:                  teamOne,
+					Manifests:             map[types.EnvName]string{envName: "manifest-one"},
+					Version:               1,
+					TransformerEslVersion: 2,
+					TransformerMetadata:   meta,
+				},
+				&DeployApplicationVersion{
+					Application:           appOne,
+					Environment:           envName,
+					Version:               1,
+					TransformerEslVersion: 3,
+					TransformerMetadata:   meta,
+				},
+				&CreateApplicationVersion{
+					Application:           appTwo,
+					ArgoBracket:           tc.BracketOfTwo,
+					Team:                  teamTwo,
+					Manifests:             map[types.EnvName]string{envName: "manifest-two"},
+					Version:               1,
+					TransformerEslVersion: 4,
+					TransformerMetadata:   meta,
+				},
+				&DeployApplicationVersion{
+					Application:           appTwo,
+					Environment:           envName,
+					Version:               1,
+					TransformerEslVersion: 5,
+					TransformerMetadata:   meta,
+				},
+			}
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				// brackets_history.source_transformer_esl_id has a foreign key on
+				// event_sourcing_light, so the esl ids used above have to exist before
+				// prepareDatabaseLikeCdService writes any bracket history.
+				for range transformers {
+					if err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, interface{}(nil), db.ESLMetadata{}); err != nil {
+						return fmt.Errorf("could not write esl event: %w", err)
+					}
+				}
+				for _, tr := range transformers {
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, "test@test.com", "test")
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("setup failed: %v", err)
+			}
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for i, tr := range transformers {
+					_, applyErr := repo.ApplyTransformer(ctx, transaction, tr)
+					if applyErr != nil {
+						t.Fatalf("Unexpected error applying transformer[%d]: %v", i, applyErr)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("apply failed: %v", err)
+			}
+
+			state := repo.State()
+			if err := verifyContent(state.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Errorf("root app content mismatch: %v\nFiles:\n%s", err, strings.Join(listFiles(state.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
 func TestArgoCDFileGenerationAcrossTimestamps(t *testing.T) {
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
