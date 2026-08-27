@@ -17,6 +17,10 @@ jobs:
         with:
           dry: true
           ghr: true
+          # Keep the release rules in sync with the type-enum in commitlint.config.js.
+          # By default only "feat" and "fix" trigger a release, so a batch of merges
+          # that are all "chore"/"revert" would yield an empty version here.
+          custom-arguments: --commit-analyzer-opt patch_release_rules=fix,chore,revert
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Create helm chart for release
         run: |
@@ -53,6 +57,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           changelog-generator-opt: "emojis=true"
+          # Must match the release rules of the dry-run step above, otherwise this
+          # step would compute a different version than the one used for the helm
+          # chart and the re-tagged docker images.
+          custom-arguments: --commit-analyzer-opt patch_release_rules=fix,chore,revert
           # By default, every release is a "pre-release" from now on.
           # Setting this flag to true will happen manually (after testing).
           prerelease: true
