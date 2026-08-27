@@ -1124,7 +1124,7 @@ func collectArgoAppDataForEnv(
 	if err != nil {
 		return nil, fmt.Errorf("could not select apps with deployment in env at timestamp: %w", err)
 	}
-	allBrackets, err := db.DBSelectBracketHistoryById(ctx, dbHandler, transaction, eslVersion)
+	allBrackets, err := db.DBSelectBracketHistoryAtOrBeforeId(ctx, dbHandler, transaction, eslVersion)
 	if err != nil {
 		return nil, fmt.Errorf("could not find bracket at %v: %w", eslVersion, err)
 	}
