@@ -36,7 +36,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/mapper"
-	"github.com/freiheit-com/kuberpult/pkg/tracing"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/notify"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
@@ -1043,18 +1042,20 @@ func CalculateWarnings(appDeployments map[types.EnvName]db.Deployment, appLocks 
 }
 
 func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistoryRequest,
-	stream api.OverviewService_StreamDeploymentHistoryServer) error {
-	span, ctx, onErr := tracing.StartSpanFromContext(stream.Context(), "StreamDeploymentHistory")
-	defer span.Finish()
+	stream api.OverviewService_StreamDeploymentHistoryServer) (err error) {
+	span, ctx := tracer.StartSpanFromContext(stream.Context(), "StreamDeploymentHistory")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
 
 	startDate := in.StartDate.AsTime()
 	endDate := in.EndDate.AsTime().AddDate(0, 0, 1)
 	if !endDate.After(startDate) {
 		providedEndDate := endDate.AddDate(0, 0, -1)
-		return onErr(fmt.Errorf("end date (%s) happens before start date (%s)", providedEndDate.Format(time.DateOnly), startDate.Format(time.DateOnly)))
+		return fmt.Errorf("end date (%s) happens before start date (%s)", providedEndDate.Format(time.DateOnly), startDate.Format(time.DateOnly))
 	}
 
-	err := o.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+	err = o.DBHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
 		count, err := o.DBHandler.DBSelectDeploymentHistoryCount(ctx, transaction, in.Environment, startDate, endDate)
 		if err != nil {
 			return err
@@ -1138,7 +1139,7 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 	})
 
 	if err != nil {
-		return onErr(err)
+		return err
 	}
 
 	return nil
