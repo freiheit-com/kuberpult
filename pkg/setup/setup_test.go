@@ -233,9 +233,15 @@ func TestMetrics(t *testing.T) {
 					continue
 				}
 				response = res
-				time.After(time.Second)
+				<-time.After(time.Second)
 			}
-			body, _ := io.ReadAll(response.Body)
+			if response == nil {
+				t.Fatalf("metrics endpoint returned nil")
+			}
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				t.Fatalf("error reading response body: %s", err)
+			}
 			expectedBody := `# HELP background_job_ready 
 # TYPE background_job_ready gauge
 background_job_ready{name="something"} 0
