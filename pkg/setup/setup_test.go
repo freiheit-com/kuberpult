@@ -235,7 +235,10 @@ func TestMetrics(t *testing.T) {
 				response = res
 				time.After(time.Second)
 			}
-			body, _ := io.ReadAll(response.Body)
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				t.Fatalf("error reading response body: %s", err)
+			}
 			expectedBody := `# HELP background_job_ready 
 # TYPE background_job_ready gauge
 background_job_ready{name="something"} 0
