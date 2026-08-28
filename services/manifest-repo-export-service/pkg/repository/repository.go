@@ -1126,18 +1126,11 @@ func collectArgoAppDataForEnv(
 	if err != nil {
 		return nil, fmt.Errorf("could not select apps with deployment in env at timestamp: %w", err)
 	}
-	var allBrackets *db.BracketRow
-	if pointToBrackets {
-		// Bracket names are only relevant for rendering if pointToBracket==true.
-		// By only getting the brackets conditionally, we prevent CalculateAppDataWithBrackets
-		// from accidentally using bracket data when it's not wanted.
-		// This is only an issue if pointsToBracket==false && there are bracket apps.
-		allBrackets, err = db.DBSelectBracketHistoryAtOrBeforeId(ctx, dbHandler, transaction, eslVersion)
-		if err != nil {
-			return nil, fmt.Errorf("could not find bracket at %v: %w", eslVersion, err)
-		}
+	allBrackets, err := db.DBSelectBracketHistoryAtOrBeforeId(ctx, dbHandler, transaction, eslVersion)
+	if err != nil {
+		return nil, fmt.Errorf("could not find bracket at %v: %w", eslVersion, err)
 	}
-	appData = CalculateAppDataWithBrackets(ctx, allBrackets, appTeams, deploymentsPerApp)
+	appData = CalculateAppDataWithBrackets(ctx, allBrackets, appTeams, deploymentsPerApp, pointToBrackets)
 	return appData, nil
 }
 
@@ -1160,16 +1153,12 @@ func (r *repository) renderRootAppForCluster(
 	return writeArgoCdRootEnvManifestsSynced(ctx, fileSystem, info, manifests, fsMutex)
 }
 
-// CalculateAppDataWithBrackets returns the list of AppData that needs to be rendered in render.go
-func CalculateAppDataWithBrackets(
-	_ context.Context,
-	allBrackets *db.BracketRow,
-	appTeams []db.AppWithTeam,
-	deploymentsPerApp db_history.DeploymentMap,
-) []argocd.AppData {
+// CalculateAppDataWithBrackets returns the list of AppData that needs to be rendered in render.go.
+// If allBrackets is not provided OR pointToBrackets==false, then it falls back to rendering apps.
+func CalculateAppDataWithBrackets(_ context.Context, allBrackets *db.BracketRow, appTeams []db.AppWithTeam, deploymentsPerApp db_history.DeploymentMap, pointToBrackets bool) []argocd.AppData {
 	appData := []argocd.AppData{}
 	bracketMap := map[types.ArgoBracketName]db.AppNames{}
-	if allBrackets == nil || allBrackets.AllBracketsJsonBlob.BracketMap == nil || len(allBrackets.AllBracketsJsonBlob.BracketMap) == 0 {
+	if !pointToBrackets || allBrackets == nil || len(allBrackets.AllBracketsJsonBlob.BracketMap) == 0 {
 		// if there are no brackets, we assume each appName==bracketName
 		for _, appTeam := range appTeams {
 			bracketMap[types.ArgoBracketName(appTeam.AppName)] = db.AppNames{appTeam.AppName}

@@ -236,6 +236,9 @@ func DBSelectBracketHistoryPrevious(ctx context.Context, h *DBHandler, tx *sql.T
 	return executeSelectQuery(ctx, tx, selectQuery)
 }
 
+// DBSelectBracketHistoryAtOrBeforeId returns the bracket_history row from the given maxEslVersion
+// or the next older entry if that does not exist.
+// The query needs to be lenient in this way, because the bracketsHistoryTable is only sparsely filled.
 func DBSelectBracketHistoryAtOrBeforeId(ctx context.Context, h *DBHandler, tx *sql.Tx, maxEslVersion TransformerID) (result *BracketRow, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryAtOrBeforeId")
 	defer func() {

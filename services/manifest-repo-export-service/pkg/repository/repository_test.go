@@ -70,11 +70,12 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 		return result
 	}
 	tcs := []struct {
-		Name               string
-		InputBrackets      *db.BracketRow
-		InputTeams         []db.AppWithTeam
-		InputDeploymentMap db_history.DeploymentMap
-		ExpectedAppData    []argocd.AppData
+		Name                 string
+		InputPointToBrackets bool
+		InputBrackets        *db.BracketRow
+		InputTeams           []db.AppWithTeam
+		InputDeploymentMap   db_history.DeploymentMap
+		ExpectedAppData      []argocd.AppData
 	}{
 		{
 			Name:               "All inputs empty",
@@ -84,8 +85,9 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			ExpectedAppData:    []argocd.AppData{},
 		},
 		{
-			Name:          "one app without bracket data",
-			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{}),
+			Name:                 "one app without bracket data",
+			InputPointToBrackets: true,
+			InputBrackets:        makeBracketMap(map[types.ArgoBracketName]db.AppNames{}),
 			InputTeams: []db.AppWithTeam{
 				{
 					AppName:  "new1", // app that was not in a bracket
@@ -102,7 +104,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 		},
 		{
 			// This case is about introducing the brackets table initially. Not all apps will be part of the brackets_history table yet
-			Name: "one app with bracket data, one app without bracket data",
+			Name:                 "one app with bracket data, one app without bracket data",
+			InputPointToBrackets: true,
 			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
 				"f1": {"foo1"},
 			}),
@@ -129,7 +132,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			},
 		},
 		{
-			Name: "1 app, 1 team, 1 bracket",
+			Name:                 "1 app, 1 team, 1 bracket",
+			InputPointToBrackets: true,
 			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
 				"f1": {"foo1"},
 			}),
@@ -148,7 +152,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			},
 		},
 		{
-			Name: "2 apps, 1 team, 1 bracket",
+			Name:                 "2 apps, 1 team, 1 bracket",
+			InputPointToBrackets: true,
 			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
 				"f1": {"foo1", "foo2"},
 			}),
@@ -171,7 +176,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			},
 		},
 		{
-			Name: "2 apps, 2 teams, 2 brackets",
+			Name:                 "2 apps, 2 teams, 2 brackets",
+			InputPointToBrackets: true,
 			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
 				"f1": {"foo1"},
 				"p1": {"pow1"},
@@ -199,7 +205,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			},
 		},
 		{
-			Name: "4 apps, 2 teams, 2 brackets",
+			Name:                 "4 apps, 2 teams, 2 brackets",
+			InputPointToBrackets: true,
 			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
 				"f1": {"foo1", "foo2"},
 				"p1": {"pow1", "pow2"},
@@ -237,8 +244,9 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 		{
 			// an app that has no (live) deployment in this env must not be rendered into
 			// the env's root app, even if it still has a team/release.
-			Name:          "app without a deployment is not rendered",
-			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{}),
+			Name:                 "app without a deployment is not rendered",
+			InputPointToBrackets: true,
+			InputBrackets:        makeBracketMap(map[types.ArgoBracketName]db.AppNames{}),
 			InputTeams: []db.AppWithTeam{
 				{
 					AppName:  "deployed",
@@ -259,7 +267,8 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 		},
 		{
 			// a bracket in which no contained app has a live deployment must not be rendered.
-			Name: "bracket without any deployed app is not rendered",
+			Name:                 "bracket without any deployed app is not rendered",
+			InputPointToBrackets: true,
 			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
 				"f1": {"foo1"},
 				"p1": {"pow1"},
@@ -282,11 +291,30 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 				},
 			},
 		},
+		{
+			// Apps can carry a bracket while the root app still points at individual apps.
+			// The bracket data must be ignored here: RenderAppEnv would otherwise build the source
+			// path from the bracket name and also reject a bracket holding two apps.
+			Name:                 "brackets are ignored when the root app does not point to brackets",
+			InputPointToBrackets: false,
+			InputBrackets: makeBracketMap(map[types.ArgoBracketName]db.AppNames{
+				"f1": {"foo1", "foo2"},
+			}),
+			InputTeams: []db.AppWithTeam{
+				{AppName: "foo1", TeamName: "t1"},
+				{AppName: "foo2", TeamName: "t1"},
+			},
+			InputDeploymentMap: makeDeploymentMap([]types.AppName{"foo1", "foo2"}),
+			ExpectedAppData: []argocd.AppData{
+				{ArgoAppName: "foo1", ReferencedAppTeams: []string{"t1"}},
+				{ArgoAppName: "foo2", ReferencedAppTeams: []string{"t1"}},
+			},
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			actualAppData := CalculateAppDataWithBrackets(context.Background(), tc.InputBrackets, tc.InputTeams, tc.InputDeploymentMap)
+			actualAppData := CalculateAppDataWithBrackets(context.Background(), tc.InputBrackets, tc.InputTeams, tc.InputDeploymentMap, tc.InputPointToBrackets)
 			testutil.DiffOrFail(t, "", tc.ExpectedAppData, actualAppData)
 		})
 	}
