@@ -809,6 +809,7 @@ spec:
 
 func TestRerenderEnvironment(t *testing.T) {
 	const appName = "myapp"
+	const bracketName = "bracket1"
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
 	const brokenManifest = "this file is broken now"
@@ -902,6 +903,7 @@ spec:
 				},
 				&CreateApplicationVersion{
 					Application:    appName,
+					ArgoBracket:    bracketName,
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					Manifests: map[types.EnvName]string{
 						"development": "normal manifest",
@@ -949,7 +951,7 @@ spec:
 			},
 			UnexpectedFiles: []*FilenameAndData{
 				{
-					path:     "environments/development/brackets/myapp/myapp.yaml",
+					path:     "environments/development/brackets/bracket1/myapp.yaml",
 					fileData: []byte(""),
 				},
 			},
@@ -982,6 +984,7 @@ spec:
 				},
 				&CreateApplicationVersion{
 					Application:    appName,
+					ArgoBracket:    bracketName,
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					Manifests: map[types.EnvName]string{
 						"development": "normal manifest",
@@ -1023,7 +1026,7 @@ spec:
 			},
 			ExpectedFiles: []*FilenameAndData{
 				{
-					path:     "environments/development/brackets/myapp/myapp.yaml",
+					path:     "environments/development/brackets/bracket1/myapp.yaml",
 					fileData: []byte("normal manifest"),
 				},
 			},
@@ -1062,6 +1065,7 @@ spec:
 				},
 				&CreateApplicationVersion{
 					Application:    appName,
+					ArgoBracket:    bracketName,
 					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 					Manifests: map[types.EnvName]string{
 						"development": "normal manifest",
@@ -1103,7 +1107,7 @@ spec:
 			},
 			ExpectedFiles: []*FilenameAndData{
 				{
-					path:     "environments/development/brackets/myapp/myapp.yaml",
+					path:     "environments/development/brackets/bracket1/myapp.yaml",
 					fileData: []byte("normal manifest"),
 				},
 				{

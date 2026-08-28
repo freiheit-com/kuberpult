@@ -135,6 +135,19 @@ func ReadEnvVarDurationWithDefault(envName string, defaultValue time.Duration) (
 	return duration, nil
 }
 
+func ReadEnvVarDuration(envName string) (time.Duration, error) {
+	envValue, ok := os.LookupEnv(envName)
+	if !ok {
+		return 0, fmt.Errorf("could not read environment variable '%s'", envName)
+	}
+	duration, err := time.ParseDuration(envValue)
+	if err != nil {
+		return 0, fmt.Errorf("could not parse environment variable '%s=%s' invalid duration",
+			envName, envValue)
+	}
+	return duration, nil
+}
+
 func ReadEnvVarUInt(envName string) (uint, error) {
 	envValue, err := ReadEnvVar(envName)
 	if err != nil {

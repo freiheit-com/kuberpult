@@ -219,6 +219,10 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	dbMigrationsTimeout, err := valid.ReadEnvVarDuration("KUBERPULT_DB_MIGRATIONS_TIMEOUT")
+	if err != nil {
+		return err
+	}
 
 	dbOutdatedDeploymentsCleaningEnabled := valid.ReadEnvVarBoolWithDefault("KUBERPULT_OUTDATED_DEPLOYMENTS_CLEANING_ENABLED", false)
 
@@ -304,14 +308,15 @@ func Run(ctx context.Context) error {
 	logging.Info(ctx, "root app filter", zap.Any("filter", renderOptions.RootAppFiltering))
 
 	dbCfg := db.DBConfig{
-		DbHost:         dbLocation,
-		DbPort:         dbAuthProxyPort,
-		DriverName:     "postgres",
-		DbName:         dbName,
-		DbPassword:     dbPassword,
-		DbUser:         dbUserName,
-		MigrationsPath: dbMigrationLocation,
-		SSLMode:        sslMode,
+		DbHost:            dbLocation,
+		DbPort:            dbAuthProxyPort,
+		DriverName:        "postgres",
+		DbName:            dbName,
+		DbPassword:        dbPassword,
+		DbUser:            dbUserName,
+		MigrationsPath:    dbMigrationLocation,
+		MigrationsTimeout: &dbMigrationsTimeout,
+		SSLMode:           sslMode,
 
 		MaxIdleConnections: dbMaxIdle,
 		MaxOpenConnections: dbMaxOpen,

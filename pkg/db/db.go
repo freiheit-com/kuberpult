@@ -46,20 +46,28 @@ import (
 )
 
 type DBConfig struct {
-	DbUser         string
-	DbHost         string
-	DbPort         string
-	DbName         string
-	DriverName     string
-	DbPassword     string
-	MigrationsPath string
-	SSLMode        string
+	DbUser            string
+	DbHost            string
+	DbPort            string
+	DbName            string
+	DriverName        string
+	DbPassword        string
+	MigrationsPath    string
+	MigrationsTimeout *time.Duration
+	SSLMode           string
 
 	MaxIdleConnections uint
 	MaxOpenConnections uint
 
 	DatadogEnabled     bool
 	DatadogServiceName string
+}
+
+func (db *DBConfig) getMigrationsTimeout() time.Duration {
+	if db.MigrationsTimeout == nil {
+		return time.Second * 10
+	}
+	return *db.MigrationsTimeout
 }
 
 type DBHandler struct {
@@ -163,7 +171,7 @@ func GetConnectionAndDriver(cfg DBConfig) (*sql.DB, database.Driver, error) {
 		MultiStatementEnabled: false,
 		MultiStatementMaxSize: 0,
 		SchemaName:            "",
-		StatementTimeout:      time.Second * 10,
+		StatementTimeout:      cfg.getMigrationsTimeout(),
 	})
 	return db, driver, err
 }
