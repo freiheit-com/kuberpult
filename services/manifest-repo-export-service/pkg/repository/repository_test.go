@@ -1501,13 +1501,14 @@ spec:
 }
 
 // TestArgoCDRootAppContentWithBrackets is the bracket-mode counterpart of TestArgoCDRootAppContent:
-// with PointToBrackets, the root app must contain one Application per *bracket*, not per app.
+// with PointToBrackets the root app must contain one Application per *bracket*, and without it one
+// per app - even when the apps do have brackets assigned.
 //
-// The esl versions below are the point of this test. A brackets_history row is only written by a
+// The esl versions below are the point of the first case. A brackets_history row is only written by a
 // release that changes a bracket, so the newest row here sits at esl 4 while the last render happens
 // at esl 5. Looking up the bracket history by an exact esl id therefore finds nothing, and
-// CalculateAppDataWithBrackets silently falls back to one bracket per app - which used to render one
-// Application per app, pointing at brackets/<appName> directories that are never written.
+// CalculateAppDataWithBrackets falls back to one bracket per app - which rendered one Application per
+// app, pointing at brackets/<appName> directories that are never written.
 func TestArgoCDRootAppContentWithBrackets(t *testing.T) {
 	const envName = types.EnvName("staging")
 	const appOne = "app-one"
@@ -1515,7 +1516,6 @@ func TestArgoCDRootAppContentWithBrackets(t *testing.T) {
 	const teamOne = "team-one"
 	const teamTwo = "team-two"
 	const bracketOne = "bracket-one"
-	const bracketTwo = "bracket-two"
 	meta := TransformerMetadata{AuthorName: "test", AuthorEmail: "test@test.com"}
 
 	// appProject renders the AppProject document, which is the first document of every root app file.
@@ -1568,6 +1568,40 @@ spec:
 `, envName, bracket, envName, bracket, envName, teamNames, teamNames, envName, bracket,
 			destinationName, destinationServer, envName, envName, bracket)
 	}
+	// application renders one Application document that points at a single app's manifests directory,
+	// which is what the root app must contain when it does not point at brackets.
+	application := func(appName, teamName, destinationName, destinationServer string) string {
+		return fmt.Sprintf(`apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/%s/applications/%s/manifests;
+    com.freiheit.kuberpult/aa-parent-environment: %s
+    com.freiheit.kuberpult/application: %s
+    com.freiheit.kuberpult/environment: %s
+    com.freiheit.kuberpult/teams: %s
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/teams: %s
+  name: %s-%s
+spec:
+  destination:
+    name: %s
+    server: %s
+  project: %s
+  sources:
+  - path: environments/%s/applications/%s/manifests
+    repoURL: test
+    targetRevision: master
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`, envName, appName, envName, appName, envName, teamName, teamName, envName, appName,
+			destinationName, destinationServer, envName, envName, appName)
+	}
 	// rootApp joins the documents of one root app file the same way argocd.Render does.
 	rootApp := func(documents ...string) []byte {
 		return []byte(strings.Join(documents, "---\n"))
@@ -1575,15 +1609,17 @@ spec:
 
 	tcs := []struct {
 		Name          string
-		BracketOfOne  types.ArgoBracketName
-		BracketOfTwo  types.ArgoBracketName
+		RenderOptions *argocd.RenderOptions
 		ExpectedFiles []*FilenameAndData
 	}{
 		{
 			// The whole point of brackets: two kuberpult apps collapse into a single Argo CD app.
-			Name:         "two apps in one bracket render a single application",
-			BracketOfOne: bracketOne,
-			BracketOfTwo: bracketOne,
+			Name: "two apps in one bracket render a single application",
+			RenderOptions: &argocd.RenderOptions{
+				RenderApps:      false,
+				RenderBrackets:  true,
+				PointToBrackets: true,
+			},
 			ExpectedFiles: []*FilenameAndData{
 				{
 					path: "argocd/v1alpha1/staging.yaml",
@@ -1595,18 +1631,23 @@ spec:
 			},
 		},
 		{
-			// Two brackets still render two applications, but named after the brackets - not the apps.
-			// CalculateAppDataWithBrackets sorts the result by bracket name.
-			Name:         "two apps in two brackets render one application each",
-			BracketOfOne: bracketOne,
-			BracketOfTwo: bracketTwo,
+			// Apps keep their brackets while the root app still points at individual apps, e.g. while
+			// migrating to brackets. The bracket name must not leak into the root app: RenderAppEnv
+			// would build the path as applications/bracket-one/manifests, which is never written, and
+			// it rejects a bracket holding more than one app outright.
+			Name: "brackets are ignored when the root app does not point to brackets",
+			RenderOptions: &argocd.RenderOptions{
+				RenderApps:      true,
+				RenderBrackets:  true,
+				PointToBrackets: false,
+			},
 			ExpectedFiles: []*FilenameAndData{
 				{
 					path: "argocd/v1alpha1/staging.yaml",
 					fileData: rootApp(
 						appProject("destination-1", "server-1"),
-						bracketApplication(bracketOne, teamOne, "destination-1", "server-1"),
-						bracketApplication(bracketTwo, teamTwo, "destination-1", "server-1"),
+						application(appOne, teamOne, "destination-1", "server-1"),
+						application(appTwo, teamTwo, "destination-1", "server-1"),
 					),
 				},
 			},
@@ -1618,13 +1659,12 @@ spec:
 			repo := r.(*repository)
 			// The rendered files contain the git url, which otherwise depends on the temporary directory of the test:
 			repo.config.URL = "test"
-			repo.config.ArgoRenderOptions = &argocd.RenderOptions{
-				RenderApps:      false,
-				RenderBrackets:  true,
-				PointToBrackets: true,
-			}
+			repo.config.ArgoRenderOptions = tc.RenderOptions
 			ctx := testutilauth.MakeTestContext()
 
+			// Both apps go into the same bracket on purpose: that is what lets the first case collapse
+			// them into one Argo CD app, and what makes the second case fail loudly without the guard -
+			// RenderAppEnv rejects a bracket holding more than one app when it renders app paths.
 			transformers := []Transformer{
 				&CreateEnvironment{
 					Environment: envName,
@@ -1641,7 +1681,7 @@ spec:
 				},
 				&CreateApplicationVersion{
 					Application:           appOne,
-					ArgoBracket:           tc.BracketOfOne,
+					ArgoBracket:           bracketOne,
 					Team:                  teamOne,
 					Manifests:             map[types.EnvName]string{envName: "manifest-one"},
 					Version:               1,
@@ -1657,7 +1697,7 @@ spec:
 				},
 				&CreateApplicationVersion{
 					Application:           appTwo,
-					ArgoBracket:           tc.BracketOfTwo,
+					ArgoBracket:           bracketOne,
 					Team:                  teamTwo,
 					Manifests:             map[types.EnvName]string{envName: "manifest-two"},
 					Version:               1,
