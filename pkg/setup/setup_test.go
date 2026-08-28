@@ -233,7 +233,10 @@ func TestMetrics(t *testing.T) {
 					continue
 				}
 				response = res
-				time.After(time.Second)
+				<-time.After(time.Second)
+			}
+			if response == nil {
+				t.Fatalf("metrics endpoint returned nil")
 			}
 			body, err := io.ReadAll(response.Body)
 			if err != nil {
