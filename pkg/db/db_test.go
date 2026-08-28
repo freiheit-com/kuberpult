@@ -129,6 +129,75 @@ INSERT INTO apps (created, appname, statechange, metadata)  VALUES ('2025-04-16 
 	}
 }
 
+func TestMigrationTimeout(t *testing.T) {
+	tcs := []struct {
+		Name           string
+		MigrationFiles []string
+		Timeout        time.Duration
+		ExpectedError  string
+	}{
+		{
+			Name:           "timeout is enforced",
+			MigrationFiles: []string{"SELECT pg_sleep(3);"},
+			Timeout:        time.Second,
+			ExpectedError:  "migration failed",
+		},
+		{
+			Name:           "generous timeout does not fire",
+			MigrationFiles: []string{"SELECT pg_sleep(1);"},
+			Timeout:        30 * time.Second,
+		},
+		{
+			// The budget is per file, not per Up() run: 4 files of 1s each pass
+			// under a 3s budget, whereas a per-run budget would fail at 4s.
+			Name: "timeout applies per migration file",
+			MigrationFiles: []string{
+				"SELECT pg_sleep(1);",
+				"SELECT pg_sleep(1);",
+				"SELECT pg_sleep(1);",
+				"SELECT pg_sleep(1);",
+			},
+			Timeout: 3 * time.Second,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			dbDir := t.TempDir()
+			_, dbConfig := SetupRepositoryTestWithDBMigrationPath(t, dbDir, false)
+			dbConfig.MigrationsPath = dbConfig.MigrationsPath + "/migrations"
+			dbConfig.MigrationsTimeout = &tc.Timeout
+
+			loc, mkdirErr := createMigrationFolder(dbDir)
+			if mkdirErr != nil {
+				t.Fatalf("Error creating migrations folder. Error: %v", mkdirErr)
+			}
+			for i, content := range tc.MigrationFiles {
+				fileName := fmt.Sprintf("%d_testing.up.sql", time.Now().Unix()+int64(i))
+				wErr := os.WriteFile(path.Join(loc, fileName), []byte(content), os.ModePerm)
+				if wErr != nil {
+					t.Fatalf("Error creating migration file. Error: %v", wErr)
+				}
+			}
+
+			migErr := RunDBMigrations(ctx, *dbConfig)
+			if tc.ExpectedError == "" {
+				if migErr != nil {
+					t.Fatalf("expected no error, got: %v", migErr)
+				}
+				return
+			}
+			if migErr == nil {
+				t.Fatalf("expected error containing %q, got nil", tc.ExpectedError)
+			}
+			if !strings.Contains(migErr.Error(), tc.ExpectedError) {
+				t.Errorf("expected error containing %q, got: %v", tc.ExpectedError, migErr)
+			}
+		})
+	}
+}
+
 func TestCustomMigrationCleanOutdatedDeployments(t *testing.T) {
 
 	type Given struct {
