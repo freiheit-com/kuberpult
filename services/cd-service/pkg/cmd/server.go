@@ -79,6 +79,7 @@ type Config struct {
 	DbUserPassword       string
 	DbMigrationsLocation string
 	DbSslMode            string
+	DbMigrationsTimeout  time.Duration
 
 	DbMaxIdleConnections uint
 	DbMaxOpenConnections uint
@@ -147,6 +148,10 @@ func parseEnvVars() (_ *Config, err error) {
 		return nil, err
 	}
 	c.DbMaxOpenConnections, err = valid.ReadEnvVarUInt("KUBERPULT_DB_MAX_OPEN_CONNECTIONS")
+	if err != nil {
+		return nil, err
+	}
+	c.DbMigrationsTimeout, err = valid.ReadEnvVarDuration("KUBERPULT_DB_MIGRATIONS_TIMEOUT")
 	if err != nil {
 		return nil, err
 	}
@@ -342,14 +347,15 @@ func RunServer() {
 		}
 
 		dbCfg := db.DBConfig{
-			DbHost:         c.DbLocation,
-			DbPort:         c.DbAuthProxyPort,
-			DriverName:     "postgres",
-			DbName:         c.DbName,
-			DbPassword:     c.DbUserPassword,
-			DbUser:         c.DbUserName,
-			MigrationsPath: c.DbMigrationsLocation,
-			SSLMode:        c.DbSslMode,
+			DbHost:            c.DbLocation,
+			DbPort:            c.DbAuthProxyPort,
+			DriverName:        "postgres",
+			DbName:            c.DbName,
+			DbPassword:        c.DbUserPassword,
+			DbUser:            c.DbUserName,
+			MigrationsPath:    c.DbMigrationsLocation,
+			MigrationsTimeout: &c.DbMigrationsTimeout,
+			SSLMode:           c.DbSslMode,
 
 			MaxIdleConnections: c.DbMaxIdleConnections,
 			MaxOpenConnections: c.DbMaxOpenConnections,

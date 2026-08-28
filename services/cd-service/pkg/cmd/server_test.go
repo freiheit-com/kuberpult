@@ -21,9 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/errorMatcher"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/freiheit-com/kuberpult/pkg/errorMatcher"
 )
 
 func TestCheckReleaseVersionLimit(t *testing.T) {
@@ -90,6 +91,7 @@ func TestEnvVarParsing(t *testing.T) {
 		{
 			Name: "should work if all the required environment variables are set and optional ones are not set",
 			Environment: map[string]string{
+				"KUBERPULT_DB_MIGRATIONS_TIMEOUT":   "20s",
 				"KUBERPULT_DB_MAX_IDLE_CONNECTIONS": "10",
 				"KUBERPULT_DB_MAX_OPEN_CONNECTIONS": "100",
 				"KUBERPULT_ALLOWED_DOMAINS":         "freiheit.com",
@@ -104,6 +106,7 @@ func TestEnvVarParsing(t *testing.T) {
 			ExpectedConfiguration: &Config{
 				DbMaxIdleConnections: 10,
 				DbMaxOpenConnections: 100,
+				DbMigrationsTimeout:  20 * time.Second,
 
 				AllowedDomains:        []string{"freiheit.com"},
 				MigrationServer:       "manifest-repo-export-service:8443",
@@ -133,6 +136,7 @@ func TestEnvVarParsing(t *testing.T) {
 		{
 			Name: "should use all the environment variables that are overwriten",
 			Environment: map[string]string{
+				"KUBERPULT_DB_MIGRATIONS_TIMEOUT":   "20s",
 				"KUBERPULT_DB_MAX_IDLE_CONNECTIONS": "10",
 				"KUBERPULT_DB_MAX_OPEN_CONNECTIONS": "100",
 				"KUBERPULT_ALLOWED_DOMAINS":         "freiheit.com",
@@ -176,6 +180,7 @@ func TestEnvVarParsing(t *testing.T) {
 			ExpectedConfiguration: &Config{
 				DbMaxIdleConnections: 10,
 				DbMaxOpenConnections: 100,
+				DbMigrationsTimeout:  20 * time.Second,
 
 				AllowedDomains:        []string{"freiheit.com"},
 				MigrationServer:       "manifest-repo-export-service:8443",
@@ -231,6 +236,7 @@ func TestEnvVarParsing(t *testing.T) {
 		{
 			Name: "should return error if GitNetworkTimeout is invalid",
 			Environment: map[string]string{
+				"KUBERPULT_DB_MIGRATIONS_TIMEOUT":   "20s",
 				"KUBERPULT_DB_MAX_IDLE_CONNECTIONS": "10",
 				"KUBERPULT_DB_MAX_OPEN_CONNECTIONS": "100",
 				"KUBERPULT_ALLOWED_DOMAINS":         "freiheit.com",

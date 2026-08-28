@@ -152,6 +152,12 @@ db:
   # SSL mode to be used by the database.
   # For all possible values see https://jdbc.postgresql.org/documentation/ssl/
   sslMode: verify-full
+  migrations:
+    # Note that this timeout is for ONE sql migration.
+    # This timeout is used during startup of the cd- and manifest-repo-export-service, in order to run the go-migrate based
+    # SQL migrations.
+    # If this is increased, you also have to increase the k8s probes of these 2 services.
+    timeoutPerFile: 10s
   requests:
     cpu: "100m"
     memory: "200Mi"
