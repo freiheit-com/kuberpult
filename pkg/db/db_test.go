@@ -6655,6 +6655,135 @@ func TestDBSelectEnvironmentApplications(t *testing.T) {
 	}
 }
 
+// TestAppsTeamsHistoryConcurrentTransactionsLoseUpdates shows that DBInsertAppsTeamsHistory
+// loses data when two transactions overlap. It is a read-modify-write of the whole
+// app->team blob with no locking, so under READ COMMITTED the transaction that inserts
+// last wins and the other transaction's change is silently dropped.
+// Note that the "apps" table is written correctly by both transactions, so the two tables
+// end up disagreeing about which apps exist.
+// This test is deterministic: transaction B cannot see transaction A's row, because A has
+// not committed yet when B reads.
+// NOTE: once the underlying issue is fixed by serialising the writes, this test will block
+// instead of failing (B would wait for A, in the same goroutine), so it must be replaced by
+// TestAppsTeamsHistoryConcurrentCreatesKeepAllApps at that point.
+func TestAppsTeamsHistoryConcurrentTransactionsLoseUpdates(t *testing.T) {
+	type appAction struct {
+		AppName     types.AppName
+		TeamName    string
+		StateChange AppStateChange
+	}
+	tcs := []struct {
+		Name         string
+		Existing     []AppWithTeam
+		ActionA      appAction
+		ActionB      appAction
+		ExpectedApps []types.AppName
+		ExpectedMap  TeamToAppsMap
+	}{
+		{
+			Name:     "two apps created concurrently: neither may be lost",
+			Existing: []AppWithTeam{{AppName: "app1", TeamName: "team1"}},
+			ActionA:  appAction{AppName: "app2", TeamName: "team2", StateChange: AppStateChangeCreate},
+			ActionB:  appAction{AppName: "app3", TeamName: "team3", StateChange: AppStateChangeCreate},
+			// today this is {"team1": {"app1"}, "team3": {"app3"}}: app2 is lost
+			ExpectedApps: []types.AppName{"app1", "app2", "app3"},
+			ExpectedMap:  TeamToAppsMap{"team1": {"app1"}, "team2": {"app2"}, "team3": {"app3"}},
+		},
+		{
+			// this case needs no new app at all: re-teaming an existing app is enough
+			Name:     "a team change concurrent with a creation: neither may be lost",
+			Existing: []AppWithTeam{{AppName: "app1", TeamName: "team1"}},
+			ActionA:  appAction{AppName: "app1", TeamName: "team1-updated", StateChange: AppStateChangeUpdate},
+			ActionB:  appAction{AppName: "app2", TeamName: "team2", StateChange: AppStateChangeCreate},
+			// today this is {"team1": {"app1"}, "team2": {"app2"}}: the new team of app1 is lost
+			ExpectedApps: []types.AppName{"app1", "app2"},
+			ExpectedMap:  TeamToAppsMap{"team1-updated": {"app1"}, "team2": {"app2"}},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, appWithTeam := range tc.Existing {
+					err := dbHandler.DBInsertOrUpdateApplication(ctx, transaction, appWithTeam.AppName, AppStateChangeCreate, DBAppMetaData{
+						Team: appWithTeam.TeamName,
+					}, "")
+					if err != nil {
+						return fmt.Errorf("error while writing existing app %s: %w", appWithTeam.AppName, err)
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error while writing existing apps: %v", err)
+			}
+
+			// both transactions are open at the same time:
+			transactionA, err := dbHandler.BeginTransaction(ctx, false)
+			if err != nil {
+				t.Fatalf("error while beginning transaction A: %v", err)
+			}
+			defer func() { _ = transactionA.Rollback() }()
+			transactionB, err := dbHandler.BeginTransaction(ctx, false)
+			if err != nil {
+				t.Fatalf("error while beginning transaction B: %v", err)
+			}
+			defer func() { _ = transactionB.Rollback() }()
+
+			// A reads the existing row and writes its own version of it:
+			err = dbHandler.DBInsertOrUpdateApplication(ctx, transactionA, tc.ActionA.AppName, tc.ActionA.StateChange, DBAppMetaData{
+				Team: tc.ActionA.TeamName,
+			}, "")
+			if err != nil {
+				t.Fatalf("error while writing app in transaction A: %v", err)
+			}
+			// B still reads the existing row, because A has not committed yet:
+			err = dbHandler.DBInsertOrUpdateApplication(ctx, transactionB, tc.ActionB.AppName, tc.ActionB.StateChange, DBAppMetaData{
+				Team: tc.ActionB.TeamName,
+			}, "")
+			if err != nil {
+				t.Fatalf("error while writing app in transaction B: %v", err)
+			}
+
+			// A inserted first, so it has the lower id, and B's row is the one that wins:
+			if err := transactionA.Commit(); err != nil {
+				t.Fatalf("error while committing transaction A: %v", err)
+			}
+			if err := transactionB.Commit(); err != nil {
+				t.Fatalf("error while committing transaction B: %v", err)
+			}
+
+			err = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				actualApps, err := dbHandler.DBSelectAllApplications(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("error while selecting all applications: %w", err)
+				}
+				// the apps table has both apps:
+				if diff := cmp.Diff(tc.ExpectedApps, actualApps); diff != "" {
+					t.Errorf("applications mismatch (-want, +got):\n%s", diff)
+				}
+
+				_, teamAppMap, err := dbHandler.DBSelectLatestAppsTeamsHistory(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("error while selecting apps teams history: %w", err)
+				}
+				// but the apps_teams_history table does not:
+				if diff := cmp.Diff(tc.ExpectedMap, teamAppMap); diff != "" {
+					t.Errorf("apps teams history mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error: %v", err)
+			}
+		})
+	}
+}
+
 func TestDBSelectLatestAppsTeamsHistory(t *testing.T) {
 	type Action struct {
 		AppStateChange         AppStateChange
