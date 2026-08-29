@@ -618,7 +618,7 @@ export const ReleaseDialog: React.FC<ReleaseDialogProps> = (props) => {
                             </span>
                         </div>
                         <div className={classNames('release-dialog-app', className)}>
-                            {'App: '}
+                            {rootAppsPointToBrackets ? 'Bracket: ' : 'App: '}
                             <ArgoAppLink linkTarget={linkTarget} />
                             <ArgoTeamLink team={team} />
                         </div>
