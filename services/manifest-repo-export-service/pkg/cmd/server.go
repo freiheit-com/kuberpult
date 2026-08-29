@@ -52,9 +52,6 @@ const (
 	maxReleaseVersionsLimit = 30
 
 	maxEslProcessingTimeSeconds int64 = 600 // see eslProcessingIdleTimeSeconds in values.yaml
-
-	// maxExportBatchSizeLimit is a hard upper bound on KUBERPULT_MAX_EXPORT_BATCH_SIZE.
-	maxExportBatchSizeLimit = 100
 )
 
 func RunServer() {
@@ -188,9 +185,6 @@ func Run(ctx context.Context) error {
 	}
 	if maxExportBatchSize == 0 {
 		return fmt.Errorf("error KUBERPULT_MAX_EXPORT_BATCH_SIZE must be >=1 but was: %v", maxExportBatchSize)
-	}
-	if maxExportBatchSize > maxExportBatchSizeLimit {
-		return fmt.Errorf("error KUBERPULT_MAX_EXPORT_BATCH_SIZE must be <=%v but was: %v", maxExportBatchSizeLimit, maxExportBatchSize)
 	}
 	logging.Info(ctx, "maxExportBatchSize", zap.Uint("maxExportBatchSize", maxExportBatchSize))
 
