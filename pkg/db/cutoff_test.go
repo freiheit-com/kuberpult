@@ -21,10 +21,13 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 // For testing purposes only
@@ -49,7 +52,6 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutilauth.MakeTestContext()
@@ -89,6 +91,96 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				}
 
 				if diff := cmp.Diff(tc.ExpectedEslVersion, *actual); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("transaction error: %v", err)
+			}
+		})
+	}
+}
+
+func TestGetCurrentDelays(t *testing.T) {
+	tcs := []struct {
+		Name                 string
+		NumEvents            int
+		Cutoff               *EslVersion // nil = no cutoff written yet
+		ExpectedDelayEvents  uint64
+		ExpectedDelaySeconds float64
+	}{
+		{
+			Name:                 "empty table",
+			NumEvents:            0,
+			Cutoff:               nil,
+			ExpectedDelayEvents:  0,
+			ExpectedDelaySeconds: 0,
+		},
+		{
+			Name:                 "single event, no cutoff",
+			NumEvents:            1,
+			Cutoff:               nil,
+			ExpectedDelayEvents:  1,
+			ExpectedDelaySeconds: 90,
+		},
+		{
+			Name:                 "no cutoff yet counts everything",
+			NumEvents:            3,
+			Cutoff:               nil,
+			ExpectedDelayEvents:  3,
+			ExpectedDelaySeconds: 90,
+		},
+		{
+			Name:                 "exactly one event left",
+			NumEvents:            3,
+			Cutoff:               types.Ptr(EslVersion(2)),
+			ExpectedDelayEvents:  1,
+			ExpectedDelaySeconds: 90,
+		},
+		{
+			Name:                 "fully caught up",
+			NumEvents:            3,
+			Cutoff:               types.Ptr(EslVersion(3)),
+			ExpectedDelayEvents:  0,
+			ExpectedDelaySeconds: 0,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testutilauth.MakeTestContext()
+
+			dbHandler := setupDB(t)
+
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				tf := EmptyTransformer{} // we don't care which transformer it is
+				for i := 0; i < tc.NumEvents; i++ {
+					err := dbHandler.DBWriteEslEventInternal(ctx, "empty", transaction, tf, ESLMetadata{})
+					if err != nil {
+						return err
+					}
+				}
+				if tc.Cutoff != nil {
+					err := DBWriteCutoff(dbHandler, ctx, transaction, *tc.Cutoff)
+					if err != nil {
+						return err
+					}
+				}
+
+				// all writes in this transaction share one timestamp, so the age is exact
+				created, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+				if err != nil {
+					return err
+				}
+				delaySeconds, delayEvents, err := dbHandler.GetCurrentDelays(ctx, transaction, created.Add(90*time.Second))
+				if err != nil {
+					return err
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedDelayEvents, delayEvents); diff != "" {
+					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedDelaySeconds, delaySeconds); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
 				return nil

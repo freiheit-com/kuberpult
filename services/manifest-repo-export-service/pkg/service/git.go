@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"time"
 
 	billy "github.com/go-git/go-billy/v5"
 	"github.com/onokonem/sillyQueueServer/timeuuid"
@@ -181,7 +182,7 @@ func (s *GitServer) GetGitSyncStatus(ctx context.Context, _ *api.GetGitSyncStatu
 		AppStatuses: make(map[string]*api.EnvSyncStatus),
 	}
 	err = dbHandler.WithTransactionR(ctx, 2, true, func(ctx context.Context, transaction *sql.Tx) error {
-		delaySecs, delayEvents, err := dbHandler.GetCurrentDelays(ctx, transaction)
+		delaySecs, delayEvents, err := dbHandler.GetCurrentDelays(ctx, transaction, time.Now().UTC())
 		if err != nil {
 			return fmt.Errorf("GetCurrentDelays: %v", err)
 		}
