@@ -42,6 +42,9 @@ const (
 	ArgoBracketNameRegExp    = AppNameRegExp
 	MaxArgoBracketNameLength = 63
 	MinArgoBracketNameLength = 1
+
+	MaxKubernetesLabelValueLength = 63
+	KubernetesLabelValueRegExp    = `\A[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?\z`
 )
 
 var (
@@ -52,6 +55,8 @@ var (
 	ArgoBracketNameRx = regexp.MustCompile(ArgoBracketNameRegExp)
 	commitIDPrefixRx  = regexp.MustCompile(commitIDPrefixRegExp)
 	MaxAppNameLen     = setupMaxAppNameLen()
+
+	kubernetesLabelValueRx = regexp.MustCompile(KubernetesLabelValueRegExp)
 )
 
 func setupMaxAppNameLen() int {
@@ -79,7 +84,6 @@ func ArgoBracketName(name types.ArgoBracketName) bool {
 }
 
 func TeamName(name string) bool {
-	// we use the team name in render.go as label and annotations which both have a limit of 63 characters:
 	return len(name) < 63 && teamNameRx.MatchString(name)
 }
 
@@ -245,4 +249,14 @@ func ReadEnvVarJsonMap(envName string) (StringMap, error) {
 		return nil, fmt.Errorf("failed to read env var '%s', not a valid string-map", envName)
 	}
 	return resultJson, nil
+}
+
+// KubernetesLabelValue reports whether value may be used as a kubernetes label value.
+// The empty string is valid; a value with a leading or trailing "_" is not.
+// See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+func KubernetesLabelValue(value string) bool {
+	if value == "" {
+		return true
+	}
+	return len(value) <= MaxKubernetesLabelValueLength && kubernetesLabelValueRx.MatchString(value)
 }

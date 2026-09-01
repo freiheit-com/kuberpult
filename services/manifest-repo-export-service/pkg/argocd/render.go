@@ -28,6 +28,7 @@ import (
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd/v1alpha1"
 )
 
@@ -47,6 +48,8 @@ type RootAppFiltering struct {
 type ApiVersion string
 
 const V1Alpha1 ApiVersion = "v1alpha1"
+
+const LabelKeyTeam = "com.freiheit.kuberpult/team"
 
 type AppData struct {
 	ArgoAppName        string   // name of the bracket if bracket mode is on
@@ -220,11 +223,9 @@ func RenderAppEnv(
 			manifestPathsArgoFormat = manifestPathsArgoFormat + manifestPathToArgoFormat(manifestPath)
 		}
 	}
-	teamsAnnotation := generateTeamNameAnnotationValue(teamNames)
 	for k, v := range applicationAnnotations {
 		annotations[k] = v
 	}
-	annotations["com.freiheit.kuberpult/teams"] = teamsAnnotation
 	annotations["com.freiheit.kuberpult/application"] = name
 	annotations["com.freiheit.kuberpult/environment"] = info.GetFullyQualifiedName()
 	annotations["com.freiheit.kuberpult/aa-parent-environment"] = string(info.ParentEnvironmentName)
@@ -232,7 +233,12 @@ func RenderAppEnv(
 	// It has to start with a "/" to be absolute to the git repo.
 	// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation
 	annotations["argocd.argoproj.io/manifest-generate-paths"] = manifestPathsArgoFormat
-	labels["com.freiheit.kuberpult/teams"] = teamsAnnotation
+	teamsLabel := generateTeamNameLabelValue(teamNames)
+	if valid.KubernetesLabelValue(teamsLabel) {
+		labels[LabelKeyTeam] = teamsLabel
+	} else {
+		labels[LabelKeyTeam] = ""
+	}
 	app := v1alpha1.Application{
 		TypeMeta: v1alpha1.ApplicationTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
@@ -272,9 +278,16 @@ func manifestPathToArgoFormat(path string) string {
 	return "/" + path + ";"
 }
 
-func generateTeamNameAnnotationValue(teamNames []string) string {
+// generateTeamNameLabelValue joins the teams of all apps in this argo app into one
+// label value. Apps without a team contribute an empty string, which we drop here,
+// because otherwise the joined value starts with "_", which is not a valid
+// kubernetes label value.
+func generateTeamNameLabelValue(teamNames []string) string {
 	slices.Sort(teamNames)                // sort both for convenience and to allow Compact to work
-	teamNames = slices.Compact(teamNames) // like "uniq" remove duplicates that are next to each other
+	teamNames = slices.Compact(teamNames) // remove duplicates that are next to each other
+	teamNames = slices.DeleteFunc(teamNames, func(teamName string) bool {
+		return teamName == ""
+	})
 	return strings.Join(teamNames, "_")
 }
 

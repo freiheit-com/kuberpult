@@ -1308,11 +1308,10 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: %s
     com.freiheit.kuberpult/application: %s
     com.freiheit.kuberpult/environment: %s
-    com.freiheit.kuberpult/teams: %s
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: %s
+    com.freiheit.kuberpult/team: %s
   name: %s-%s
 spec:
   destination:
@@ -1328,7 +1327,7 @@ spec:
       allowEmpty: true
       prune: true
       selfHeal: true
-`, envName, appName, envName, appName, fullyQualifiedName, teamName, teamName, fullyQualifiedName, appName,
+`, envName, appName, envName, appName, fullyQualifiedName, teamName, fullyQualifiedName, appName,
 			destinationName, destinationServer, argoProjectName, envName, appName)
 	}
 	// rootApp joins the documents of one root app file the same way argocd.Render does.
@@ -1545,11 +1544,10 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: %s
     com.freiheit.kuberpult/application: %s
     com.freiheit.kuberpult/environment: %s
-    com.freiheit.kuberpult/teams: %s
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: %s
+    com.freiheit.kuberpult/team: %s
   name: %s-%s
 spec:
   destination:
@@ -1565,7 +1563,7 @@ spec:
       allowEmpty: true
       prune: true
       selfHeal: true
-`, envName, bracket, envName, bracket, envName, teamNames, teamNames, envName, bracket,
+`, envName, bracket, envName, bracket, envName, teamNames, envName, bracket,
 			destinationName, destinationServer, envName, envName, bracket)
 	}
 	// application renders one Application document that points at a single app's manifests directory,
@@ -1579,11 +1577,10 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: %s
     com.freiheit.kuberpult/application: %s
     com.freiheit.kuberpult/environment: %s
-    com.freiheit.kuberpult/teams: %s
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: %s
+    com.freiheit.kuberpult/team: %s
   name: %s-%s
 spec:
   destination:
@@ -1599,7 +1596,7 @@ spec:
       allowEmpty: true
       prune: true
       selfHeal: true
-`, envName, appName, envName, appName, envName, teamName, teamName, envName, appName,
+`, envName, appName, envName, appName, envName, teamName, envName, appName,
 			destinationName, destinationServer, envName, envName, appName)
 	}
 	// rootApp joins the documents of one root app file the same way argocd.Render does.
@@ -1859,11 +1856,10 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: ""
+    com.freiheit.kuberpult/team: ""
   name: production-test
 spec:
   destination:
@@ -2002,11 +1998,10 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: production
     com.freiheit.kuberpult/application: test
     com.freiheit.kuberpult/environment: production
-    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/teams: ""
+    com.freiheit.kuberpult/team: ""
   name: production-test
 spec:
   destination:
