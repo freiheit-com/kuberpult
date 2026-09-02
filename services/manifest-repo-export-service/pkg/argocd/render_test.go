@@ -18,13 +18,14 @@ package argocd
 
 import (
 	"context"
+	"slices"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	godebug "github.com/kylelemons/godebug/diff"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd/v1alpha1"
 )
 
@@ -779,6 +780,120 @@ spec:
       selfHeal: true
 `,
 		},
+		{
+			name: "with team name plus empty team will not produce leading underscore",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					Destination: config.ArgoCdDestination{
+						Namespace:            nil,
+						AppProjectNamespace:  conversion.FromString("bar1"),
+						ApplicationNamespace: nil,
+					},
+				},
+			},
+			appData: []AppData{
+				{
+					ArgoAppName:        "app1",
+					ReferencedAppTeams: []string{"", "some-team"},
+				},
+			},
+			pointToBrackets: true,
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - namespace: bar1
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/brackets/app1;
+    com.freiheit.kuberpult/aa-parent-environment: test-env
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/teams: _some-team
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/teams: some-team
+  name: test-env-app1
+spec:
+  destination: {}
+  project: test-env
+  sources:
+  - path: environments/test-env/brackets/app1
+    repoURL: https://git.example.com/
+    targetRevision: branch-name
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`,
+		},
+		{
+			name: "empty string for teams label if they are too long, but annotation keeps full value",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{
+					Destination: config.ArgoCdDestination{
+						Namespace:            nil,
+						AppProjectNamespace:  conversion.FromString("bar1"),
+						ApplicationNamespace: nil,
+					},
+				},
+			},
+			appData: []AppData{
+				{
+					ArgoAppName:        "app1",
+					ReferencedAppTeams: []string{"t123456789", "u123456789", "v123456789", "w123456789", "x123456789", "z123456789", "z123456789"},
+				},
+			},
+			pointToBrackets: true,
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - namespace: bar1
+  sourceRepos:
+  - '*'
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: /environments/test-env/brackets/app1;
+    com.freiheit.kuberpult/aa-parent-environment: test-env
+    com.freiheit.kuberpult/application: app1
+    com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/teams: t123456789_u123456789_v123456789_w123456789_x123456789_z123456789
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  labels:
+    com.freiheit.kuberpult/teams: ""
+  name: test-env-app1
+spec:
+  destination: {}
+  project: test-env
+  sources:
+  - path: environments/test-env/brackets/app1
+    repoURL: https://git.example.com/
+    targetRevision: branch-name
+  syncPolicy:
+    automated:
+      allowEmpty: true
+      prune: true
+      selfHeal: true
+`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -799,8 +914,47 @@ spec:
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if d := cmp.Diff(tt.want, string(got)); d != "" {
+			if d := testutil.CmpDiff[string](tt.want, string(got)); d != "" {
 				t.Errorf("mismatch: %s", d)
+			}
+		})
+	}
+}
+
+func TestAnnotationAndLabel(t *testing.T) {
+	tests := []struct {
+		name               string
+		InputTeamNames     []string
+		ExpectedLabel      string
+		ExpectedAnnotation string
+	}{
+		{
+			name:               "simple case",
+			InputTeamNames:     []string{"foo"},
+			ExpectedLabel:      "foo",
+			ExpectedAnnotation: "foo",
+		},
+		{
+			name:               "deletion case",
+			InputTeamNames:     []string{"foo", "", "bar"},
+			ExpectedLabel:      "bar_foo",
+			ExpectedAnnotation: "_bar_foo",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expectedTeamNames := slices.Clone(tt.InputTeamNames)
+			actualAnnotation := generateTeamNameAnnotationValue(tt.InputTeamNames)
+			actualLabel := generateTeamNameLabelValue(tt.InputTeamNames)
+
+			if d := testutil.CmpDiff[[]string](expectedTeamNames, tt.InputTeamNames); d != "" {
+				t.Errorf("function changed its slice parameter: %s", d)
+			}
+			if d := testutil.CmpDiff[string](tt.ExpectedLabel, actualLabel); d != "" {
+				t.Errorf("label mismatch: %s", d)
+			}
+			if d := testutil.CmpDiff[string](tt.ExpectedAnnotation, actualAnnotation); d != "" {
+				t.Errorf("annotation mismatch: %s", d)
 			}
 		})
 	}
