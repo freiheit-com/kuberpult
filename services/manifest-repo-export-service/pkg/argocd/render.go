@@ -49,7 +49,7 @@ type ApiVersion string
 
 const V1Alpha1 ApiVersion = "v1alpha1"
 
-const LabelKeyTeam = "com.freiheit.kuberpult/team"
+const LabelAnnotationKeyTeam = "com.freiheit.kuberpult/teams"
 
 type AppData struct {
 	ArgoAppName        string   // name of the bracket if bracket mode is on
@@ -223,9 +223,11 @@ func RenderAppEnv(
 			manifestPathsArgoFormat = manifestPathsArgoFormat + manifestPathToArgoFormat(manifestPath)
 		}
 	}
+	teamsAnnotation := generateTeamNameAnnotationValue(teamNames)
 	for k, v := range applicationAnnotations {
 		annotations[k] = v
 	}
+	annotations[LabelAnnotationKeyTeam] = teamsAnnotation
 	annotations["com.freiheit.kuberpult/application"] = name
 	annotations["com.freiheit.kuberpult/environment"] = info.GetFullyQualifiedName()
 	annotations["com.freiheit.kuberpult/aa-parent-environment"] = string(info.ParentEnvironmentName)
@@ -235,9 +237,9 @@ func RenderAppEnv(
 	annotations["argocd.argoproj.io/manifest-generate-paths"] = manifestPathsArgoFormat
 	teamsLabel := generateTeamNameLabelValue(teamNames)
 	if valid.KubernetesLabelValue(teamsLabel) {
-		labels[LabelKeyTeam] = teamsLabel
+		labels[LabelAnnotationKeyTeam] = teamsLabel
 	} else {
-		labels[LabelKeyTeam] = ""
+		labels[LabelAnnotationKeyTeam] = ""
 	}
 	app := v1alpha1.Application{
 		TypeMeta: v1alpha1.ApplicationTypeMeta,
@@ -278,17 +280,27 @@ func manifestPathToArgoFormat(path string) string {
 	return "/" + path + ";"
 }
 
+func generateTeamNameAnnotationValue(teamNames []string) string {
+	teamNames = slices.Clone(teamNames)   // do not mutate the callers slice
+	slices.Sort(teamNames)                // sort both for convenience and to allow Compact to work
+	teamNames = slices.Compact(teamNames) // like "uniq" remove duplicates that are next to each other
+	return strings.Join(teamNames, "_")
+}
+
 // generateTeamNameLabelValue joins the teams of all apps in this argo app into one
 // label value. Apps without a team contribute an empty string, which we drop here,
 // because otherwise the joined value starts with "_", which is not a valid
 // kubernetes label value.
 func generateTeamNameLabelValue(teamNames []string) string {
-	slices.Sort(teamNames)                // sort both for convenience and to allow Compact to work
-	teamNames = slices.Compact(teamNames) // remove duplicates that are next to each other
+	teamNames = slices.Clone(teamNames) // do not mutate the callers slice
 	teamNames = slices.DeleteFunc(teamNames, func(teamName string) bool {
 		return teamName == ""
 	})
-	return strings.Join(teamNames, "_")
+	annotation := generateTeamNameAnnotationValue(teamNames)
+	if !valid.KubernetesLabelValue(annotation) {
+		return ""
+	}
+	return annotation
 }
 
 // generateSources returns either one ApplicationSource for backwards compatibility with old argo setups

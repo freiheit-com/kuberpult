@@ -18,6 +18,7 @@ package argocd
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	godebug "github.com/kylelemons/godebug/diff"
@@ -47,10 +48,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: dev-app1
 spec:
   destination: {}
@@ -97,10 +99,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: dev-app1
 spec:
   destination: {}
@@ -147,10 +150,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: dev-app1
 spec:
   destination:
@@ -198,10 +202,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: AA-dev-dev-1
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: AA-dev-dev-1-app1
 spec:
   destination:
@@ -250,10 +255,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: dev
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: dev
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: dev-app1
 spec:
   destination: {}
@@ -457,10 +463,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: test-env-app1
 spec:
   destination:
@@ -513,10 +520,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/teams: ""
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: test-env-app1
 spec:
   destination: {}
@@ -637,10 +645,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/teams: some-team
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team
   name: test-env-app1
 spec:
   destination: {}
@@ -693,10 +702,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: AA-test-env-dev-1
+    com.freiheit.kuberpult/teams: some-team
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team
   name: AA-test-env-dev-1-app1
 spec:
   destination: {}
@@ -749,10 +759,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/teams: team1_team2
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: team1_team2
+    com.freiheit.kuberpult/teams: team1_team2
   name: test-env-app1
 spec:
   destination:
@@ -806,10 +817,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/teams: _some-team
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: some-team
+    com.freiheit.kuberpult/teams: some-team
   name: test-env-app1
 spec:
   destination: {}
@@ -826,7 +838,7 @@ spec:
 `,
 		},
 		{
-			name: "empty string for teams label if they are too long",
+			name: "empty string for teams label if they are too long, but annotation keeps full value",
 			config: config.EnvironmentConfig{
 				ArgoCd: &config.EnvironmentConfigArgoCd{
 					Destination: config.ArgoCdDestination{
@@ -862,10 +874,11 @@ metadata:
     com.freiheit.kuberpult/aa-parent-environment: test-env
     com.freiheit.kuberpult/application: app1
     com.freiheit.kuberpult/environment: test-env
+    com.freiheit.kuberpult/teams: t123456789_u123456789_v123456789_w123456789_x123456789_z123456789
   finalizers:
   - resources-finalizer.argocd.argoproj.io
   labels:
-    com.freiheit.kuberpult/team: ""
+    com.freiheit.kuberpult/teams: ""
   name: test-env-app1
 spec:
   destination: {}
@@ -903,6 +916,45 @@ spec:
 			}
 			if d := testutil.CmpDiff[string](tt.want, string(got)); d != "" {
 				t.Errorf("mismatch: %s", d)
+			}
+		})
+	}
+}
+
+func TestAnnotationAndLabel(t *testing.T) {
+	tests := []struct {
+		name               string
+		InputTeamNames     []string
+		ExpectedLabel      string
+		ExpectedAnnotation string
+	}{
+		{
+			name:               "simple case",
+			InputTeamNames:     []string{"foo"},
+			ExpectedLabel:      "foo",
+			ExpectedAnnotation: "foo",
+		},
+		{
+			name:               "deletion case",
+			InputTeamNames:     []string{"foo", "", "bar"},
+			ExpectedLabel:      "bar_foo",
+			ExpectedAnnotation: "_bar_foo",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expectedTeamNames := slices.Clone(tt.InputTeamNames)
+			actualAnnotation := generateTeamNameAnnotationValue(tt.InputTeamNames)
+			actualLabel := generateTeamNameLabelValue(tt.InputTeamNames)
+
+			if d := testutil.CmpDiff[[]string](expectedTeamNames, tt.InputTeamNames); d != "" {
+				t.Errorf("function changed its slice parameter: %s", d)
+			}
+			if d := testutil.CmpDiff[string](tt.ExpectedLabel, actualLabel); d != "" {
+				t.Errorf("label mismatch: %s", d)
+			}
+			if d := testutil.CmpDiff[string](tt.ExpectedAnnotation, actualAnnotation); d != "" {
+				t.Errorf("annotation mismatch: %s", d)
 			}
 		})
 	}
