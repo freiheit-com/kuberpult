@@ -264,7 +264,7 @@ func TestHandleBatchEvents(t *testing.T) {
 				return nil
 			})
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				actualBatch, actualError := HandleBatchEvents(ctx, transaction, dbHandler, nil, repo, 1)
+				actualBatch, actualError := HandleBatchEvents(ctx, transaction, dbHandler, repo, 1)
 				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
