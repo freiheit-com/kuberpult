@@ -49,7 +49,7 @@ type ApiVersion string
 
 const V1Alpha1 ApiVersion = "v1alpha1"
 
-const LabelAnnotationKeyTeam = "com.freiheit.kuberpult/teams"
+const LabelAnnotationKeyTeams = "com.freiheit.kuberpult/teams"
 
 type AppData struct {
 	ArgoAppName        string   // name of the bracket if bracket mode is on
@@ -227,7 +227,7 @@ func RenderAppEnv(
 	for k, v := range applicationAnnotations {
 		annotations[k] = v
 	}
-	annotations[LabelAnnotationKeyTeam] = teamsAnnotation
+	annotations[LabelAnnotationKeyTeams] = teamsAnnotation
 	annotations["com.freiheit.kuberpult/application"] = name
 	annotations["com.freiheit.kuberpult/environment"] = info.GetFullyQualifiedName()
 	annotations["com.freiheit.kuberpult/aa-parent-environment"] = string(info.ParentEnvironmentName)
@@ -235,12 +235,7 @@ func RenderAppEnv(
 	// It has to start with a "/" to be absolute to the git repo.
 	// See https://argo-cd.readthedocs.io/en/stable/operator-manual/high_availability/#webhook-and-manifest-paths-annotation
 	annotations["argocd.argoproj.io/manifest-generate-paths"] = manifestPathsArgoFormat
-	teamsLabel := generateTeamNameLabelValue(teamNames)
-	if valid.KubernetesLabelValue(teamsLabel) {
-		labels[LabelAnnotationKeyTeam] = teamsLabel
-	} else {
-		labels[LabelAnnotationKeyTeam] = ""
-	}
+	labels[LabelAnnotationKeyTeams] = generateTeamNameLabelValue(teamNames)
 	app := v1alpha1.Application{
 		TypeMeta: v1alpha1.ApplicationTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
