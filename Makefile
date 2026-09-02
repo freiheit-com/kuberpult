@@ -121,7 +121,7 @@ kuberpult-datadog: prepare-compose prepare-git prepare-pgp compose-down
 ifndef DD_ENV
 	$(error "DD_ENV should be set to execute this target. E.g., DD_ENV=example-local-nov7-a make kuberpult-datadog")
 else
-	DD_ENV=$(DD_ENV) docker compose -f docker-compose.datadog.yml -f docker-compose.yml -f docker-compose.persist.yml up
+	DD_ENV=$(DD_ENV) docker compose --env-file .env.local -f docker-compose.datadog.yml -f docker-compose.yml -f docker-compose.persist.yml up
 endif
 
 kuberpult: prepare-compose prepare-git prepare-pgp compose-down
