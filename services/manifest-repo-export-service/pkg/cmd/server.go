@@ -57,6 +57,11 @@ const (
 	maxExportBatchSizeLimit = 100
 )
 
+const (
+	metricNameArrivedEvents  = "manifest_export_events_arrived"
+	metricNameDepartedEvents = "manifest_export_events_departed"
+)
+
 func RunServer() {
 	logging.Wrap(context.Background(), func(ctx context.Context) error {
 		defer logging.HandlePanic(true)
@@ -491,6 +496,15 @@ func Run(ctx context.Context) error {
 					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds, failOnErrorWithGitPushTags, int(maxExportBatchSize))
 				},
 			},
+			{
+				Shutdown: nil,
+				Name:     "queueMetrics",
+				Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
+					reporter.ReportReady("Handling Queue Metrics")
+					const metricsInterval = time.Second * 20
+					return reportEslQueueMetrics(ctx, dbHandler, cfg.DDMetrics, metricsInterval)
+				},
+			},
 		},
 		Shutdown: func(ctx context.Context) error {
 			close(shutdownCh)
@@ -498,6 +512,100 @@ func Run(ctx context.Context) error {
 		},
 	})
 	return nil
+}
+
+func reportEslQueueMetrics(ctx context.Context, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, interval time.Duration) error {
+	if ddMetrics == nil {
+		<-ctx.Done()
+		return nil
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	lastMaxEsl := db.EslVersion(0)
+	lastCutoff := db.EslVersion(0)
+	firstRun := true
+	for {
+		select {
+		case <-ctx.Done():
+			// context is done, nothing we can or should do about that
+			return nil
+		case <-ticker.C:
+			currentMetrics, err := getEslMetrics(ctx, dbHandler)
+			if err != nil {
+				logging.Warn(ctx, "failed to report esl queue metrics, skipping this loop", zap.Error(err))
+				continue
+			}
+
+			if !firstRun {
+				// we only have data from the second run onwards
+				arrivedEvents := currentMetrics.MaxEslVersion - lastMaxEsl
+				departedEvents := currentMetrics.Cutoff - lastCutoff
+
+				err = ddMetrics.Count(metricNameArrivedEvents, int64(arrivedEvents), []string{}, 1)
+				if err != nil {
+					logging.Warn(ctx, "failed to report esl queue metric", zap.Error(err), zap.String("metric", metricNameArrivedEvents))
+				}
+
+				// note that both successfully and failing processing of an event counts as "departed" - as long as it leaves the queue
+				err = ddMetrics.Count(metricNameDepartedEvents, int64(departedEvents), []string{}, 1)
+				if err != nil {
+					logging.Warn(ctx, "failed to report esl queue metric", zap.Error(err), zap.String("metric", metricNameDepartedEvents))
+				}
+			}
+			lastMaxEsl = currentMetrics.MaxEslVersion
+			lastCutoff = currentMetrics.Cutoff
+			firstRun = false
+
+			measureDelays(ctx, ddMetrics, currentMetrics.ProcessDelaySeconds, currentMetrics.ProcessDelayEvents)
+		}
+	}
+}
+
+type eslMetrics struct {
+	MaxEslVersion db.EslVersion
+	Cutoff        db.EslVersion
+
+	ProcessDelayEvents  uint64
+	ProcessDelaySeconds float64
+}
+
+func getEslMetrics(ctx context.Context, dbHandler *db.DBHandler) (*eslMetrics, error) {
+	var maxEsl db.EslVersion = 0
+	var cutoff db.EslVersion = 0
+	var delayEvents uint64 = 0
+	var delaySeconds float64 = 0
+	err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		var e2 error
+		delaySeconds, delayEvents, e2 = dbHandler.GetCurrentDelays(ctx, transaction, time.Now().UTC())
+		if e2 != nil {
+			return fmt.Errorf("error in GetCurrentDelays: %v", e2)
+		}
+		maxEsl, e2 = db.DBReadMaxEslVersion(dbHandler, ctx, transaction)
+		if e2 != nil {
+			return e2
+		}
+		tmpCutoff, e2 := db.DBReadCutoff(dbHandler, ctx, transaction)
+		if e2 != nil {
+			return e2
+		}
+		if tmpCutoff == nil {
+			cutoff = 0
+		} else {
+			cutoff = *tmpCutoff
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &eslMetrics{
+		MaxEslVersion:       maxEsl,
+		Cutoff:              cutoff,
+		ProcessDelayEvents:  delayEvents,
+		ProcessDelaySeconds: delaySeconds,
+	}, nil
 }
 
 func ParseEnvironmentOverrides(ctx context.Context, configuredArgoNamesPerEnv valid.StringMap, existingEnvsInDb []types.EnvName) *argocd.ArgoProjectNamesPerEnv {
@@ -547,7 +655,6 @@ func processEsls(
 			return err
 		}
 		if wantedSleepTime > 0 {
-			measureDelays(ctx, ddMetrics, 0, 0)
 			time.Sleep(wantedSleepTime)
 		}
 	}
@@ -588,7 +695,7 @@ func ProcessOneEvent(
 			return resetErr
 		}
 		var err2 error
-		batch, err2 = HandleBatchEvents(ctx, transaction, dbHandler, ddMetrics, repo, maxBatchSize)
+		batch, err2 = HandleBatchEvents(ctx, transaction, dbHandler, repo, maxBatchSize)
 		return err2
 	})
 	if err != nil {
@@ -827,14 +934,7 @@ type batchedEvent struct {
 // HandleBatchEvents additionally returns, aligned one-to-one with the returned esl rows, the
 // hash of the commit each event produced ("" for a NoOp event that produced none), so the caller can
 // write one commit-transaction-timestamp per commit.
-func HandleBatchEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface, repo repository.Repository, maxBatchSize int) ([]batchedEvent, error) {
-	if ddMetrics != nil {
-		delaySeconds, delayEvents, err := dbHandler.GetCurrentDelays(ctx, transaction)
-		if err != nil {
-			return nil, fmt.Errorf("error in GetCurrentDelays: %v", err)
-		}
-		measureDelays(ctx, ddMetrics, delaySeconds, delayEvents)
-	}
+func HandleBatchEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, repo repository.Repository, maxBatchSize int) ([]batchedEvent, error) {
 	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
 		return nil, fmt.Errorf("error in DBReadCutoff: %v", err)

@@ -399,6 +399,11 @@ func convertObjectToMap(obj interface{}) (map[string]interface{}, error) {
 	return result, nil
 }
 
+type EslEventRowBare struct {
+	EslVersion EslVersion
+	Created    time.Time
+}
+
 type EslEventRow struct {
 	EslVersion EslVersion
 	Created    time.Time
@@ -415,6 +420,36 @@ type EslFailedEventRow struct {
 	EventJson             string
 	Reason                string
 	TransformerEslVersion EslVersion
+}
+
+func DBReadMaxEslVersion(h *DBHandler, ctx context.Context, tx *sql.Tx) (EslVersion, error) {
+	selectQuery := h.AdaptQuery(`
+		SELECT COALESCE(MAX(eslVersion), 0) -- maximum, or 0 if no entries found
+		FROM ` + eslTable + ";",
+	)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("readmax: could not query esl table from DB. Error: %w", err)
+	}
+	defer closeRowsAndLog(rows, ctx, "DBReadMaxEslVersion")
+
+	var eslVersion EslVersion = 0
+	if !rows.Next() {
+		return 0, fmt.Errorf("readmax: query did not return any row")
+	}
+	err = rows.Scan(&eslVersion)
+	if err != nil {
+		// sql.ErrNoRows cannot happen, the query itself guarantees one row
+		return 0, fmt.Errorf("readmax: Error scanning row from DB. Error: %w", err)
+	}
+	err = rows.Err()
+	if err != nil {
+		return 0, fmt.Errorf("readmax: row has error: %v", err)
+	}
+	return eslVersion, nil
 }
 
 // DBReadEslEventInternal returns either the first or the last row of the esl table
@@ -464,10 +499,10 @@ func (h *DBHandler) DBReadEslEventInternal(ctx context.Context, tx *sql.Tx, firs
 }
 
 // DBReadEslEventLaterThan returns the first row of the esl table that has an eslVersion > the given eslVersion
-func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (_ *EslEventRow, err error) {
+func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (_ *EslEventRowBare, err error) {
 	sort := "ASC"
 	selectQuery := h.AdaptQuery(fmt.Sprintf(`
-		SELECT eslVersion, created, event_type, json, trace_id, span_id
+		SELECT eslVersion, created
 		FROM `+eslTable+`
 		WHERE eslVersion > (?)
 		ORDER BY eslVersion %s
@@ -482,20 +517,14 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 		return nil, fmt.Errorf("could not query event_sourcing_light table from DB. Error: %w", err)
 	}
 	defer closeRowsAndLog(rows, ctx, "DBReadEslEventLaterThan")
-	zeroTrace := uint64(0)
-	zeroSpan := uint64(0)
-	var row = &EslEventRow{
+	var row = &EslEventRowBare{
 		EslVersion: 0,
 		Created:    time.Unix(0, 0),
-		EventType:  "",
-		EventJson:  "",
-		TraceId:    &zeroTrace,
-		SpanId:     &zeroSpan,
 	}
 	if !rows.Next() {
 		row = nil
 	} else {
-		err := rows.Scan(&row.EslVersion, &row.Created, &row.EventType, &row.EventJson, &row.TraceId, &row.SpanId)
+		err := rows.Scan(&row.EslVersion, &row.Created)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, nil
@@ -564,7 +593,7 @@ func (h *DBHandler) DBReadEslEventBatch(ctx context.Context, tx *sql.Tx, cutoff 
 	return result, nil
 }
 
-func (h *DBHandler) DBReadEslEvent(ctx context.Context, transaction *sql.Tx, eslVersion *EslVersion) (*EslEventRow, error) {
+func (h *DBHandler) DBReadEslEventBare(ctx context.Context, transaction *sql.Tx, eslVersion *EslVersion) (*EslEventRowBare, error) {
 	if eslVersion == nil {
 		logging.Info(ctx, "no cutoff found, starting at the beginning of time.")
 		// no read cutoff yet, we have to start from the beginning
@@ -575,7 +604,10 @@ func (h *DBHandler) DBReadEslEvent(ctx context.Context, transaction *sql.Tx, esl
 		if esl == nil {
 			return nil, nil
 		}
-		return esl, nil
+		return &EslEventRowBare{
+			EslVersion: esl.EslVersion,
+			Created:    esl.Created,
+		}, nil
 	} else {
 		esl, err := h.DBReadEslEventLaterThan(ctx, transaction, *eslVersion)
 		if err != nil {
@@ -584,12 +616,12 @@ func (h *DBHandler) DBReadEslEvent(ctx context.Context, transaction *sql.Tx, esl
 		return esl, nil
 	}
 }
-func (h *DBHandler) DBCountEslEventsNewer(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (_ uint64, err error) {
+func (h *DBHandler) DBCountEslEventsFrom(ctx context.Context, tx *sql.Tx, eslVersion EslVersion) (_ uint64, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBCountEslEventsNewer")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
-	countQuery := h.AdaptQuery("SELECT COUNT(*) FROM " + eslTable + " WHERE eslVersion > ?;")
+	countQuery := h.AdaptQuery("SELECT COUNT(*) FROM " + eslTable + " WHERE eslVersion >= ?;")
 	rows, err := tx.QueryContext(
 		ctx,
 		countQuery,
@@ -2080,12 +2112,12 @@ func (h *DBHandler) DBReadCommitHashTransactionTimestamp(ctx context.Context, tx
 	return timestamp, nil
 }
 
-func (h *DBHandler) GetCurrentDelays(ctx context.Context, transaction *sql.Tx) (float64, uint64, error) {
+func (h *DBHandler) GetCurrentDelays(ctx context.Context, transaction *sql.Tx, now time.Time) (float64, uint64, error) {
 	eslVersion, err := DBReadCutoff(h, ctx, transaction)
 	if err != nil {
 		return math.MaxFloat64, math.MaxUint64, err
 	}
-	esl, err := h.DBReadEslEvent(ctx, transaction, eslVersion)
+	esl, err := h.DBReadEslEventBare(ctx, transaction, eslVersion)
 	if err != nil {
 		return math.MaxFloat64, math.MaxUint64, err
 	}
@@ -2096,11 +2128,10 @@ func (h *DBHandler) GetCurrentDelays(ctx context.Context, transaction *sql.Tx) (
 	if esl.Created.IsZero() {
 		return 0, 0, nil
 	}
-	count, err := h.DBCountEslEventsNewer(ctx, transaction, esl.EslVersion)
+	count, err := h.DBCountEslEventsFrom(ctx, transaction, esl.EslVersion)
 	if err != nil {
 		return math.MaxFloat64, math.MaxUint64, err
 	}
-	now := time.Now().UTC()
 	diff := now.Sub(esl.Created).Seconds()
 	return diff, count, nil
 }
