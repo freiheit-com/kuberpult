@@ -1122,7 +1122,17 @@ func collectArgoAppDataForEnv(
 	if err != nil {
 		return nil, fmt.Errorf("could not select environment applications at timestamp: %w", err)
 	}
-	deploymentsPerApp, err := db_history.DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, dbHandler, transaction, parentEnvName, timestamp)
+	var appNames []types.AppName
+	for _, appTeam := range appTeams {
+		appNames = append(appNames, appTeam.AppName)
+	}
+	deploymentsPerApp, err := db_history.DBSelectAppsWithDeploymentInEnvAtTimestamp(
+		ctx,
+		transaction,
+		parentEnvName,
+		timestamp,
+		appNames,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("could not select apps with deployment in env at timestamp: %w", err)
 	}
@@ -1188,7 +1198,7 @@ func CalculateAppDataWithBrackets(_ context.Context, allBrackets *db.BracketRow,
 
 	appToTeamMap := appTeamsToMap(appTeams)
 	for bracketName, appNames := range bracketMap {
-		bracketsTeamNames := []string{}
+		var bracketsTeamNames []string
 		hasDeployedApp := false
 		for _, appName := range appNames {
 			appsTeamName, ok := appToTeamMap[appName]
@@ -1201,7 +1211,7 @@ func CalculateAppDataWithBrackets(_ context.Context, allBrackets *db.BracketRow,
 				// nothing was deployed here at that time, skip:
 				continue
 			}
-			if deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version == 0 {
+			if deployment.ReleaseVersion == nil || *deployment.ReleaseVersion == 0 {
 				// There was a deployment here previously, but at the timestamp, nothing is deployed, skip:
 				continue
 			}
@@ -1397,7 +1407,7 @@ func (s *State) GetEnvironmentConfigsSortedFromManifest() (map[types.EnvName]con
 	for envName := range configs {
 		envNames = append(envNames, envName)
 	}
-	types.Sort(envNames)
+	envNames = types.Sort(envNames)
 	return configs, envNames, nil
 }
 
@@ -2446,7 +2456,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 	if len(groupEnvNames) == 0 {
 		return nil, fmt.Errorf("no environment found with given group '%s'", envGroup)
 	}
-	types.Sort(groupEnvNames)
+	groupEnvNames = types.Sort(groupEnvNames)
 	return groupEnvNames, nil
 }
 

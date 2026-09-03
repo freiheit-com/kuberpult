@@ -19,101 +19,97 @@ package db_history
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
+	"github.com/lib/pq"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
-	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
-type DeploymentMap map[types.AppName]db.Deployment
+type DeploymentShort struct {
+	ReleaseVersion types.ReleaseVersion
+	Revision       types.Revision
+}
+type DeploymentMap map[types.AppName]DeploymentShort
 
 // DBSelectAppsWithDeploymentInEnvAtTimestamp returns all apps that had a deployment in the given env at the given timestamp:
-func DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx context.Context, h *db.DBHandler, tx *sql.Tx, envSelector types.EnvName, ts time.Time) (DeploymentMap, error) {
-	selectQuery := h.AdaptQuery(`
-		SELECT
-			created,
-			appName,
-			releaseVersion,
-			envName,
-			metadata,
-			transformereslVersion,
-			revision
-		FROM (
-			SELECT
-				*,
-				ROW_NUMBER() OVER(PARTITION BY appName, envName ORDER BY created DESC) as row_number
-			FROM
-				deployments_history
-			WHERE	
-				created <= ?
-			AND
-				envName = ?
-		) AS subquery
-		WHERE
-			row_number = 1
-		ORDER BY
-			appName ASC, envName ASC
- 	`)
+func DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx context.Context, tx *sql.Tx, envSelector types.EnvName, ts time.Time, appNames []types.AppName) (_ DeploymentMap, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppsWithDeploymentInEnvAtTimestamp")
+	defer func() {
+		span.Finish(tracer.WithError(err))
+	}()
+	span.SetTag("kuberpultEnvironment", envSelector)
+	span.SetTag("numApps", len(appNames))
+	selectQuery := `
+		 SELECT
+			  a.appname,
+			  d.releaseversion,
+			  d.revision
+		  FROM unnest($1::text[]) AS a(appname)  -- "unnest" simply converts our slice into a row
+		--  For manually using this query in psql, replace this line with:
+		--  FROM unnest((SELECT array_agg(appname::text) FROM apps)) AS a(appname)
+
+		--- Then we join lateral ("subquery") in order to get the latest deployment.
+	    --- This will skip apps that have now deployment - that's ok, we cannot deploy those anyway!
+		  JOIN LATERAL (
+			  SELECT
+				  releaseversion,
+				  revision
+			  FROM deployments_history
+			  WHERE appname = a.appname
+				  AND envname = $2
+				  AND created <= $3
+			  -- Note that we cannot filter "releaseVersion IS NULL" here, even though we later filter out null deployments,
+			  -- because that would not give us the LATEST deployment.
+			  ORDER BY created DESC, version DESC
+			  LIMIT 1
+		  ) AS d ON TRUE
+		  ORDER BY a.appname;`
 	rows, err := tx.QueryContext(
 		ctx,
 		selectQuery,
-		ts,
+		pq.Array(appNames),
 		envSelector,
+		ts,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("could not select historic deployment on env %s from DB: %w", envSelector, err)
 	}
-	defer func(rows *sql.Rows) {
-		err := rows.Close()
-		if err != nil {
-			logging.Error(ctx, "deployments: row closing error.", zap.Error(err))
-		}
-	}(rows)
-	return processAllLatestDeploymentsForEnv(ctx, rows)
-}
-
-func processAllLatestDeploymentsForEnv(_ context.Context, rows *sql.Rows) (DeploymentMap, error) {
-	result := make(map[types.AppName]db.Deployment)
+	defer func() {
+		_ = rows.Close()
+	}()
+	result := make(DeploymentMap)
 	for rows.Next() {
-		var curr = db.Deployment{
-			Created: time.Time{},
-			Env:     "",
-			App:     "",
-			ReleaseNumbers: types.ReleaseNumbers{
-				Revision: 0,
-				Version:  nil,
-			},
-			Metadata: db.DeploymentMetadata{
-				DeployedByName:  "",
-				DeployedByEmail: "",
-				CiLink:          "",
-			},
-			TransformerID: 0,
-		}
-		var releaseVersion sql.NullInt64
-		var jsonMetadata string
-		err := rows.Scan(&curr.Created, &curr.App, &releaseVersion, &curr.Env, &jsonMetadata, &curr.TransformerID, &curr.ReleaseNumbers.Revision)
+		appName, deployment, err := processOneDeploymentsForEnv(rows)
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, nil
-			}
-			return nil, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
+			return nil, err
 		}
-		err = json.Unmarshal(([]byte)(jsonMetadata), &curr.Metadata)
-		if err != nil {
-			return nil, fmt.Errorf("error during json unmarshal in deployments. Error: %w. Data: %s", err, jsonMetadata)
-		}
-		if releaseVersion.Valid {
-			conv := uint64(releaseVersion.Int64)
-			curr.ReleaseNumbers.Version = &conv
-		}
-		result[curr.App] = curr
+		result[appName] = deployment
+	}
+	span.SetTag("resultLen", len(result))
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("could not select historic deployment on env %s from DB: %w", envSelector, err)
 	}
 	return result, nil
+}
+
+func processOneDeploymentsForEnv(rows *sql.Rows) (types.AppName, DeploymentShort, error) {
+	var c = DeploymentShort{
+		ReleaseVersion: nil,
+		Revision:       0,
+	}
+	var sqlReleaseVersion sql.NullInt64
+	var app types.AppName
+	err := rows.Scan(&app, &sqlReleaseVersion, &c.Revision)
+	if err != nil {
+		return app, c, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
+	}
+	if sqlReleaseVersion.Valid {
+		conv := uint64(sqlReleaseVersion.Int64)
+		c.ReleaseVersion = &conv
+	}
+	return app, c, nil
 }
