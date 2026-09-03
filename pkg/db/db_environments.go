@@ -165,6 +165,10 @@ func processEnvironmentRows(ctx context.Context, rows *sql.Rows) (*[]DBEnvironme
 		}
 		envs = append(envs, *env)
 	}
+	err := rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("error scanning the environments table, error: %w", err)
+	}
 	return &envs, nil
 }
 
@@ -523,6 +527,10 @@ func (h *DBHandler) processEnvironmentRow(ctx context.Context, rows *sql.Rows) (
 			return nil, err
 		}
 		return env, nil
+	}
+	err := rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("rows error in the environments table, error: %w", err)
 	}
 	return nil, nil
 }
