@@ -29,7 +29,6 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/cenkalti/backoff/v4"
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	git "github.com/libgit2/git2go/v34"
 
@@ -58,13 +57,9 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 		result := db_history.DeploymentMap{}
 		for _, appName := range appNames {
 			v := uint64(1)
-			result[appName] = db.Deployment{
-				App: appName,
-				Env: "dontcare",
-				ReleaseNumbers: types.ReleaseNumbers{
-					Version:  &v,
-					Revision: 1,
-				},
+			result[appName] = db_history.DeploymentShort{
+				ReleaseVersion: &v,
+				Revision:       1,
 			}
 		}
 		return result
@@ -484,11 +479,11 @@ func TestDeleteDirIfEmpty(t *testing.T) {
 			}
 
 			successReason, err := state.DeleteDirIfEmpty(tc.DeleteThisDir)
-			if diff := cmp.Diff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+			if diff := testutil.CmpDiff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("error mismatch (-want, +got):\n%s", diff)
 			}
 			if successReason != tc.ExpectedReason {
-				t.Fatal("Output mismatch (-want +got):\n", cmp.Diff(tc.ExpectedReason, successReason))
+				t.Fatal("Output mismatch (-want +got):\n", testutil.CmpDiff(tc.ExpectedReason, successReason))
 			}
 		})
 	}
@@ -3209,7 +3204,7 @@ func TestMeasureGitSyncStatus(t *testing.T) {
 					return true
 				}
 			}
-			if diff := cmp.Diff(tc.ExpectedGauges, mockClient.gauges, cmpopts.SortSlices(cmpGauge)); diff != "" {
+			if diff := testutil.CmpDiff(tc.ExpectedGauges, mockClient.gauges, cmpopts.SortSlices(cmpGauge)); diff != "" {
 				t.Errorf("gauges mismatch (-want, +got):\n%s", diff)
 			}
 		})
