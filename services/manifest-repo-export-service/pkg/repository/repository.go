@@ -1407,7 +1407,7 @@ func (s *State) GetEnvironmentConfigsSortedFromManifest() (map[types.EnvName]con
 	for envName := range configs {
 		envNames = append(envNames, envName)
 	}
-	types.Sort(envNames)
+	envNames = types.Sort(envNames)
 	return configs, envNames, nil
 }
 
@@ -2456,7 +2456,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 	if len(groupEnvNames) == 0 {
 		return nil, fmt.Errorf("no environment found with given group '%s'", envGroup)
 	}
-	types.Sort(groupEnvNames)
+	groupEnvNames = types.Sort(groupEnvNames)
 	return groupEnvNames, nil
 }
 
