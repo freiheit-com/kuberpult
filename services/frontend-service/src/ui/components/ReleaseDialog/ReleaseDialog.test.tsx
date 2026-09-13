@@ -783,11 +783,13 @@ describe('Release Dialog', () => {
             name: 'brackets enabled: the cluster-unspecific Argo link searches by bracket name',
             rootAppsPointToBrackets: true,
             expectedSearch: 'applications?search=-my-bracket',
+            expectedLabel: 'Bracket: ',
         },
         {
             name: 'brackets disabled: the cluster-unspecific Argo link searches by app name',
             rootAppsPointToBrackets: false,
             expectedSearch: 'applications?search=-test1',
+            expectedLabel: 'App: ',
         },
     ])(`Renders the cluster-unspecific Argo link`, (testcase) => {
         it(testcase.name, () => {
@@ -846,6 +848,7 @@ describe('Release Dialog', () => {
             // then
             const argoLink = document.querySelector('a[title="Opens this app/bracket in ArgoCd for all environments"]');
             expect(argoLink?.getAttribute('href')).toContain(testcase.expectedSearch);
+            expect(document.querySelector('.release-dialog-app')?.textContent).toContain(testcase.expectedLabel);
         });
     });
 
