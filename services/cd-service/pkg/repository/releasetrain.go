@@ -82,17 +82,11 @@ func (c *ReleaseTrain) getUpstreamLatestApp(ctx context.Context, transaction *sq
 		if err != nil {
 			return nil, nil, grpc.PublicError(ctx, fmt.Errorf("could not get app version for commitHash %s for %s: %w", c.CommitHash, c.Target, err))
 		}
-		// check that commit hash is not older than 20 commits in the past
+		// Note: a version pinned by commitHash may since have been cleaned up from the current
+		// releases table. That is not an error here - applyPrognosis revives such releases from
+		// history (see reviveRelease/DBSelectReleaseByVersionAtTimestamp) when it actually deploys them.
 		for _, app := range appVersions {
 			apps = append(apps, app.App)
-			versions, err := findOldApplicationVersions(ctx, transaction, state, app.App)
-			if err != nil {
-				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("unable to find findOldApplicationVersions for app %s: %w", app.App, err))
-			}
-			if len(versions) > 0 && *versions[0].Version > *app.Version.Version {
-				return nil, nil, grpc.PublicError(ctx, fmt.Errorf("version for app %s is older than 20 commits when running release train to commitHash %s: %w", app.App, c.CommitHash, err))
-			}
-
 		}
 		return apps, appVersions, nil
 	}

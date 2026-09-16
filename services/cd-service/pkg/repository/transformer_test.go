@@ -6112,6 +6112,171 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 	}
 }
 
+// TestReleaseTrainWithCommitHashIgnoresIrrelevantApps is a regression test for a bug where a release
+// train pinned to a commit hash aborted entirely if ANY app deployed in the upstream environment had a
+// pinned version that had since been pruned from the current "releases" table by automatic cleanup -
+// even when that app had no manifest for the target environment at all and would have been skipped
+// anyway. The pinned version being gone from the current table is not an error case: applyPrognosis
+// revives such releases from history when it actually needs to deploy them.
+func TestReleaseTrainWithCommitHashIgnoresIrrelevantApps(t *testing.T) {
+	tcs := []struct {
+		Name                     string
+		NumIrrelevantAppReleases uint64
+	}{
+		{
+			Name: "irrelevant app has enough releases for its pinned version to be pruned",
+			// default KUBERPULT_RELEASE_VERSIONS_LIMIT is 20; this pushes well past that so
+			// version 1 is guaranteed to have been cleaned up from the current releases table.
+			NumIrrelevantAppReleases: 25,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			var appName types.AppName = "app"
+			var irrelevantApp types.AppName = "integration"
+			versionOne := uint64(1)
+
+			fakeGen := testutil.NewIncrementalUUIDGenerator()
+			ctx := testutilauth.MakeTestContext()
+			ctx = AddGeneratorToContext(ctx, fakeGen)
+			repo, dbHandler := SetupRepositoryTestWithDBOptions(t)
+
+			setupStages := [][]Transformer{
+				{
+					&CreateEnvironment{
+						Environment: "production",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Environment: "staging",
+							},
+						},
+					},
+					&CreateEnvironment{
+						Environment: "staging",
+						Config: config.EnvironmentConfig{
+							Upstream: &config.EnvironmentConfigUpstream{
+								Latest: true,
+							},
+						},
+					},
+					&CreateApplicationVersion{
+						Application: appName,
+						Manifests: map[types.EnvName]string{
+							"production": "some production manifest",
+							"staging":    "some staging manifest",
+						},
+						WriteCommitData: true,
+						Version:         versionOne,
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     appName,
+						Version:         versionOne,
+						WriteCommitData: true,
+					},
+					// irrelevantApp only ever has a manifest for "staging" - it must never be deployed to "production".
+					&CreateApplicationVersion{
+						Application: irrelevantApp,
+						Manifests: map[types.EnvName]string{
+							"staging": "irrelevant app staging manifest v1",
+						},
+						WriteCommitData: true,
+						Version:         versionOne,
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     irrelevantApp,
+						Version:         versionOne,
+						WriteCommitData: true,
+					},
+				},
+			}
+
+			// Push irrelevantApp far enough ahead that its very first release gets pruned from
+			// the current "releases" table by automatic cleanup.
+			var laterIrrelevantAppReleases []Transformer
+			for v := uint64(2); v <= tc.NumIrrelevantAppReleases; v++ {
+				laterIrrelevantAppReleases = append(laterIrrelevantAppReleases,
+					&CreateApplicationVersion{
+						Application: irrelevantApp,
+						Manifests: map[types.EnvName]string{
+							"staging": fmt.Sprintf("irrelevant app staging manifest v%d", v),
+						},
+						WriteCommitData: true,
+						Version:         v,
+					},
+					&DeployApplicationVersion{
+						Environment:     "staging",
+						Application:     irrelevantApp,
+						Version:         v,
+						WriteCommitData: true,
+					},
+				)
+			}
+			setupStages = append(setupStages, laterIrrelevantAppReleases)
+
+			var commitHashes []string
+			for idx, steps := range setupStages {
+				err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+					for _, transformer := range steps {
+						if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, transformer); err != nil {
+							return err
+						}
+					}
+					ts, err := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+					if err != nil {
+						return err
+					}
+					currentCommitHash := strings.Repeat(strconv.Itoa(idx), 40)
+					commitHashes = append(commitHashes, currentCommitHash)
+					return dbHandler.DBWriteCommitTransactionTimestamp(ctx, transaction, currentCommitHash, ts.UTC())
+				})
+				if err != nil {
+					t.Fatalf("error applying transformers for setup stage %d: %v", idx, err)
+				}
+				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on the db do not collide when multiple stages are involved.
+			}
+
+			releaseTrain := ReleaseTrain{
+				Target:          "production",
+				WriteCommitData: true,
+				CommitHash:      commitHashes[0],
+			}
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, &releaseTrain)
+				return err
+			})
+			if err != nil {
+				t.Fatalf("release train pinned to a commit hash failed because of an app irrelevant to the target env: %v", err)
+			}
+
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				deployment, err := dbHandler.DBSelectLatestDeployment(ctx, transaction, appName, "production")
+				if err != nil {
+					return err
+				}
+				if deployment == nil || deployment.ReleaseNumbers.Version == nil || *deployment.ReleaseNumbers.Version != versionOne {
+					t.Errorf("expected %q to be deployed to production with version %d, got %v", appName, versionOne, deployment)
+				}
+
+				irrelevantDeployment, err := dbHandler.DBSelectLatestDeployment(ctx, transaction, irrelevantApp, "production")
+				if err != nil {
+					return err
+				}
+				if irrelevantDeployment != nil {
+					t.Errorf("expected %q to never be deployed to production, but found deployment %v", irrelevantApp, irrelevantDeployment)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error verifying deployments: %v", err)
+			}
+		})
+	}
+}
+
 func TestLifeTimeValidation(t *testing.T) {
 	tcs := []struct {
 		Name           string
