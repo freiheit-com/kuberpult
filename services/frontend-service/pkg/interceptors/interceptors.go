@@ -57,10 +57,12 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 	// here, everything is valid, but we way still have empty strings, so we use the defaultUser here
 	var u *auth.User = nil
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
+		email, _ := claims["email"].(string)
+		name, _ := claims["name"].(string)
 		u = &auth.User{
 			DexAuthContext: nil,
-			Email:          claims["email"].(string),
-			Name:           claims["name"].(string),
+			Email:          email,
+			Name:           name,
 		}
 	}
 
