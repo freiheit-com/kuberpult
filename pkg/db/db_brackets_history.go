@@ -202,11 +202,8 @@ func executeSelectQuery(ctx context.Context, tx *sql.Tx, selectQuery string, arg
 	if rows.Next() {
 		result, err = processBracketHistoryRow(rows)
 		if err != nil {
-			err2 := closeRows(rows)
-			return nil, errors.Join(err, err2)
+			return nil, errors.Join(err, closeRows(rows))
 		}
-	} else {
-		return nil, nil
 	}
 	err = closeRows(rows)
 	if err != nil {
