@@ -59,6 +59,9 @@ func authorize(ctx context.Context, jwks *keyfunc.JWKS, clientId string, tenantI
 	if _, ok := claims["aud"]; ok && claims["aud"] == clientId {
 		email, _ := claims["email"].(string)
 		name, _ := claims["name"].(string)
+		if email == "" || name == "" {
+			return nil, status.Errorf(codes.Unauthenticated, "Token claims must include non-empty 'email' and 'name' fields.")
+		}
 		u = &auth.User{
 			DexAuthContext: nil,
 			Email:          email,
