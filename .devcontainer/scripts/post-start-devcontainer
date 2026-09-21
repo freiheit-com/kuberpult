@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Runs on every container start. Must stay idempotent.
+set -euo pipefail
+
+# On Colima/VirtioFS (common on macOS), the bind mount can report /workspace's
+# owning uid inconsistently -- sometimes root, sometimes a uid that doesn't
+# match this container's dev user -- independent of updateRemoteUserUID in
+# devcontainer.json. Git treats an owner mismatch as CVE-2022-24765 and refuses
+# to touch the repo ("detected dubious ownership") until it's told this directory 
+# is fine.
+git config --global --add safe.directory /workspace
+
+post-start-claude
+post-start-github

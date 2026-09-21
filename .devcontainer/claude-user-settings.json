@@ -1,0 +1,43 @@
+{
+  "model": "opusplan",
+  "enabledMcpjsonServers": ["revolution"],
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true
+  },
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Read(//workspace/**)",
+      "Edit(//workspace/**)",
+      "Bash(just:*)",
+      "Bash(go:*)",
+      "mcp__revolution__search_knowledgebase",
+      "mcp__revolution__query_element_by_display_id",
+      "mcp__revolution__story_context",
+      "mcp__revolution__epic_context",
+      "mcp__revolution__prd_context",
+      "mcp__revolution__document_context",
+      "mcp__revolution__folder_context",
+      "mcp__revolution__iteration_context",
+      "mcp__revolution__milestone_context",
+      "mcp__revolution__list_team_iterations",
+      "mcp__revolution__list_team_members",
+      "mcp__revolution__get_discussions_for_parent",
+      "mcp__revolution__load_checklist"
+    ],
+    "deny": [
+      "Edit(~/.claude/**)",
+      "Edit(~/.config/**)",
+      "Edit(~/.ssh/**)",
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(git clean:*)",
+      "Bash(git config:*)",
+      "Bash(git checkout:*)",
+      "Bash(just tf-apply:*)",
+      "Bash(just tf-destroy:*)",
+      "Bash(just build-main:*)"
+    ]
+  }
+}

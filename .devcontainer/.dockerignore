@@ -1,0 +1,14 @@
+# Everything in this directory is uploaded to the docker daemon as the build
+# context. Deny by default, so a file dropped in here -- a token, a .env, an
+# editor backup -- cannot reach the image just by sitting next to the Dockerfile.
+#
+# Note that `COPY scripts/ /usr/local/bin/` installs whatever it is given as an
+# executable, so the scripts are listed individually rather than by directory.
+# A new script has to be added here too, or it will not be in the image.
+*
+
+!claude-user-settings.json
+!mise.toml
+!scripts/post-start-devcontainer
+!scripts/post-start-claude
+!scripts/post-start-github

@@ -1,0 +1,22 @@
+# The development toolchain of the devcontainer.
+# The versions used here should always be aligned with the version in flake.nix
+[tools]
+go = "1.24.3"
+terraform = "1.15.7"
+just = "1.57.0"
+buf = "1.72.0" 
+kustomize = "5.8.1"
+node = "24.19.0"
+pnpm = "10.9.0"
+
+# Language servers, for editors and agents that speak LSP. Claude Code drives
+# gopls and typescript-language-server through the gopls-lsp and typescript-lsp
+# plugins, which just execute them off PATH
+"go:golang.org/x/tools/gopls" = "0.23.0"
+"npm:typescript-language-server" = "6.0.0"
+terraform-ls = "0.39.0"
+"github:terror/just-lsp" = "0.6.2"
+
+# CLI tools that would otherwise be installed by hand in the Dockerfile.
+jq = "1.8.2"
+gh = "2.100.0"

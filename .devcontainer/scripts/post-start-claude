@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Claude Code setup. Runs on every container start via post-start-devcontainer.
+# Must stay idempotent.
+set -euo pipefail
+
+# The Claude credential volume may still be owned by root if it predates the
+# current image's pre-created mount point.
+[ -O "${HOME}/.claude" ] || sudo chown "$(id -u):$(id -g)" "${HOME}/.claude"
+
+# Claude Code keeps its auth and project state in ~/.claude.json, which sits
+# outside the mounted volume. Park the real file in the volume and link to it so
+# a container rebuild does not log us out.
+# Seed it as an empty JSON object rather than an empty file: Claude Code parses
+# this on startup and a zero-byte file is a JSON syntax error.
+if [ ! -s "${HOME}/.claude/claude.json" ]; then
+    echo '{}' >"${HOME}/.claude/claude.json"
+fi
+ln -sfn "${HOME}/.claude/claude.json" "${HOME}/.claude.json"
+
+# Seed Claude Code's user settings from the template baked into the image.
+# The settings file lives in a volume and Claude Code writes to it at runtime,
+# so on later starts the template is merged in rather than copied over.
+template="/usr/local/share/devcontainer/claude-user-settings.json"
+settings="${HOME}/.claude/settings.json"
+
+if [ ! -f "${template}" ]; then
+    echo "post-start-claude: settings template not found at ${template}" >&2
+elif [ ! -f "${settings}" ]; then
+    cp "${template}" "${settings}"
+else
+    # Existing settings as the base, template values win on conflict.
+    tmpfile="$(mktemp)"
+    trap 'rm -f "${tmpfile}"' EXIT
+    jq -s '.[0] * .[1]' "${settings}" "${template}" >"${tmpfile}"
+    mv "${tmpfile}" "${settings}"
+    trap - EXIT
+fi

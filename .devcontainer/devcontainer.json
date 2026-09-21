@@ -1,0 +1,32 @@
+{
+  "name": "kuberpult",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "dev",
+  // The workspace is a bind mount of the host checkout: /workspace inside the
+  // container is your actual working tree, not a copy of it. An agent in here
+  // reads and writes it directly, uncommitted changes and all. Credentials are
+  // what stays isolated -- see the "mounts" below.
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  // Claude Code credentials live in their own volume so a login survives a
+  // container rebuild and can be wiped independently of the code. The GitHub
+  // token has no volume: it is injected as an env var instead (see
+  // remoteEnv below), the same as the "revolution" MCP credentials.
+  // The volume name is keyed off the workspace folder name so copies of this
+  // .devcontainer/ directory into other projects (or other checkouts of this
+  // one under a different folder name) don't share -- or collide on -- the
+  // same credential volume.
+  "mounts": [
+    "source=${localWorkspaceFolderBasename}-claude,target=/home/dev/.claude,type=volume"
+  ],
+  "remoteEnv": {
+    "REVOLUTION_WORKSPACE_ID": "${localEnv:REVOLUTION_WORKSPACE_ID}",
+    "REVOLUTION_PRODUCT_ID": "${localEnv:REVOLUTION_PRODUCT_ID}",
+    "REVOLUTION_USER_ID": "${localEnv:REVOLUTION_USER_ID}",
+    "REVOLUTION_MCP_TOKEN": "${localEnv:REVOLUTION_MCP_TOKEN}",
+    "GH_TOKEN": "${localEnv:DEVCONTAINER_GH_TOKEN}"
+  },
+  "postStartCommand": "post-start-devcontainer"
+}
