@@ -24,7 +24,6 @@ import (
 	"strings"
 )
 
-type ReleaseVersion = *uint64
 type Revision = uint64
 
 type GitTag string

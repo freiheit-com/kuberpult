@@ -29,7 +29,7 @@ import (
 )
 
 type DeploymentRelaseInfo struct {
-	ReleaseVersion types.ReleaseVersion
+	ReleaseVersion *uint64
 	Revision       types.Revision
 }
 type DeploymentMap map[types.AppName]DeploymentRelaseInfo
