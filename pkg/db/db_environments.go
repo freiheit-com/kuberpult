@@ -322,20 +322,15 @@ type AppWithTeam struct {
 	TeamName string        `json:"team"`
 }
 
-func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Context, tx *sql.Tx, envName types.EnvName, ts time.Time) (_ []types.AppName, _ []AppWithTeam, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectEnvironmentApplicationsAtTimestamp")
+func (h *DBHandler) DBSelectAppTeamsWithReleaseAtTimestamp(ctx context.Context, tx *sql.Tx, consideredApps []DeployedApp, envName types.EnvName, ts time.Time) (_ []types.AppName, err error) {
+	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppTeamsWithReleaseAtTimestamp")
 	defer func() {
 		span.Finish(tracer.WithError(err))
 	}()
 
-	teamAppSlice, err := h.DBSelectAppsTeamsHistoryAtTimestamp(ctx, tx, ts)
+	appsWithRelease, err := h.DBSelectAppsWithReleaseAtTimestamp(ctx, tx, consideredApps, envName, ts)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not select apps teams history: %w", err)
-	}
-
-	appsWithRelease, err := h.DBSelectAppsWithReleasesAtTimestamp(ctx, tx, envName, ts)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not select apps with releases: %w", err)
+		return nil, fmt.Errorf("could not select apps with releases: %w", err)
 	}
 	appsWithReleaseMap := make(map[types.AppName]struct{})
 	for _, app := range appsWithRelease {
@@ -344,15 +339,13 @@ func (h *DBHandler) DBSelectEnvironmentApplicationsAtTimestamp(ctx context.Conte
 
 	// filter out apps without release:
 	var appNamesWithRelease = []types.AppName{}
-	var appNamesWithTeam = []AppWithTeam{}
-	for _, appWithTeam := range teamAppSlice {
-		if _, ok := appsWithReleaseMap[appWithTeam.AppName]; ok {
-			appNamesWithRelease = append(appNamesWithRelease, appWithTeam.AppName)
-			appNamesWithTeam = append(appNamesWithTeam, appWithTeam)
+	for _, appWithTeam := range appsWithRelease {
+		if _, ok := appsWithReleaseMap[appWithTeam]; ok {
+			appNamesWithRelease = append(appNamesWithRelease, appWithTeam)
 		}
 	}
 
-	return appNamesWithRelease, appNamesWithTeam, nil
+	return appNamesWithRelease, nil
 }
 
 // INSERT, UPDATE, DELETE

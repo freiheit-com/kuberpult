@@ -315,47 +315,6 @@ func (h *DBHandler) insertAppsTeamsHistoryRow(ctx context.Context, transaction *
 	return nil
 }
 
-func (h *DBHandler) DBSelectAppsWithReleasesAtTimestamp(ctx context.Context, transaction *sql.Tx, envName types.EnvName, ts time.Time) ([]types.AppName, error) {
-	query := h.AdaptQuery(`
-	SELECT DISTINCT appname
-	FROM (
-		SELECT DISTINCT ON (appname, releaseversion, revision)
-			appname,
-			environments,
-			deleted
-		FROM releases_history
-		WHERE created <= ?
-		ORDER BY
-			appname,
-			releaseversion,
-			revision,
-			version DESC
-	) AS latest_releases
-	WHERE
-		environments @> ?
-		AND deleted = false;
-	`)
-	rows, err := transaction.QueryContext(ctx, query, ts, `"`+envName+`"`)
-	if err != nil {
-		return nil, fmt.Errorf("could not query apps with releases at timestamp: %w", err)
-	}
-
-	var apps []types.AppName
-	for rows.Next() {
-		var appName types.AppName
-		if err := rows.Scan(&appName); err != nil {
-			return nil, fmt.Errorf("could not scan apps with releases at timestamp: %w", err)
-		}
-		apps = append(apps, appName)
-	}
-
-	err = closeRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return apps, nil
-}
-
 func (h *DBHandler) DBSelectLatestAppsTeamsHistory(ctx context.Context, transaction *sql.Tx) (_ []AppWithTeam, _ TeamToAppsMap, err error) {
 	query := h.AdaptQuery(`
 		SELECT apps_teams

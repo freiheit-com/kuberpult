@@ -61,28 +61,23 @@ func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.Ge
 		}
 		if in.Environment != nil && *in.Environment != "" {
 			//Single environment
-			allAppsForEnv, _, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, types.EnvName(*in.Environment), *ts)
+			currentAppDeployments, appTeams, err := db.GetAppsWithDeploymentAndReleaseAtTimestamp(ctx, transaction, dbHandler, (types.EnvName)(*in.Environment), *ts)
 			if err != nil {
-				return nil, fmt.Errorf("unable to get applications for environment '%s': %v", *in.Environment, err)
+				return nil, fmt.Errorf("unable to get all applications for environment '%s': %v", *in.Environment, err)
 			}
-			if len(allAppsForEnv) == 0 {
+			if len(appTeams) == 0 {
 				return &api.GetProductSummaryResponse{
 					ProductSummary: nil,
 				}, nil
 			}
-			for _, currentApp := range allAppsForEnv {
-				currentAppDeployments, err := state.GetAllDeploymentsForAppFromDBAtTimestamp(ctx, transaction, currentApp, *ts)
-				if err != nil {
-					return nil, fmt.Errorf("unable to get GetAllDeploymentsForAppAtTimestamp  %v", err)
-				}
-
-				if version, ok := currentAppDeployments[types.EnvName(*in.Environment)]; ok {
+			for _, currentApp := range appTeams {
+				if version, ok := currentAppDeployments[currentApp.AppName]; ok {
 					summaryFromEnv = append(summaryFromEnv, api.ProductSummary{
 						CommitId:       "",
 						DisplayVersion: "",
 						Team:           "",
-						App:            string(currentApp),
-						Version:        strconv.FormatInt(int64(*version.Version), 10),
+						App:            string(currentApp.AppName),
+						Version:        strconv.FormatInt(int64(*version.ReleaseVersion), 10),
 						Revision:       strconv.FormatInt(int64(version.Revision), 10),
 						Environment:    *in.Environment,
 					})
@@ -113,16 +108,21 @@ func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.Ge
 				if *in.EnvironmentGroup == envGroup.EnvironmentGroupName {
 					for _, env := range envGroup.Environments {
 						envName := types.EnvName(env.Name)
-						allAppsForEnv, _, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *ts)
+						_, appTeams, err := db.GetAppsWithDeploymentAndReleaseAtTimestamp(ctx, transaction, dbHandler, envName, *ts)
 						if err != nil {
 							return nil, fmt.Errorf("unable to get all applications for environment '%s': %v", envName, err)
 						}
-						if len(allAppsForEnv) == 0 {
+						appNames := []types.AppName{}
+						for _, app := range appTeams {
+							appNames = append(appNames, app.AppName)
+						}
+
+						if len(appNames) == 0 {
 							return &api.GetProductSummaryResponse{
 								ProductSummary: nil,
 							}, nil
 						}
-						for _, currentApp := range allAppsForEnv {
+						for _, currentApp := range appNames {
 
 							currentAppDeployments, err := state.GetAllDeploymentsForAppFromDBAtTimestamp(ctx, transaction, currentApp, *ts)
 							if err != nil {

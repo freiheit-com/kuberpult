@@ -1136,6 +1136,7 @@ func TestReadLockPreventedEvents(t *testing.T) {
 	}
 }
 
+// noinspection SqlResolve
 func TestSqliteToPostgresQuery(t *testing.T) {
 	tcs := []struct {
 		Name          string
@@ -6832,6 +6833,26 @@ func TestDBSelectLatestAppsTeamsHistory(t *testing.T) {
 	}
 }
 
+func deployedAppsForEnv(releases []DBReleaseWithMetaData, envName types.EnvName) []DeployedApp {
+	var result []DeployedApp
+	for _, release := range releases {
+		if _, ok := release.Manifests.Manifests[envName]; !ok {
+			continue
+		}
+		var version *types.ReleaseVersion
+		if release.ReleaseNumbers.Version != nil {
+			v := types.ReleaseVersion(*release.ReleaseNumbers.Version)
+			version = &v
+		}
+		result = append(result, DeployedApp{
+			AppName:        release.App,
+			ReleaseVersion: version,
+			Revision:       release.ReleaseNumbers.Revision,
+		})
+	}
+	return result
+}
+
 func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 	tcs := []struct {
 		Name                            string
@@ -7000,21 +7021,13 @@ func TestDBSelectEnvironmentApplicationsAtTimestamp(t *testing.T) {
 
 			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for envName, expectedApps := range tc.ExpectedEnvironmentApplications {
-					apps, _, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
+					consideredApps := deployedAppsForEnv(tc.FirstReleases, envName)
+					apps, err := dbHandler.DBSelectAppTeamsWithReleaseAtTimestamp(ctx, transaction, consideredApps, envName, *firstReleaseTime)
 					if err != nil {
 						return fmt.Errorf("couldn't retrieve environment %s applications, error: %w", envName, err)
 					}
 					if diff := cmp.Diff(expectedApps, apps); diff != "" {
 						return fmt.Errorf("environment applications mismatch for env '%s' (-want, +got):\n%s", envName, diff)
-					}
-				}
-				for envName, expectedAppTeam := range tc.ExpectedAppTeams {
-					_, appTeams, err := dbHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, envName, *firstReleaseTime)
-					if err != nil {
-						return fmt.Errorf("couldn't retrieve environment %s applications, error: %w", envName, err)
-					}
-					if diff := cmp.Diff(expectedAppTeam, appTeams); diff != "" {
-						return fmt.Errorf("appteams mismatch for env '%s' (-want, +got):\n%s", envName, diff)
 					}
 				}
 				return nil

@@ -14,12 +14,13 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package db_history
+package db
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/lib/pq"
@@ -29,12 +30,13 @@ import (
 )
 
 type DeploymentRelaseInfo struct {
-	ReleaseVersion *uint64
+	ReleaseVersion *types.ReleaseVersion
 	Revision       types.Revision
 }
 type DeploymentMap map[types.AppName]DeploymentRelaseInfo
 
-// DBSelectAppsWithDeploymentInEnvAtTimestamp returns all apps that had a deployment in the given env at the given timestamp:
+// DBSelectAppsWithDeploymentInEnvAtTimestamp limits the given list of apps so that only apps with a non-zero deployment in the given env at the given timestamp are returned:
+// For performance it is important that the list of apps is sorted.
 func DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx context.Context, tx *sql.Tx, envSelector types.EnvName, ts time.Time, appNames []types.AppName) (_ DeploymentMap, err error) {
 	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectAppsWithDeploymentInEnvAtTimestamp")
 	defer func() {
@@ -108,8 +110,64 @@ func processOneDeploymentsForEnv(rows *sql.Rows) (types.AppName, DeploymentRelas
 		return app, c, fmt.Errorf("error scanning deployments row from DB. Error: %w", err)
 	}
 	if sqlReleaseVersion.Valid {
-		conv := uint64(sqlReleaseVersion.Int64)
+		conv := types.ReleaseVersion(sqlReleaseVersion.Int64)
 		c.ReleaseVersion = &conv
 	}
 	return app, c, nil
+}
+
+// GetAppsWithDeploymentAndReleaseAtTimestamp returns all apps where at the given timestamp:
+//   - the latest deployment is non-null for the given environment, and
+//   - the latest release is non-null for the given environment.
+//
+// The result represents all apps that need to be deployed at the given time.
+func GetAppsWithDeploymentAndReleaseAtTimestamp(ctx context.Context, transaction *sql.Tx, dbHandler *DBHandler, parentEnvName types.EnvName, timestamp time.Time) (DeploymentMap, []AppWithTeam, error) {
+	// 1) get apps with teams
+	teamAppSlice, err := dbHandler.DBSelectAppsTeamsHistoryAtTimestamp(ctx, transaction, timestamp)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not select apps teams history: %w", err)
+	}
+	var appNames []types.AppName
+	for _, appTeam := range teamAppSlice {
+		appNames = append(appNames, appTeam.AppName)
+	}
+
+	// 2) reduce to only apps with deployment
+	deploymentsPerApp, err := DBSelectAppsWithDeploymentInEnvAtTimestamp(
+		ctx,
+		transaction,
+		parentEnvName,
+		timestamp,
+		appNames,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not select apps with deployment in env at timestamp: %w", err)
+	}
+	// 3) reduce to only apps with deployment and release
+	consideredApps := []DeployedApp{}
+	for appName, releaseData := range deploymentsPerApp {
+		consideredApps = append(consideredApps, DeployedApp{
+			AppName:        appName,
+			ReleaseVersion: releaseData.ReleaseVersion,
+			Revision:       releaseData.Revision,
+		})
+	}
+	appsWithReleaseAndDeployment, err := dbHandler.DBSelectAppTeamsWithReleaseAtTimestamp(ctx, transaction, consideredApps, parentEnvName, timestamp)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not select environment applications at timestamp: %w", err)
+	}
+	// 4) create appteam result by filtering:
+	reducedTeamAppSlice := []AppWithTeam{}
+	for _, teamApp := range teamAppSlice {
+		if slices.Contains(appsWithReleaseAndDeployment, teamApp.AppName) {
+			reducedTeamAppSlice = append(reducedTeamAppSlice, teamApp)
+		}
+	}
+	// 5) reduce deploymentsPerApp to remove deployments without release:
+	for appName := range deploymentsPerApp {
+		if !slices.Contains(appsWithReleaseAndDeployment, appName) {
+			delete(deploymentsPerApp, appName)
+		}
+	}
+	return deploymentsPerApp, reducedTeamAppSlice, nil
 }

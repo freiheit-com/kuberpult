@@ -24,6 +24,10 @@ import (
 	"strings"
 )
 
+// ReleaseVersion identifies the number of a release of an app.
+// Note that in many cases we use a pointer to the ReleaseVersion to represent nil as "no version".
+type ReleaseVersion uint64
+
 type Revision = uint64
 
 type GitTag string

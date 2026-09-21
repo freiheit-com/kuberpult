@@ -14,7 +14,7 @@ along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>
 
 Copyright freiheit.com*/
 
-package db_history
+package db
 
 import (
 	"context"
@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/db"
 	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
@@ -42,7 +41,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 	const stg = types.EnvName("staging")
 	allEnvs := []types.EnvName{dev, stg}
 
-	Environments := []db.DBEnvironment{
+	Environments := []DBEnvironment{
 		{
 			Name:   dev,
 			Config: config.EnvironmentConfig{},
@@ -52,31 +51,31 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			Config: config.EnvironmentConfig{},
 		},
 	}
-	Releases := []db.DBReleaseWithMetaData{
+	Releases := []DBReleaseWithMetaData{
 		{
 			ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 			App:            appFoo,
-			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
+			Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
 		{
 			ReleaseNumbers: types.MakeReleaseNumberVersion(2),
 			App:            appFoo,
-			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
+			Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
 		{
 			ReleaseNumbers: types.MakeReleaseNumberVersion(1),
 			App:            appPow,
-			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
+			Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
 		{
 			ReleaseNumbers: types.MakeReleaseNumberVersion(2),
 			App:            appPow,
-			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
+			Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
 		{
 			ReleaseNumbers: types.MakeReleaseNumberVersion(0),
 			App:            appFoo,
-			Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
+			Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest1", stg: "manifest2"}},
 		},
 	}
 
@@ -105,7 +104,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			ExpectedDeployments: map[types.EnvName]DeploymentMap{
 				dev: {
 					appFoo: {
-						ReleaseVersion: types.Ptr(uint64(1)),
+						ReleaseVersion: types.Ptr(types.ReleaseVersion(1)),
 						Revision:       0,
 					},
 				},
@@ -145,7 +144,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			ExpectedDeployments: map[types.EnvName]DeploymentMap{
 				dev: {
 					appFoo: {
-						ReleaseVersion: types.Ptr(uint64(0)),
+						ReleaseVersion: types.Ptr(types.ReleaseVersion(0)),
 						Revision:       0,
 					},
 				},
@@ -175,7 +174,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			ExpectedDeployments: map[types.EnvName]DeploymentMap{
 				dev: {
 					appFoo: {
-						ReleaseVersion: types.Ptr(uint64(1)),
+						ReleaseVersion: types.Ptr(types.ReleaseVersion(1)),
 						Revision:       0,
 					},
 				},
@@ -200,13 +199,13 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			ExpectedDeployments: map[types.EnvName]DeploymentMap{
 				dev: {
 					appFoo: {
-						ReleaseVersion: types.Ptr(uint64(1)),
+						ReleaseVersion: types.Ptr(types.ReleaseVersion(1)),
 						Revision:       0,
 					},
 				},
 				stg: {
 					appPow: {
-						ReleaseVersion: types.Ptr(uint64(1)),
+						ReleaseVersion: types.Ptr(types.ReleaseVersion(1)),
 						Revision:       0,
 					},
 				},
@@ -250,13 +249,13 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			ExpectedDeployments: map[types.EnvName]DeploymentMap{
 				dev: {
 					appFoo: {
-						ReleaseVersion: types.Ptr(uint64(1)),
+						ReleaseVersion: types.Ptr(types.ReleaseVersion(1)),
 						Revision:       0,
 					},
 				},
 				stg: {
 					appPow: {
-						ReleaseVersion: types.Ptr(uint64(1)),
+						ReleaseVersion: types.Ptr(types.ReleaseVersion(1)),
 						Revision:       0,
 					},
 				},
@@ -299,12 +298,12 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 				// starting new transactions here so that each deployment gets its own timestamp
 				err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 
-					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+					err := dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, Deployment{
 						Created:        time.Time{},
 						App:            toBeDeployed.App,
 						Env:            toBeDeployed.Env,
 						ReleaseNumbers: toBeDeployed.ReleaseNumbers,
-						Metadata:       db.DeploymentMetadata{},
+						Metadata:       DeploymentMetadata{},
 						TransformerID:  0,
 					})
 					if err != nil {
@@ -328,7 +327,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 						t.Fatalf("error selecting deployments: %v", err)
 					}
 					// THEN:
-					if diff := testutil.CmpDiff(expectedDeploymentMap, actualResult, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
+					if diff := testutil.CmpDiff(expectedDeploymentMap, actualResult, cmpopts.IgnoreFields(Deployment{}, "Created")); diff != "" {
 						t.Fatalf("deployment mismatch on env %s (-want, +got):\n%s", envName, diff)
 					}
 				}
@@ -377,19 +376,19 @@ func TestDBDeleteDeploymentWithHistoryReflectsInTimestampQuery(t *testing.T) {
 				if err := dbHandler.DBWriteEnvironment(ctx, transaction, dev, config.EnvironmentConfig{}); err != nil {
 					return err
 				}
-				if err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
+				if err := dbHandler.DBUpdateOrCreateRelease(ctx, transaction, DBReleaseWithMetaData{
 					ReleaseNumbers: types.MakeReleaseNumberVersion(tc.DeployVersion),
 					App:            app,
-					Manifests:      db.DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest"}},
+					Manifests:      DBReleaseManifests{Manifests: map[types.EnvName]string{dev: "manifest"}},
 				}); err != nil {
 					return err
 				}
-				return dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, db.Deployment{
+				return dbHandler.DBUpdateOrCreateDeployment(ctx, transaction, Deployment{
 					Created:        time.Time{},
 					App:            app,
 					Env:            dev,
 					ReleaseNumbers: types.MakeReleaseNumbers(tc.DeployVersion, 0),
-					Metadata:       db.DeploymentMetadata{},
+					Metadata:       DeploymentMetadata{},
 					TransformerID:  0,
 				})
 			})
@@ -418,7 +417,7 @@ func TestDBDeleteDeploymentWithHistoryReflectsInTimestampQuery(t *testing.T) {
 
 			// WHEN: the deployment is deleted via the history-aware wrapper
 			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				return dbHandler.DBDeleteDeploymentWithHistory(ctx, transaction, app, dev, 0, db.DeploymentMetadata{})
+				return dbHandler.DBDeleteDeploymentWithHistory(ctx, transaction, app, dev, 0, DeploymentMetadata{})
 			})
 			if err != nil {
 				t.Fatalf("delete: %v", err)
@@ -444,33 +443,4 @@ func TestDBDeleteDeploymentWithHistoryReflectsInTimestampQuery(t *testing.T) {
 			}
 		})
 	}
-}
-
-// setupDB returns a new DBHandler with a tmp directory every time, so tests are completely independent
-func setupDB(t *testing.T) *db.DBHandler {
-	ctx := context.Background()
-	dir, err := db.CreateMigrationsPath(4)
-	if err != nil {
-		t.Fatalf("CreateMigrationsPath: %v", err)
-	}
-	tmpDir := t.TempDir()
-	t.Logf("directory for DB migrations: %s", dir)
-	t.Logf("tmp dir for DB data: %s", tmpDir)
-
-	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, dir, t.Name())
-	if err != nil {
-		t.Fatalf("SetupPostgres: %v", err)
-	}
-
-	migErr := db.RunDBMigrations(ctx, *dbConfig)
-	if migErr != nil {
-		t.Fatal(migErr)
-	}
-
-	dbHandler, err := db.Connect(ctx, *dbConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return dbHandler
 }
