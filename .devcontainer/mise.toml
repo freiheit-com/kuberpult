@@ -1,4 +1,5 @@
 # The development toolchain of the devcontainer.
+# The versions used here should always be aligned with the version in flake.nix
 [tools]
 go = "1.24.3"
 terraform = "1.15.7"
