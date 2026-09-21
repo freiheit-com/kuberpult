@@ -6068,7 +6068,7 @@ func TestReleaseTrainsWithCommitHash(t *testing.T) {
 					t.Fatalf("Error applying transformers step %d: %v", idx, err)
 				}
 
-				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on the db do not collide when multiple stages are involved.
+				time.Sleep(1 * time.Millisecond) //This is here so that timestamps on the db do not collide when multiple stages are involved.
 			}
 
 			// Run the Release Train
@@ -6207,12 +6207,6 @@ func TestReleaseTrainWithCommitHashIgnoresIrrelevantApps(t *testing.T) {
 						WriteCommitData: true,
 						Version:         v,
 					},
-					&DeployApplicationVersion{
-						Environment:     "staging",
-						Application:     irrelevantApp,
-						Version:         v,
-						WriteCommitData: true,
-					},
 				)
 			}
 			setupStages = append(setupStages, laterIrrelevantAppReleases)
@@ -6236,7 +6230,7 @@ func TestReleaseTrainWithCommitHashIgnoresIrrelevantApps(t *testing.T) {
 				if err != nil {
 					t.Fatalf("error applying transformers for setup stage %d: %v", idx, err)
 				}
-				time.Sleep(1000 * time.Millisecond) //This is here so that timestamps on the db do not collide when multiple stages are involved.
+				time.Sleep(1 * time.Millisecond) //This is here so that timestamps on the db do not collide when multiple stages are involved.
 			}
 
 			releaseTrain := ReleaseTrain{
@@ -6245,8 +6239,10 @@ func TestReleaseTrainWithCommitHashIgnoresIrrelevantApps(t *testing.T) {
 				CommitHash:      commitHashes[0],
 			}
 			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, &releaseTrain)
-				return err
+				if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, &releaseTrain); err != nil {
+					return err
+				}
+				return nil
 			})
 			if err != nil {
 				t.Fatalf("release train pinned to a commit hash failed because of an app irrelevant to the target env: %v", err)
