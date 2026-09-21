@@ -57,7 +57,7 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 		result := db_history.DeploymentMap{}
 		for _, appName := range appNames {
 			v := uint64(1)
-			result[appName] = db_history.DeploymentShort{
+			result[appName] = db_history.DeploymentRelaseInfo{
 				ReleaseVersion: &v,
 				Revision:       1,
 			}

@@ -309,7 +309,7 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	renderOptions.RootAppFiltering.EnabledEnvironments = types.StringsToEnvNames(tmp)
+	renderOptions.RootAppFiltering.EnabledEnvironments = types.ConvertFromStrings[types.EnvName](tmp)
 	logging.Info(ctx, "root app filter", zap.Any("filter", renderOptions.RootAppFiltering))
 
 	dbCfg := db.DBConfig{

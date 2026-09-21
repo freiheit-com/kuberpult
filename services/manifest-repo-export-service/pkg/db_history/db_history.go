@@ -28,11 +28,11 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
-type DeploymentShort struct {
+type DeploymentRelaseInfo struct {
 	ReleaseVersion types.ReleaseVersion
 	Revision       types.Revision
 }
-type DeploymentMap map[types.AppName]DeploymentShort
+type DeploymentMap map[types.AppName]DeploymentRelaseInfo
 
 // DBSelectAppsWithDeploymentInEnvAtTimestamp returns all apps that had a deployment in the given env at the given timestamp:
 func DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx context.Context, tx *sql.Tx, envSelector types.EnvName, ts time.Time, appNames []types.AppName) (_ DeploymentMap, err error) {
@@ -52,7 +52,7 @@ func DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx context.Context, tx *sql.Tx,
 		--  FROM unnest((SELECT array_agg(appname::text) FROM apps)) AS a(appname)
 
 		--- Then we join lateral ("subquery") in order to get the latest deployment.
-	    --- This will skip apps that have now deployment - that's ok, we cannot deploy those anyway!
+	    --- This will skip apps that have no deployment - that's ok, we cannot deploy those anyway!
 		  JOIN LATERAL (
 			  SELECT
 				  releaseversion,
@@ -96,8 +96,8 @@ func DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx context.Context, tx *sql.Tx,
 	return result, nil
 }
 
-func processOneDeploymentsForEnv(rows *sql.Rows) (types.AppName, DeploymentShort, error) {
-	var c = DeploymentShort{
+func processOneDeploymentsForEnv(rows *sql.Rows) (types.AppName, DeploymentRelaseInfo, error) {
+	var c = DeploymentRelaseInfo{
 		ReleaseVersion: nil,
 		Revision:       0,
 	}

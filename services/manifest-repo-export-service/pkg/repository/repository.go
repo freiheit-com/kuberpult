@@ -998,8 +998,8 @@ func (r *repository) afterTransform(ctx context.Context, transaction *sql.Tx, st
 		}
 	}
 	logging.Info(ctx, "rendering of environments",
-		zap.Strings("skippedEnvs", types.EnvNamesToStrings(skippedEnvs)),
-		zap.Strings("renderedEnvs", types.EnvNamesToStrings(renderedEnvs)),
+		zap.Strings("skippedEnvs", types.ConvertToStrings(skippedEnvs)),
+		zap.Strings("renderedEnvs", types.ConvertToStrings(renderedEnvs)),
 		zap.Any("changedEnvs", changedEnvironments),
 	)
 	return errorGroup.Wait()

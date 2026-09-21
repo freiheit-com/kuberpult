@@ -70,7 +70,7 @@ type ManifestLockID int64
 
 type ArgoProjectName string
 
-func NamesToStrings[T ~string](a []T) []string {
+func ConvertToStrings[T ~string](a []T) []string {
 	var result = make([]string, len(a))
 	for i := range a {
 		result[i] = string(a[i])
@@ -78,7 +78,7 @@ func NamesToStrings[T ~string](a []T) []string {
 	return result
 }
 
-func StringsToNames[T ~string](a []string) []T {
+func ConvertFromStrings[T ~string](a []string) []T {
 	var result = make([]T, len(a))
 	for i := range a {
 		result[i] = T(a[i])
@@ -86,18 +86,10 @@ func StringsToNames[T ~string](a []string) []T {
 	return result
 }
 
-func EnvNamesToStrings(a []EnvName) []string {
-	return NamesToStrings(a)
-}
-
-func StringsToEnvNames(a []string) []EnvName {
-	return StringsToNames[EnvName](a)
-}
-
 func Sort[T ~string](a []T) []T {
-	s := NamesToStrings(a)
+	s := ConvertToStrings(a)
 	sort.Strings(s)
-	return StringsToNames[T](s)
+	return ConvertFromStrings[T](s)
 }
 
 func StringPtr(a EnvName) *string {

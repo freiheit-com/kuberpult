@@ -123,7 +123,7 @@ func GetCreateReleaseAppNameTooLong(appName types.AppName, regExp string, maxLen
 	}
 }
 func GetCreateReleaseMissingManifest(missingManifests []types.EnvName) *CreateReleaseError {
-	missingManifestStr := types.EnvNamesToStrings(missingManifests)
+	missingManifestStr := types.ConvertToStrings(missingManifests)
 	response := api.CreateReleaseResponseMissingManifest{
 		MissingManifest: missingManifestStr,
 	}
@@ -138,7 +138,7 @@ func GetCreateReleaseMissingManifest(missingManifests []types.EnvName) *CreateRe
 }
 
 func GetCreateReleaseIsNoDownstream(noDownstream []types.EnvName) *CreateReleaseError {
-	noDownstreamStr := types.EnvNamesToStrings(noDownstream)
+	noDownstreamStr := types.ConvertToStrings(noDownstream)
 	response := api.CreateReleaseResponseIsNoDownstream{
 		NoDownstream: noDownstreamStr,
 	}
