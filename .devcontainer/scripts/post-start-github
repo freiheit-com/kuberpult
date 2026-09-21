@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# GitHub auth setup. Runs on every container start via post-start-devcontainer.
+# Must stay idempotent.
+set -euo pipefail
+
+# Remotes in this repository are written as git@github.com:...; rewrite them to
+# https so the gh credential helper can authenticate them. No ssh keys are (or
+# should be) available in the container.
+git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+# ~/.gitconfig is on the container filesystem, not in a volume, so a rebuild
+# (or even a plain restart) wipes the credential helper registration. Re-register
+# it on every start. `gh auth status` succeeds straight from the GH_TOKEN env var
+# (see remoteEnv in devcontainer.json) -- there is no login step and nothing
+# written to disk for it to check instead.
+if gh auth status >/dev/null 2>&1; then
+    gh auth setup-git
+
+    # setup-git only registers the credential helper. The commit identity is a
+    # separate setting that nothing else in the container provides, so committing
+    # fails with "Author identity unknown" -- unless the bind-mounted checkout
+    # already has one set locally. Derive it from the authenticated account when
+    # it doesn't: the profile email is private and fine-grained tokens cannot
+    # read /user/emails, so use the noreply address GitHub derives from the
+    # account id.
+    if ! git config --get user.name >/dev/null; then
+        git config --global user.name "$(gh api user --jq '.name // .login')"
+    fi
+    if ! git config --get user.email >/dev/null; then
+        git config --global user.email \
+            "$(gh api user --jq '"\(.id)+\(.login)@users.noreply.github.com"')"
+    fi
+else
+    project_secrets_file="$(. /workspace/.devcontainer/project.env; echo "${PROJECT_SECRETS_FILE}")"
+
+    cat >&2 <<EOF
+
+  Not authenticated with GitHub yet. GH_TOKEN is not set (or is not a valid
+  token) in this container. On the host, add DEVCONTAINER_GH_TOKEN to
+  ${project_secrets_file}, then in the shell you run devcontainer commands
+  from:
+
+      source .devcontainer/load-env.sh
+
+  and reconnect -- remoteEnv maps it to GH_TOKEN and is picked up fresh on
+  the next \`devcontainer exec\` / VS Code attach, no rebuild needed.
+
+EOF
+fi
