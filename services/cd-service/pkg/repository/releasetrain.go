@@ -202,7 +202,7 @@ func (c *ReleaseTrain) Prognosis(
 	for env := range envGroupConfigs {
 		envGroups = append(envGroups, env)
 	}
-	types.Sort(envGroups)
+	envGroups = types.Sort(envGroups)
 
 	envPrognoses := make(map[types.EnvName]ReleaseTrainEnvironmentPrognosis)
 	for _, envName := range envGroups {
@@ -274,7 +274,7 @@ func (c *ReleaseTrain) Transform(
 	for env := range envGroupConfigs {
 		envNames = append(envNames, env)
 	}
-	types.Sort(envNames)
+	envNames = types.Sort(envNames)
 	span.SetTag("environments", len(envNames))
 
 	ts, err := state.GetCommitHashTimestamp(ctx, transaction, c.CommitHash)

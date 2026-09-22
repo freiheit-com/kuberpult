@@ -24,6 +24,8 @@ import (
 	"strings"
 )
 
+type Revision = uint64
+
 type GitTag string
 
 // EnvName is a type that helps us avoid mixing up envNames from other strings.
@@ -67,7 +69,7 @@ type ManifestLockID int64
 
 type ArgoProjectName string
 
-func EnvNamesToStrings(a []EnvName) []string {
+func ConvertToStrings[T ~string](a []T) []string {
 	var result = make([]string, len(a))
 	for i := range a {
 		result[i] = string(a[i])
@@ -75,18 +77,18 @@ func EnvNamesToStrings(a []EnvName) []string {
 	return result
 }
 
-func StringsToEnvNames(a []string) []EnvName {
-	var result = make([]EnvName, len(a))
+func ConvertFromStrings[T ~string](a []string) []T {
+	var result = make([]T, len(a))
 	for i := range a {
-		result[i] = EnvName(a[i])
+		result[i] = T(a[i])
 	}
 	return result
 }
 
-func Sort(a []EnvName) []EnvName {
-	s := EnvNamesToStrings(a)
+func Sort[T ~string](a []T) []T {
+	s := ConvertToStrings(a)
 	sort.Strings(s)
-	return StringsToEnvNames(s)
+	return ConvertFromStrings[T](s)
 }
 
 func StringPtr(a EnvName) *string {

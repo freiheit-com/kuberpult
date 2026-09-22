@@ -19,14 +19,15 @@ package db_history
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/db"
+	"github.com/freiheit-com/kuberpult/pkg/testutil"
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 )
@@ -34,8 +35,12 @@ import (
 func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 	const appFoo = types.AppName("foo")
 	const appPow = types.AppName("pow")
+	allApps := []types.AppName{appFoo, appPow}
+	allAppsDuplicated := []types.AppName{appFoo, appPow, appFoo, appPow}
+
 	const dev = types.EnvName("dev")
 	const stg = types.EnvName("staging")
+	allEnvs := []types.EnvName{dev, stg}
 
 	Environments := []db.DBEnvironment{
 		{
@@ -84,10 +89,12 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 	tcs := []struct {
 		Name                string
 		InputDeployments    []AppEnv
+		InputAllApps        []types.AppName
 		ExpectedDeployments map[types.EnvName]DeploymentMap
 	}{
 		{
-			Name: "one simple deployment works",
+			Name:         "one simple deployment works and appPow is skipped",
+			InputAllApps: allApps,
 			InputDeployments: []AppEnv{
 				{
 					App:            appFoo,
@@ -98,45 +105,31 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			ExpectedDeployments: map[types.EnvName]DeploymentMap{
 				dev: {
 					appFoo: {
-						Created:        time.Time{},
-						App:            appFoo,
-						Env:            dev,
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						Metadata:       db.DeploymentMetadata{},
-						TransformerID:  0,
+						ReleaseVersion: types.Ptr(uint64(1)),
+						Revision:       0,
 					},
 				},
+				stg: {},
 			},
 		},
 		{
-			Name: "un-deploying works",
+			Name:         "huge list of apps works",
+			InputAllApps: createHugeListOfApps(70_000), // a "where-in" would be limited to 65k
 			InputDeployments: []AppEnv{
 				{
 					App:            appFoo,
 					Env:            dev,
 					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
 				},
-				{
-					App:            appFoo,
-					Env:            dev,
-					ReleaseNumbers: types.MakeReleaseNumbers(0, 0),
-				},
 			},
 			ExpectedDeployments: map[types.EnvName]DeploymentMap{
-				dev: {
-					appFoo: {
-						Created:        time.Time{},
-						App:            appFoo,
-						Env:            dev,
-						ReleaseNumbers: types.MakeReleaseNumbers(0, 0),
-						Metadata:       db.DeploymentMetadata{},
-						TransformerID:  0,
-					},
-				},
+				dev: {},
+				stg: {},
 			},
 		},
 		{
-			Name: "re-deploying works",
+			Name:         "un-deploying works",
+			InputAllApps: allApps,
 			InputDeployments: []AppEnv{
 				{
 					App:            appFoo,
@@ -148,6 +141,31 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 					Env:            dev,
 					ReleaseNumbers: types.MakeReleaseNumbers(0, 0),
 				},
+			},
+			ExpectedDeployments: map[types.EnvName]DeploymentMap{
+				dev: {
+					appFoo: {
+						ReleaseVersion: types.Ptr(uint64(0)),
+						Revision:       0,
+					},
+				},
+				stg: {},
+			},
+		},
+		{
+			Name:         "re-deploying works",
+			InputAllApps: allApps,
+			InputDeployments: []AppEnv{
+				{
+					App:            appFoo,
+					Env:            dev,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+				},
+				{
+					App:            appFoo,
+					Env:            dev,
+					ReleaseNumbers: types.MakeReleaseNumbers(0, 0),
+				},
 				{
 					App:            appFoo,
 					Env:            dev,
@@ -157,18 +175,16 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			ExpectedDeployments: map[types.EnvName]DeploymentMap{
 				dev: {
 					appFoo: {
-						Created:        time.Time{},
-						App:            appFoo,
-						Env:            dev,
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						Metadata:       db.DeploymentMetadata{},
-						TransformerID:  0,
+						ReleaseVersion: types.Ptr(uint64(1)),
+						Revision:       0,
 					},
 				},
+				stg: {},
 			},
 		},
 		{
-			Name: "two simple deployments works",
+			Name:         "two simple deployments works",
+			InputAllApps: allApps,
 			InputDeployments: []AppEnv{
 				{
 					App:            appFoo,
@@ -184,22 +200,64 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 			ExpectedDeployments: map[types.EnvName]DeploymentMap{
 				dev: {
 					appFoo: {
-						Created:        time.Time{},
-						App:            appFoo,
-						Env:            dev,
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						Metadata:       db.DeploymentMetadata{},
-						TransformerID:  0,
+						ReleaseVersion: types.Ptr(uint64(1)),
+						Revision:       0,
 					},
 				},
 				stg: {
 					appPow: {
-						Created:        time.Time{},
-						App:            appPow,
-						Env:            stg,
-						ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
-						Metadata:       db.DeploymentMetadata{},
-						TransformerID:  0,
+						ReleaseVersion: types.Ptr(uint64(1)),
+						Revision:       0,
+					},
+				},
+			},
+		},
+		{
+			Name:         "empty apps return nothing",
+			InputAllApps: []types.AppName{},
+			InputDeployments: []AppEnv{
+				{
+					App:            appFoo,
+					Env:            dev,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+				},
+				{
+					App:            appPow,
+					Env:            stg,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+				},
+			},
+			ExpectedDeployments: map[types.EnvName]DeploymentMap{
+				dev: {},
+				stg: {},
+			},
+		},
+		{
+			Name:         "duplicate input apps yield same result as unique list of apps",
+			InputAllApps: allAppsDuplicated,
+			InputDeployments: []AppEnv{
+				{
+					App:            appFoo,
+					Env:            dev,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+				},
+				{
+					App:            appPow,
+					Env:            stg,
+					ReleaseNumbers: types.MakeReleaseNumbers(1, 0),
+				},
+			},
+			ExpectedDeployments: map[types.EnvName]DeploymentMap{
+				dev: {
+					appFoo: {
+						ReleaseVersion: types.Ptr(uint64(1)),
+						Revision:       0,
+					},
+				},
+				stg: {
+					appPow: {
+						ReleaseVersion: types.Ptr(uint64(1)),
+						Revision:       0,
 					},
 				},
 			},
@@ -210,6 +268,12 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
 			ctx := testutilauth.MakeTestContext()
+			for _, env := range allEnvs {
+				if tc.ExpectedDeployments[env] == nil {
+					t.Fatalf("test setup broken: no deployment found for env %v: %s", env,
+						"you need to specify all envs in 'ExpectedDeployments'")
+				}
+			}
 			dbHandler := setupDB(t)
 			var err error
 			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
@@ -259,12 +323,12 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 					t.Fatalf("error getting time: %v", err)
 				}
 				for envName, expectedDeploymentMap := range tc.ExpectedDeployments {
-					actualResult, err := DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, dbHandler, transaction, envName, *timestamp)
+					actualResult, err := DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, transaction, envName, *timestamp, tc.InputAllApps)
 					if err != nil {
 						t.Fatalf("error selecting deployments: %v", err)
 					}
 					// THEN:
-					if diff := cmp.Diff(expectedDeploymentMap, actualResult, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
+					if diff := testutil.CmpDiff(expectedDeploymentMap, actualResult, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
 						t.Fatalf("deployment mismatch on env %s (-want, +got):\n%s", envName, diff)
 					}
 				}
@@ -277,6 +341,14 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 	}
 }
 
+func createHugeListOfApps(numApps uint) []types.AppName {
+	var results []types.AppName
+	for i := range numApps {
+		results = append(results, types.AppName(fmt.Sprintf("TmpApp-%d", i)))
+	}
+	return results
+}
+
 // TestDBDeleteDeploymentWithHistoryReflectsInTimestampQuery ensures that deleting a deployment via
 // the history-aware wrapper makes the timestamped history query stop reporting the app as deployed.
 // A plain DBDeleteDeployment (current table only) would leave the history showing the old version,
@@ -284,6 +356,7 @@ func TestDBSelectAppsWithDeploymentInEnvAtTimestamp(t *testing.T) {
 func TestDBDeleteDeploymentWithHistoryReflectsInTimestampQuery(t *testing.T) {
 	const app = types.AppName("foo")
 	const dev = types.EnvName("dev")
+	allApps := []types.AppName{app}
 	tcs := []struct {
 		Name          string
 		DeployVersion uint64
@@ -330,11 +403,11 @@ func TestDBDeleteDeploymentWithHistoryReflectsInTimestampQuery(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				res, err := DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, dbHandler, transaction, dev, *ts)
+				res, err := DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, transaction, dev, *ts, allApps)
 				if err != nil {
 					return err
 				}
-				if dep, ok := res[app]; !ok || dep.ReleaseNumbers.Version == nil {
+				if dep, ok := res[app]; !ok || dep.ReleaseVersion == nil {
 					t.Fatalf("expected app %q to be deployed before deletion, got: %v", app, res)
 				}
 				return nil
@@ -357,12 +430,12 @@ func TestDBDeleteDeploymentWithHistoryReflectsInTimestampQuery(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				res, err := DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, dbHandler, transaction, dev, *ts)
+				res, err := DBSelectAppsWithDeploymentInEnvAtTimestamp(ctx, transaction, dev, *ts, allApps)
 				if err != nil {
 					return err
 				}
-				if dep, ok := res[app]; ok && dep.ReleaseNumbers.Version != nil {
-					t.Errorf("expected app %q to be un-deployed after deletion, but it still has version %d", app, *dep.ReleaseNumbers.Version)
+				if dep, ok := res[app]; ok && dep.ReleaseVersion != nil {
+					t.Errorf("expected app %q to be un-deployed after deletion, but it still has version %d", app, *dep.ReleaseVersion)
 				}
 				return nil
 			})

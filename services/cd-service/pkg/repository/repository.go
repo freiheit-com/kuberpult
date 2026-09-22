@@ -797,7 +797,7 @@ func (s *State) GetEnvironmentConfigsSorted(ctx context.Context, transaction *sq
 		envNames = append(envNames, string(envName))
 	}
 	sort.Strings(envNames)
-	return configs, types.StringsToEnvNames(envNames), nil
+	return configs, types.ConvertFromStrings[types.EnvName](envNames), nil
 }
 
 func (s *State) GetAllEnvironmentNames(ctx context.Context, transaction *sql.Tx) ([]types.EnvName, error) {
@@ -887,7 +887,7 @@ func (s *State) GetEnvironmentConfigsForGroup(ctx context.Context, transaction *
 		return nil, fmt.Errorf("no environment found with given group '%s'", envGroup)
 	}
 	sort.Strings(groupEnvNames)
-	return types.StringsToEnvNames(groupEnvNames), nil
+	return types.ConvertFromStrings[types.EnvName](groupEnvNames), nil
 }
 
 // returns all apps of this environment
@@ -967,7 +967,7 @@ func (rel *Release) ToProto() *api.Release {
 		DisplayVersion:  rel.DisplayVersion,
 		IsMinor:         rel.IsMinor,
 		IsPrepublish:    rel.IsPrepublish,
-		Environments:    types.EnvNamesToStrings(rel.Environments),
+		Environments:    types.ConvertToStrings(rel.Environments),
 		CiLink:          rel.CiLink,
 		Revision:        rel.Revision,
 	}
