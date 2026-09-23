@@ -337,6 +337,7 @@ type DeployApplicationVersion struct {
 	CreationTimestamp     time.Time                       `json:"-"`
 
 	AllEnvironmentsPreloaded AllEnvironments `json:"-"`
+	DeploymentPreloaded      *db.Deployment  `json:"-"`
 }
 
 func (c *DeployApplicationVersion) GetCreationTimestamp() time.Time {
@@ -418,11 +419,16 @@ func (c *DeployApplicationVersion) Transform(
 
 	tCtx.AddAppEnv(types.AppName(c.Application), c.Environment)
 
-	existingDeployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, types.AppName(c.Application), envName)
-	if err != nil {
-		return "", fmt.Errorf("error while retrieving deployment: %v", err)
+	var deployment *db.Deployment
+	if c.DeploymentPreloaded != nil {
+		deployment = c.DeploymentPreloaded
+	} else {
+		deployment, err = state.DBHandler.DBSelectDeploymentByTransformerIDAppAndEnv(ctx, transaction, c.TransformerEslVersion, types.AppName(c.Application), c.Environment)
+		if err != nil {
+			return "", fmt.Errorf("error while retrieving deployment: %v", err)
+		}
 	}
-	if existingDeployment == nil {
+	if deployment == nil {
 		return "", nil
 	}
 
@@ -432,23 +438,6 @@ func (c *DeployApplicationVersion) Transform(
 		}
 	}
 
-	err = state.DeleteQueuedVersionIfExists(envName, c.Application)
-	if err != nil {
-		return "", err
-	}
-
-	d := &CleanupOldApplicationVersions{
-		Application: c.Application,
-		TransformerMetadata: TransformerMetadata{
-			AuthorName:  existingDeployment.Metadata.DeployedByName,
-			AuthorEmail: existingDeployment.Metadata.DeployedByEmail,
-		},
-		TransformerEslVersion:    c.TransformerEslVersion,
-		AllEnvironmentsPreloaded: c.AllEnvironmentsPreloaded,
-	}
-	if err := tCtx.Execute(ctx, d, transaction); err != nil {
-		return "", err
-	}
 	return fmt.Sprintf("deployed version %v of %q to %q", types.MakeReleaseNumbers(c.Version, c.Revision), c.Application, c.Environment), nil
 }
 
@@ -783,7 +772,7 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 	for i := range sortedKeys {
 		env := sortedKeys[i]
-		if _, exists := deploymentsMap[env]; exists { //If this transformer did not generate any deployments, skip the deployment transformer
+		if deployment, exists := deploymentsMap[env]; exists { //If this transformer did not generate any deployments, skip the deployment transformer
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
@@ -800,6 +789,7 @@ func (c *CreateApplicationVersion) Transform(
 				},
 				Revision:                 version.Revision,
 				AllEnvironmentsPreloaded: nil,
+				DeploymentPreloaded:      &deployment,
 			}
 			err = tCtx.Execute(ctx, d, transaction)
 			if err != nil {
@@ -1470,6 +1460,7 @@ func (u *ReleaseTrain) Transform(
 				Revision:              currentDeployment.ReleaseNumbers.Revision,
 
 				AllEnvironmentsPreloaded: allEnvironmentConfigs,
+				DeploymentPreloaded:      &currentDeployment,
 			}, transaction); err != nil {
 				loopSpan.Finish(tracer.WithError(err))
 				return "", err
@@ -1718,7 +1709,8 @@ func (c *CreateUndeployApplicationVersion) Transform(
 		}
 
 		tCtx.AddAppEnv(types.AppName(c.Application), env)
-		if _, exists := deploymentsMap[env]; !exists { //If this transformer did not generate any deployments, skip the deployment transformer
+		deployment, exists := deploymentsMap[env]
+		if !exists { //If this transformer did not generate any deployments, skip the deployment transformer
 			continue
 		}
 		if hasUpstream && cfg.Upstream.Latest {
@@ -1737,7 +1729,8 @@ func (c *CreateUndeployApplicationVersion) Transform(
 					AuthorName:  "",
 					AuthorEmail: "",
 				},
-				Revision: nextReleaseNumber.Revision,
+				Revision:            nextReleaseNumber.Revision,
+				DeploymentPreloaded: &deployment,
 			}
 			err := tCtx.Execute(ctx, d, transaction)
 			if err != nil {
