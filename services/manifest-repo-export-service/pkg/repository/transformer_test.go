@@ -810,6 +810,8 @@ spec:
 func TestRerenderEnvironment(t *testing.T) {
 	const appName = "myapp"
 	const bracketName = "bracket1"
+	const bracketNameFoo = "bracketFoo"
+	const bracketNameBar = "bracketBar"
 	const authorName = "testAuthorName"
 	const authorEmail = "testAuthorEmail@example.com"
 	const brokenManifest = "this file is broken now"
@@ -1116,6 +1118,149 @@ spec:
 				},
 			},
 		},
+		{
+			// Reproduces item 2 of SRX-Y2X7U9: RenderEnvironment must resolve brackets as of its
+			// OWN TransformerEslVersion (via DBSelectBracketHistoryAtOrBeforeId), not the globally
+			// latest brackets_history row (previously DBSelectBracketHistoryLatest). Without the
+			// bracketBar move happening AFTER the render's reference point, "latest" and
+			// "at-or-before" would return the same row and this test could not tell the buggy and
+			// fixed implementations apart.
+			Name: "should re-render using the bracket that was active at its own reference point, not a later one",
+			ArgoRenderOptions: func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			},
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					ArgoBracket:    bracketName,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"development": "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "development",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					ArgoBracket:    bracketNameFoo,
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					Manifests: map[types.EnvName]string{
+						"development": "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               2,
+					Revision:              0,
+					TransformerEslVersion: 4,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "development",
+					Application:           appName,
+					Version:               2,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 5,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				// A second bracket move that happens AFTER the render's reference point (esl 5)
+				// below. It is never deployed, so it must not leak into that render.
+				&CreateApplicationVersion{
+					Application:    appName,
+					ArgoBracket:    bracketNameBar,
+					SourceCommitId: "cccccccccccccccccccccccccccccccccccccccc",
+					Manifests: map[types.EnvName]string{
+						"development": "normal manifest",
+					},
+					WriteCommitData:       false,
+					Version:               3,
+					Revision:              0,
+					TransformerEslVersion: 6,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			RenderEnvTransformer: &RenderEnvironment{
+				Environment:           "development",
+				TransformerEslVersion: 5,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/brackets/bracketFoo/myapp.yaml",
+					fileData: []byte("normal manifest"),
+				},
+			},
+			UnexpectedFiles: []*FilenameAndData{
+				{
+					// the deploy at esl 5 moved the app from bracket1 to bracketFoo, so the old file must be gone
+					path: "environments/development/brackets/bracket1/myapp.yaml",
+				},
+				{
+					// bracketBar was only assigned at esl 6, which is after the render's reference point (esl 5).
+					path: "environments/development/brackets/bracketBar/myapp.yaml",
+				},
+			},
+		},
 	}
 
 	for _, tc := range tcs {
@@ -1207,6 +1352,485 @@ spec:
 			}
 
 			updatedState = repo.State()
+			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
+				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, tc.UnexpectedFiles); err != nil {
+				t.Fatalf("error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+func TestRerenderEnvironmentBugfixWithoutRender(t *testing.T) {
+	const appName = "myapp"
+	const bracketName = "bracket1"
+	const bracketNameFoo = "bracketFoo"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+
+	setupTransformersForRenderingBugfix := func() []Transformer {
+		return []Transformer{
+			&CreateEnvironment{
+				Environment: "development",
+				Config: config.EnvironmentConfig{
+					Upstream: &config.EnvironmentConfigUpstream{
+						Latest: true,
+					},
+					ArgoCd: &config.EnvironmentConfigArgoCd{
+						Destination: config.ArgoCdDestination{
+							Server: "development",
+						},
+					},
+				},
+				TransformerEslVersion: 1,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			&CreateApplicationVersion{
+				Application:    appName,
+				ArgoBracket:    bracketName,
+				SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				Manifests: map[types.EnvName]string{
+					"development": "normal manifest",
+				},
+				WriteCommitData:       false,
+				Version:               1,
+				Revision:              0,
+				TransformerEslVersion: 2,
+				Team:                  "myteam",
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+			&DeployApplicationVersion{
+				Authentication:        Authentication{},
+				Environment:           "development",
+				Application:           appName,
+				Version:               1,
+				Revision:              0,
+				LockBehaviour:         1,
+				WriteCommitData:       false,
+				SourceTrain:           nil,
+				Author:                "",
+				TransformerEslVersion: 3,
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+		}
+	}
+	ExpectedFiles := []*FilenameAndData{
+		{
+			path:     "environments/development/brackets/bracket1/myapp.yaml",
+			fileData: []byte("normal manifest"),
+		},
+		{
+			path:     "environments/development/applications/myapp/manifests/manifests.yaml",
+			fileData: []byte("normal manifest"),
+		},
+	}
+	UnexpectedFiles := []*FilenameAndData{
+		{
+			path: "environments/development/brackets/bracketFoo/myapp.yaml",
+		},
+	}
+
+	tcs := []struct {
+		Name                  string
+		AdditionalTransformer Transformer
+	}{
+		// these 2 tests are basically the same:
+		// once we test without another "createApplicationVersion", once with
+		{
+			Name:                  "should not care about bracket move because it has not happened at all",
+			AdditionalTransformer: nil,
+		},
+		{
+			Name: "should not care about bracket move, because only CreateApplicationVersion should not trigger it",
+			AdditionalTransformer: &CreateApplicationVersion{
+				Application:    appName,
+				ArgoBracket:    bracketNameFoo, // this changes the bracket! Since this is not a deployment, this should have no effect on the rendered files
+				SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				Manifests: map[types.EnvName]string{
+					"development": "normal manifest",
+				},
+				WriteCommitData:       false,
+				Version:               2,
+				Revision:              0,
+				TransformerEslVersion: 4,
+				Team:                  "myteam",
+				TransformerMetadata: TransformerMetadata{
+					AuthorName:  authorName,
+					AuthorEmail: authorEmail,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ArgoRenderOptions := func(opts *argocd.RenderOptions) {
+				opts.RenderApps = true
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			}
+
+			repo, _ := setupRepositoryTestWithPath(t, ArgoRenderOptions)
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("migration error: %w", err)
+				}
+				transformers := setupTransformersForRenderingBugfix()
+				if tc.AdditionalTransformer != nil {
+					transformers = append(transformers, tc.AdditionalTransformer)
+				}
+				for index, tr := range transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return fmt.Errorf("setup transformer[%d] failed: %w", index, err)
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+				for index, t := range transformers {
+					err := repo.Apply(ctx, transaction, t)
+					if err != nil {
+						return fmt.Errorf("apply[%d] failed: %w", index, err)
+					}
+				}
+				return nil
+			})
+			if diff := cmp.Diff(nil, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, ExpectedFiles); err != nil {
+				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, UnexpectedFiles); err != nil {
+				t.Fatalf("error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+// TestBracketMoveOnLaterDeployment reproduces the staging part of SRX-Y2X7U9:
+// the bracket move happens with a new release (and its deployment to dev), but the app is only deployed
+// (or re-rendered) on staging later. The old bracket file on staging must be removed.
+func TestBracketMoveOnLaterDeployment(t *testing.T) {
+	const appName = "myapp"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+	metadata := TransformerMetadata{AuthorName: authorName, AuthorEmail: authorEmail}
+
+	setupTransformers := func() []Transformer {
+		return []Transformer{
+			&CreateEnvironment{
+				Environment: "development",
+				Config: config.EnvironmentConfig{
+					Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+					ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "development"}},
+				},
+				TransformerEslVersion: 1,
+				TransformerMetadata:   metadata,
+			},
+			&CreateEnvironment{
+				Environment: "staging",
+				Config: config.EnvironmentConfig{
+					Upstream: &config.EnvironmentConfigUpstream{Environment: "development"},
+					ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "staging"}},
+				},
+				TransformerEslVersion: 2,
+				TransformerMetadata:   metadata,
+			},
+			&CreateApplicationVersion{
+				Application:    appName,
+				ArgoBracket:    "bracket1",
+				SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				Manifests: map[types.EnvName]string{
+					"development": "v1 manifest",
+					"staging":     "v1 manifest",
+				},
+				Version:               1,
+				TransformerEslVersion: 3,
+				Team:                  "myteam",
+				TransformerMetadata:   metadata,
+			},
+			&DeployApplicationVersion{
+				Environment:           "development",
+				Application:           appName,
+				Version:               1,
+				LockBehaviour:         1,
+				TransformerEslVersion: 4,
+				TransformerMetadata:   metadata,
+			},
+			&DeployApplicationVersion{
+				Environment:           "staging",
+				Application:           appName,
+				Version:               1,
+				LockBehaviour:         1,
+				TransformerEslVersion: 5,
+				TransformerMetadata:   metadata,
+			},
+			// the bracket move:
+			&CreateApplicationVersion{
+				Application:    appName,
+				ArgoBracket:    "bracketFoo",
+				SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				Manifests: map[types.EnvName]string{
+					"development": "v2 manifest",
+					"staging":     "v2 manifest",
+				},
+				Version:               2,
+				TransformerEslVersion: 6,
+				Team:                  "myteam",
+				TransformerMetadata:   metadata,
+			},
+			&DeployApplicationVersion{
+				Environment:           "development",
+				Application:           appName,
+				Version:               2,
+				LockBehaviour:         1,
+				TransformerEslVersion: 7,
+				TransformerMetadata:   metadata,
+			},
+		}
+	}
+	tcs := []struct {
+		Name                string
+		StagingTransformer  Transformer
+		ExpectedStagingData []byte
+	}{
+		{
+			Name: "manual deployment to staging after the bracket move removes the old bracket file",
+			StagingTransformer: &DeployApplicationVersion{
+				Environment:           "staging",
+				Application:           appName,
+				Version:               2,
+				LockBehaviour:         1,
+				TransformerEslVersion: 8,
+				TransformerMetadata:   metadata,
+			},
+			ExpectedStagingData: []byte("v2 manifest"),
+		},
+		{
+			Name: "re-rendering staging after the bracket move removes the old bracket file",
+			StagingTransformer: &RenderEnvironment{
+				Environment:           "staging",
+				TransformerEslVersion: 8,
+				TransformerMetadata:   metadata,
+			},
+			ExpectedStagingData: []byte("v1 manifest"), // staging still has v1 deployed, but now in the new bracket
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ArgoRenderOptions := func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			}
+			repo, _ := setupRepositoryTestWithPath(t, ArgoRenderOptions)
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			dbHandler := repo.State().DBHandler
+			transformers := append(setupTransformers(), tc.StagingTransformer)
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("migration error: %w", err)
+				}
+				for index, tr := range transformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return fmt.Errorf("setup transformer[%d] failed: %w", index, err)
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+				for index, tr := range transformers {
+					err := repo.Apply(ctx, transaction, tr)
+					if err != nil {
+						return fmt.Errorf("apply[%d] failed: %w", index, err)
+					}
+				}
+				return nil
+			})
+			if diff := cmp.Diff(nil, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			expectedFiles := []*FilenameAndData{
+				{path: "environments/development/brackets/bracketFoo/myapp.yaml", fileData: []byte("v2 manifest")},
+				{path: "environments/staging/brackets/bracketFoo/myapp.yaml", fileData: tc.ExpectedStagingData},
+			}
+			unexpectedFiles := []*FilenameAndData{
+				{path: "environments/development/brackets/bracket1/myapp.yaml"},
+				{path: "environments/staging/brackets/bracket1/myapp.yaml"},
+			}
+			updatedState := repo.State()
+			if err := verifyContent(updatedState.Filesystem, expectedFiles); err != nil {
+				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+			if err := verifyMissing(updatedState.Filesystem, unexpectedFiles); err != nil {
+				t.Fatalf("error while verifying missing content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
+			}
+		})
+	}
+}
+
+// TestDeployUsesHistoricalBracketAssignment reproduces an issue writeBracketFiles used the latest app
+// via DBSelectApp. The fix was to use DBSelectBracketHistoryAtOrBeforeId.
+func TestDeployUsesHistoricalBracketAssignment(t *testing.T) {
+	const appName = "myapp"
+	const bracket1 = "bracket1"
+	const bracketFoo = "bracketFoo"
+	const authorName = "testAuthorName"
+	const authorEmail = "testAuthorEmail@example.com"
+
+	tcs := []struct {
+		Name              string
+		SetupTransformers []Transformer
+		ExpectedFiles     []*FilenameAndData
+		UnexpectedFiles   []*FilenameAndData
+	}{
+		{
+			Name: "deploying an older release writes into the bracket active at the deploy's own esl id, not the app's current bracket",
+			SetupTransformers: []Transformer{
+				&CreateEnvironment{
+					Environment: "development",
+					Config: config.EnvironmentConfig{
+						Upstream: &config.EnvironmentConfigUpstream{
+							Latest: true,
+						},
+						ArgoCd: &config.EnvironmentConfigArgoCd{
+							Destination: config.ArgoCdDestination{
+								Server: "development",
+							},
+						},
+					},
+					TransformerEslVersion: 1,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				&CreateApplicationVersion{
+					Application:    appName,
+					ArgoBracket:    bracket1,
+					SourceCommitId: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Manifests: map[types.EnvName]string{
+						"development": "v1 manifest",
+					},
+					WriteCommitData:       false,
+					Version:               1,
+					Revision:              0,
+					TransformerEslVersion: 2,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				// The lagging deploy of the OLDER release (v1). Its own TransformerEslVersion (3)
+				// is what writeBracketFiles must use to resolve the bracket: it must land in
+				// bracket1.
+				&DeployApplicationVersion{
+					Authentication:        Authentication{},
+					Environment:           "development",
+					Application:           appName,
+					Version:               1,
+					Revision:              0,
+					LockBehaviour:         1,
+					WriteCommitData:       false,
+					SourceTrain:           nil,
+					Author:                "",
+					TransformerEslVersion: 3,
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+				// cd-service already recorded a bracket move for a newer release before
+				// manifest-repo-export-service gets around to processing the OLDER deploy below.
+				&CreateApplicationVersion{
+					Application:    appName,
+					ArgoBracket:    bracketFoo,
+					SourceCommitId: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					Manifests: map[types.EnvName]string{
+						"development": "v2 manifest",
+					},
+					WriteCommitData:       false,
+					Version:               2,
+					Revision:              0,
+					TransformerEslVersion: 4,
+					Team:                  "myteam",
+					TransformerMetadata: TransformerMetadata{
+						AuthorName:  authorName,
+						AuthorEmail: authorEmail,
+					},
+				},
+			},
+			ExpectedFiles: []*FilenameAndData{
+				{
+					path:     "environments/development/brackets/bracket1/myapp.yaml",
+					fileData: []byte("v1 manifest"),
+				},
+			},
+			UnexpectedFiles: []*FilenameAndData{
+				{
+					path: "environments/development/brackets/bracketFoo/myapp.yaml",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ArgoRenderOptions := func(opts *argocd.RenderOptions) {
+				opts.RenderApps = false
+				opts.RenderBrackets = true
+				opts.PointToBrackets = true
+			}
+
+			repo, _ := setupRepositoryTestWithPath(t, ArgoRenderOptions)
+			ctx := AddGeneratorToContext(testutilauth.MakeTestContext(), testutil.NewIncrementalUUIDGenerator())
+			dbHandler := repo.State().DBHandler
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
+				if err != nil {
+					return fmt.Errorf("migration error: %w", err)
+				}
+				for index, tr := range tc.SetupTransformers {
+					err := dbHandler.DBWriteEslEventInternal(ctx, tr.GetDBEventType(), transaction, t, db.ESLMetadata{AuthorName: tr.GetMetadata().AuthorName, AuthorEmail: tr.GetMetadata().AuthorEmail})
+					if err != nil {
+						return fmt.Errorf("setup transformer[%d] failed: %w", index, err)
+					}
+					prepareDatabaseLikeCdService(ctx, transaction, tr, dbHandler, t, authorEmail, authorName)
+				}
+				for index, tr := range tc.SetupTransformers {
+					err := repo.Apply(ctx, transaction, tr)
+					if err != nil {
+						return fmt.Errorf("apply[%d] failed: %w", index, err)
+					}
+				}
+				return nil
+			})
+			if diff := cmp.Diff(nil, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("error mismatch (-want, +got):\n%s", diff)
+			}
+
+			updatedState := repo.State()
 			if err := verifyContent(updatedState.Filesystem, tc.ExpectedFiles); err != nil {
 				t.Fatalf("error while verifying content: %v.\nFilesystem content:\n%s", err, strings.Join(listFiles(updatedState.Filesystem), "\n"))
 			}
