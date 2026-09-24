@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
@@ -279,7 +280,7 @@ func (h *DBHandler) DBSelectAllEnvironmentsForAllReleasesAtTimestamp(ctx context
 	`)
 	rows, err := tx.QueryContext(ctx, query, ts)
 	if err != nil {
-		return nil, fmt.Errorf("could not query apps with releases at timestamp: %w", err)
+		return nil, fmt.Errorf("could not query DBSelectAllEnvironmentsForAllReleasesAtTimestamp: %w", err)
 	}
 
 	return h.processReleaseEnvironmentRows(ctx, err, rows)
@@ -1251,4 +1252,82 @@ func (h *DBHandler) DBSelectCommitIdAppReleaseVersions(ctx context.Context, tran
 		return nil, err
 	}
 	return result, nil
+}
+
+type DeployedApp struct {
+	AppName        types.AppName
+	ReleaseVersion *types.ReleaseVersion
+	Revision       types.Revision
+}
+
+// SortDeployedApps returns a copy of the given slice, sorted by app name.
+func SortDeployedApps(deployedApps []DeployedApp) []DeployedApp {
+	sorted := slices.Clone(deployedApps)
+	slices.SortFunc(sorted, func(a, b DeployedApp) int {
+		return strings.Compare(string(a.AppName), string(b.AppName))
+	})
+	return sorted
+}
+
+func deployedAppsToArrays(deployedApps []DeployedApp) ([]types.AppName, []*types.ReleaseVersion, []types.Revision) {
+	// For performance it is important that deployedApps are sorted by appName.
+	sorted := SortDeployedApps(deployedApps)
+	n := len(sorted)
+	appNames := make([]types.AppName, n)
+	releaseVersions := make([]*types.ReleaseVersion, n)
+	revisions := make([]types.Revision, n)
+	for i, app := range sorted {
+		appNames[i] = app.AppName
+		releaseVersions[i] = app.ReleaseVersion
+		revisions[i] = app.Revision
+	}
+	return appNames, releaseVersions, revisions
+}
+
+// DBSelectAppsWithReleaseAtTimestamp reduces the given list of deployed apps to those that actually have a release for the given deployment at the given time.
+func (h *DBHandler) DBSelectAppsWithReleaseAtTimestamp(ctx context.Context, transaction *sql.Tx, deployedApps []DeployedApp, envName types.EnvName, ts time.Time) ([]types.AppName, error) {
+	query := h.AdaptQuery(`
+		SELECT d.appname
+		FROM unnest(?::text[], ?::bigint[], ?::int[]) AS d(appname, releaseversion, revision)
+		JOIN LATERAL (
+			SELECT
+				r.deleted,
+				r.environments
+			FROM releases_history AS r
+			WHERE r.appname = d.appname
+			  AND r.releaseversion = d.releaseversion
+			  AND r.revision = d.revision
+			  AND r.created <= ?
+			ORDER BY r.created DESC, r.version DESC
+			LIMIT 1
+		) AS r ON TRUE
+		WHERE
+			r.deleted = false
+		   	AND
+		    r.environments @> ?
+		ORDER BY d.appname ASC
+		;
+	`)
+
+	appNames, releaseVersions, revisions := deployedAppsToArrays(deployedApps)
+
+	rows, err := transaction.QueryContext(ctx, query, pq.Array(appNames), pq.Array(releaseVersions), pq.Array(revisions), ts, `"`+envName+`"`)
+	if err != nil {
+		return nil, fmt.Errorf("could not query apps with releases at timestamp: %w", err)
+	}
+
+	var apps []types.AppName
+	for rows.Next() {
+		var appName types.AppName
+		if err := rows.Scan(&appName); err != nil {
+			return nil, fmt.Errorf("could not scan apps with releases at timestamp: %w", err)
+		}
+		apps = append(apps, appName)
+	}
+
+	err = closeRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return apps, nil
 }

@@ -954,9 +954,6 @@ func (c *CreateApplicationVersion) sameAsExistingDB(ctx context.Context, transac
 	if metaData == nil {
 		return fmt.Errorf("could not calculate version, no metadata on app %s", c.Application)
 	}
-	if err != nil {
-		return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_MANIFESTS, fmt.Sprintf("manifest missing for app %s", c.Application))
-	}
 	for env, man := range c.Manifests {
 		existingManStr := metaData.Manifests.Manifests[env]
 		if canonicalizeYaml(existingManStr) != canonicalizeYaml(man) {
@@ -2697,12 +2694,12 @@ func getOverrideVersions(ctx context.Context, transaction *sql.Tx, commitHash st
 		return nil, fmt.Errorf("timestamp for the provided commit hash %q does not exist", commitHash)
 	}
 
-	apps, _, err := state.DBHandler.DBSelectEnvironmentApplicationsAtTimestamp(ctx, transaction, upstreamEnvName, *ts)
+	apps, _, err := db.GetAppsWithDeploymentAndReleaseAtTimestamp(ctx, transaction, dbHandler, upstreamEnvName, *ts)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get applications for environment %s at timestamp %s: %w", upstreamEnvName, *ts, err)
 	}
 
-	for _, appName := range apps {
+	for appName := range apps {
 		currentAppDeployments, err := state.GetAllDeploymentsForAppFromDBAtTimestamp(ctx, transaction, appName, *ts)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get GetAllDeploymentsForAppAtTimestamp  %v", err)

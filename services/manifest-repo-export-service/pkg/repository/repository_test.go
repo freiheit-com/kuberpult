@@ -39,7 +39,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
-	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/db_history"
 )
 
 var versionZero = uint64(0)
@@ -53,11 +52,11 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 			},
 		}
 	}
-	makeDeploymentMap := func(appNames []types.AppName) db_history.DeploymentMap {
-		result := db_history.DeploymentMap{}
+	makeDeploymentMap := func(appNames []types.AppName) db.DeploymentMap {
+		result := db.DeploymentMap{}
 		for _, appName := range appNames {
-			v := uint64(1)
-			result[appName] = db_history.DeploymentRelaseInfo{
+			v := types.ReleaseVersion(1)
+			result[appName] = db.DeploymentRelaseInfo{
 				ReleaseVersion: &v,
 				Revision:       1,
 			}
@@ -69,7 +68,7 @@ func TestCalculateAppDatWithBrackets(t *testing.T) {
 		InputPointToBrackets bool
 		InputBrackets        *db.BracketRow
 		InputTeams           []db.AppWithTeam
-		InputDeploymentMap   db_history.DeploymentMap
+		InputDeploymentMap   db.DeploymentMap
 		ExpectedAppData      []argocd.AppData
 	}{
 		{
