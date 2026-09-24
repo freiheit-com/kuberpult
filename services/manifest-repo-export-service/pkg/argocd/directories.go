@@ -28,9 +28,14 @@ type BracketDirectoryNames struct {
 	BracketPath      string // complete directory and filename
 }
 
+// BracketsDirectory returns the directory that contains all bracket directories of the given environment
+func BracketsDirectory(env types.EnvName) string {
+	return filepath.Join("environments", string(env), "brackets")
+}
+
 // BracketPaths returns path related to bracket rendering
 func BracketPaths(env types.EnvName, bracket types.ArgoBracketName, appName types.AppName) *BracketDirectoryNames {
-	dir := filepath.Join("environments", string(env), "brackets", string(bracket))
+	dir := filepath.Join(BracketsDirectory(env), string(bracket))
 	manifestFilename := filepath.Join(dir, fmt.Sprintf("%s.yaml", appName))
 	return &BracketDirectoryNames{
 		BracketDirectory: dir,
