@@ -478,6 +478,28 @@ func (h *DBHandler) DBSelectDeploymentsByTransformerID(ctx context.Context, tx *
 	return deployments, nil
 }
 
+func (h *DBHandler) DBSelectDeploymentByTransformerIDAppAndEnv(ctx context.Context, tx *sql.Tx, transformerID TransformerID, appSelector types.AppName, envSelector types.EnvName) (*Deployment, error) {
+	selectQuery := h.AdaptQuery(`
+                SELECT created, releaseVersion, appName, envName, metadata, transformereslVersion, revision
+                FROM ` + deploymentsHistoryTable + `
+                WHERE transformereslVersion=? AND appName=? AND envName=?
+                ORDER BY created DESC
+                LIMIT 1;
+        `)
+	rows, err := tx.QueryContext(
+		ctx,
+		selectQuery,
+		transformerID,
+		appSelector,
+		envSelector,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not select deployment for app %s on env %s for transformer %v from DB. Error: %w", appSelector, envSelector, transformerID, err)
+	}
+	defer closeRowsAndLog(rows, ctx, "DBSelectDeploymentByTransformerIDAppAndEnv")
+	return processDeployment(rows)
+}
+
 func (h *DBHandler) DBHasAnyDeployment(ctx context.Context, tx *sql.Tx) (bool, error) {
 	selectQuery := h.AdaptQuery(`
 		SELECT created, releaseVersion, appName, envName, revision
