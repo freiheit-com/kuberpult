@@ -1,0 +1,14 @@
+p, role:Developer, CreateLock, *:*, *, allow
+p, role:Developer, DeleteLock, *:*, *, allow
+p, role:Developer, CreateRelease, *:*, *, allow
+p, role:Developer, DeployRelease, *:*, *, allow
+p, role:Developer, CreateUndeploy, *:*, *, allow
+p, role:Developer, DeployUndeploy, *:*, *, allow
+p, role:Developer, CreateEnvironment, *:*, *, allow
+p, role:Developer, DeleteEnvironment, *:*, *, allow
+p, role:Developer, DeleteEnvironmentApplication, *:*, *, allow
+p, role:Developer, DeployReleaseTrain, *:*, *, allow
+
+# The local dex user of infrastructure/docker/dex/dex-config.yaml has no groups, but kuberpult also
+# matches the email of the token against the groups here (see GetContextFromDex in pkg/auth/dex.go).
+g, dex-user@example.com, role:Developer
