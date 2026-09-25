@@ -449,20 +449,28 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 	if hasLock {
 		return nil
 	}
-	app, err := state.DBHandler.DBSelectApp(ctx, transaction, types.AppName(c.Application))
+	bracketRow, err := db.DBSelectBracketHistoryAtOrBeforeId(ctx, state.DBHandler, transaction, c.TransformerEslVersion)
 	if err != nil {
-		return fmt.Errorf("could not get app %s for deployment: %v", c.Application, err)
+		return fmt.Errorf("could not get brackets for eslVersion %v: %v", c.TransformerEslVersion, err)
 	}
-	if app == nil {
-		return fmt.Errorf("got nil app %s for deployment", c.Application)
-	}
-	actualBracket := app.ArgoBracket
-	if app.ArgoBracket == "" {
-		logging.Info(ctx, "bracket empty, using appname")
-		actualBracket = types.ArgoBracketName(app.App)
+	var actualBracket types.ArgoBracketName = ""
+	if bracketRow == nil {
+		actualBracket = types.ArgoBracketName(c.Application) // app name is fallback in case there is no bracket data
+	} else {
+		for bracketName, appNames := range bracketRow.AllBracketsJsonBlob.BracketMap {
+			for _, appName := range appNames {
+				if appName == types.AppName(c.Application) {
+					actualBracket = bracketName
+					break
+				}
+			}
+		}
+		if actualBracket == "" { // no bracket found, we cannot decide how to deploy it
+			return fmt.Errorf("unable to deploy app %v not found in bracketMap at eslVersion %v", c.Application, c.TransformerEslVersion)
+		}
 	}
 
-	if err := cleanupBracketFile(ctx, state, transaction, fsys, c.Environment, types.AppName(c.Application), c.TransformerEslVersion); err != nil {
+	if err := cleanupBracketFile(ctx, fsys, c.Environment, types.AppName(c.Application), actualBracket); err != nil {
 		return fmt.Errorf("error in cleanup: %v", err)
 	}
 
@@ -483,36 +491,47 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 	return nil
 }
 
-func cleanupBracketFile(ctx context.Context, state *State, transaction *sql.Tx, fsys billy.Filesystem, env types.EnvName, app types.AppName, eslVersion db.TransformerID) error {
-	previousBracketHistory, err := db.DBSelectBracketHistoryLatestBeforeId(ctx, state.DBHandler, transaction, eslVersion)
-	if err != nil {
-		return err
+// deleteBracketOfAppEnv removes the app from ALL brackets of the environment
+func deleteBracketOfAppEnv(ctx context.Context, app types.AppName, env types.EnvName, fs billy.Filesystem) error {
+	if err := cleanupBracketFile(ctx, fs, env, app, ""); err != nil {
+		return fmt.Errorf("deleteBracketOfAppEnv: %w", err)
 	}
-	if previousBracketHistory == nil {
-		// if there is no history, we don't need to do any cleanup
-		return nil
-	}
-	logging.Info(ctx, "bracket history found",
-		zap.Int64("eslVersion", int64(eslVersion)),
-		zap.Any("brackets", previousBracketHistory.AllBracketsJsonBlob.BracketMap),
-	)
+	return nil
+}
 
-	// we here simple delete all apps of the same name in any the previous bracket.
-	for bracket, bracketsAppNames := range previousBracketHistory.AllBracketsJsonBlob.BracketMap {
-		for _, bracketAppName := range bracketsAppNames {
-			if bracketAppName == app {
-				dir := argocd.BracketPaths(env, bracket, app)
-				logging.Info(ctx,
-					"trying to delete path",
-					zap.String("bracketPath", dir.BracketPath),
-					zap.String("bracketDir", dir.BracketDirectory),
-				)
-				err = fsys.Remove(dir.BracketPath)
-				if err != nil && !errors.Is(err, os.ErrNotExist) {
-					return fmt.Errorf("error removing bracket path %s: %v", dir.BracketPath, err)
-				}
-			}
+// cleanupBracketFile removes the manifest of the app from every bracket directory of the environment,
+// except keepBracket. Pass keepBracket="" to remove the app from all brackets.
+// This works because appNames are still unique, so one app cannot be in 2 brackets.
+func cleanupBracketFile(ctx context.Context, fsys billy.Filesystem, env types.EnvName, app types.AppName, keepBracket types.ArgoBracketName) error {
+	bracketsDir := argocd.BracketsDirectory(env)
+	entries, err := fsys.ReadDir(bracketsDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
 		}
+		return fmt.Errorf("could not read brackets directory %s: %v", bracketsDir, err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		bracket := types.ArgoBracketName(entry.Name())
+		if bracket == keepBracket {
+			continue
+		}
+		dir := argocd.BracketPaths(env, bracket, app)
+		err := fsys.Remove(dir.BracketPath)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("error removing bracket path %s: %v", dir.BracketPath, err)
+		}
+		logging.Info(ctx,
+			"removed bracket file of previous bracket",
+			zap.String("bracketPath", dir.BracketPath),
+			zap.String("keepBracket", string(keepBracket)),
+		)
 	}
 	return nil
 }
@@ -758,13 +777,6 @@ func (c *CreateApplicationVersion) Transform(
 	checkForInvalidCommitId(c.SourceCommitId, "Source")
 	checkForInvalidCommitId(c.PreviousCommit, "Previous")
 
-	var allEnvsOfThisApp []types.EnvName = nil
-
-	for env := range c.Manifests {
-		allEnvsOfThisApp = append(allEnvsOfThisApp, env)
-	}
-	slices.Sort(allEnvsOfThisApp)
-
 	deploymentsMap, err := state.DBHandler.MapEnvNamesToDeployment(ctx, transaction, c.TransformerEslVersion)
 	if err != nil {
 		return "", err
@@ -772,6 +784,7 @@ func (c *CreateApplicationVersion) Transform(
 	sortedKeys := sorting.SortKeys(c.Manifests)
 	for i := range sortedKeys {
 		env := sortedKeys[i]
+
 		if deployment, exists := deploymentsMap[env]; exists { //If this transformer did not generate any deployments, skip the deployment transformer
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
@@ -1072,7 +1085,7 @@ func (c *RenderEnvironment) Transform(
 	extraMessages := []string{}
 	// re-render brackets for all the apps in the environment (if brackets are enabled)
 	if state.ArgoRenderOptions.RenderBrackets {
-		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, state.DBHandler, tx)
+		bracketRow, err := db.DBSelectBracketHistoryAtOrBeforeId(ctx, state.DBHandler, tx, c.TransformerEslVersion)
 		if err != nil {
 			return "", err
 		}
@@ -1084,9 +1097,7 @@ func (c *RenderEnvironment) Transform(
 						break // on to the next bracket
 					}
 
-					// as an app can be moved to a different bracket,
-					// we have to clean up all old brackets for this app on this env before rendering new brackets
-					if err := cleanupBracketFile(ctx, state, tx, fs, c.Environment, appName, c.TransformerEslVersion); err != nil {
+					if err := cleanupBracketFile(ctx, fs, c.Environment, appName, bracketName); err != nil {
 						return "", fmt.Errorf("error while cleaning up old brackets: %v", err)
 					}
 
@@ -1609,37 +1620,13 @@ func (c *DeleteEnvFromApp) Transform(
 		}
 	}
 
-	err := deleteBracketOfAppEnv(ctx, state.DBHandler, transaction, c.Application, c.Environment, fs)
+	err := deleteBracketOfAppEnv(ctx, c.Application, c.Environment, fs)
 	if err != nil {
 		return "", fmt.Errorf("DeleteEnvFromApp: %w", err)
 	}
 	tCtx.DeleteEnvFromApp(string(c.Application), c.Environment)
 
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", c.Environment, c.Application), nil
-}
-
-func deleteBracketOfAppEnv(ctx context.Context, dbHandler *db.DBHandler, tx *sql.Tx, app types.AppName, env types.EnvName, fs billy.Filesystem) error {
-	appData, err := dbHandler.DBSelectApp(ctx, tx, app)
-	if err != nil {
-		return err
-	}
-	if appData == nil {
-		return fmt.Errorf("deleteBracketOfAppEnv: cannot find app '%s'", app)
-	}
-	bracket := appData.ArgoBracket
-	if bracket != "" {
-		dir := argocd.BracketPaths(env, bracket, app)
-		logging.Info(ctx,
-			"trying to delete path",
-			zap.String("bracketPath", dir.BracketPath),
-			zap.String("bracketDir", dir.BracketDirectory),
-		)
-		err = fs.Remove(dir.BracketPath)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("deleteBracketOfAppEnv: error removing bracket path %s: %v", dir.BracketPath, err)
-		}
-	}
-	return nil
 }
 
 type CreateUndeployApplicationVersion struct {
@@ -1837,7 +1824,7 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("could not get environment configs: %w", err)
 	}
 	for env := range configs {
-		err = deleteBracketOfAppEnv(ctx, state.DBHandler, transaction, u.Application, env, fs)
+		err = deleteBracketOfAppEnv(ctx, u.Application, env, fs)
 		if err != nil {
 			return "", fmt.Errorf("DeleteEnvFromApp: %w", err)
 		}
