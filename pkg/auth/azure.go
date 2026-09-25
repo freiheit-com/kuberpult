@@ -129,8 +129,27 @@ func AllowBypassingAzureAuth(allowedPaths []string, requestUrlPath string, reque
 	}
 
 	// Skip azure authentication with ID for `/` (POST: createEnv), `/release`, `/releasetrain` and `/locks`  endpoints. The requests will be validated with pgp signature
+	// Also requests to the `/api` endpoints do the same.
 	// usage in requests from outside the cluster (e.g. by GitHub Actions and the publish.sh script).
 	group, tail := xpath.Shift(requestUrlPath)
+
+	if group == "api" {
+		subgroup, tail := xpath.Shift(tail)
+		if subgroup == "environments" || subgroup == "environment-groups" {
+			envName, tail := xpath.Shift(tail)
+			if envName != "" { // We shouldn't receive an empty env, added just as a second layer of validation
+				function, tail := xpath.Shift(tail)
+				switch function {
+				case "lock", "releasetrain", "applications", "cluster":
+					return true
+				case "": // create environment
+					if tail == "/" && (requestMethod == http.MethodPost || requestMethod == http.MethodDelete) {
+						return true
+					}
+				}
+			}
+		}
+	}
 
 	if group == "environments" || group == "environment-groups" {
 		envName, tail := xpath.Shift(tail)
