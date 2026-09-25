@@ -491,8 +491,8 @@ func (c *DeployApplicationVersion) writeBracketFiles(ctx context.Context, state 
 	return nil
 }
 
-// deleteBracketOfAppEnv removes the app from ALL brackets of the environment
-func deleteBracketOfAppEnv(ctx context.Context, app types.AppName, env types.EnvName, fs billy.Filesystem) error {
+// removeAppFromBrackets removes the app from ALL brackets of the environment
+func removeAppFromBrackets(ctx context.Context, app types.AppName, env types.EnvName, fs billy.Filesystem) error {
 	if err := cleanupBracketFile(ctx, fs, env, app, ""); err != nil {
 		return fmt.Errorf("deleteBracketOfAppEnv: %w", err)
 	}
@@ -1620,7 +1620,7 @@ func (c *DeleteEnvFromApp) Transform(
 		}
 	}
 
-	err := deleteBracketOfAppEnv(ctx, c.Application, c.Environment, fs)
+	err := removeAppFromBrackets(ctx, c.Application, c.Environment, fs)
 	if err != nil {
 		return "", fmt.Errorf("DeleteEnvFromApp: %w", err)
 	}
@@ -1824,7 +1824,7 @@ func (u *UndeployApplication) Transform(
 		return "", fmt.Errorf("could not get environment configs: %w", err)
 	}
 	for env := range configs {
-		err = deleteBracketOfAppEnv(ctx, u.Application, env, fs)
+		err = removeAppFromBrackets(ctx, u.Application, env, fs)
 		if err != nil {
 			return "", fmt.Errorf("DeleteEnvFromApp: %w", err)
 		}
