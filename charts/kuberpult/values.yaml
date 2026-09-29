@@ -41,8 +41,8 @@ git:
   # The git author is what kuberpult writes to the manifest repository.
   # The git committer cannot be configured. It will always be "kuberpult".
   author:
-    name: local.user@example.com
-    email: defaultUser
+    name: defaultUser
+    email: local.user@example.com
 
   # Timeout used for network operations.
   # Refer to `docs/operators/timeouts.md` for details.
