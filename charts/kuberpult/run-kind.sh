@@ -54,9 +54,6 @@ EOF
     print installing ssh...
     ./setup-cluster-ssh.sh
 
-    print installing postgres...
-    ./setup-postgres.sh
-
     GPG="gpg --keyring trustedkeys-kuberpult.gpg"
     gpgFile=~/.gnupg/trustedkeys-kuberpult.gpg
     if test -f "$gpgFile"
@@ -125,6 +122,9 @@ EOF
 fi
 
 kind export kubeconfig
+
+print installing postgres...
+./setup-postgres.sh
 
 export IMAGE_REGISTRY=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult
 print version...
