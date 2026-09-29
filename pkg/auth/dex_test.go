@@ -280,6 +280,21 @@ func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 		WantHeaderRoles  []string
 	}{
 		{
+			Name: "Email but no name claim: name stays empty in the parsed claims",
+			claims: jwtV5.MapClaims{
+				jwt.AudienceKey: clientID,
+				jwt.IssuerKey:   appDex.IssuerURL,
+				"email":         "dex-user@example.com",
+				"groups":        []string{"group1"}},
+			WantClaimsParsed: &TypedJwtMapClaims{
+				Groups: []string{"group1"},
+				Name:   "",
+				Email:  "dex-user@example.com",
+				Roles:  []string{"group1_ROLE"},
+			},
+			WantHeaderRoles: []string{"group1_ROLE"},
+		},
+		{
 			Name: "Token Verifier with group type []string yields the correct token value",
 			claims: jwtV5.MapClaims{
 				jwt.AudienceKey: clientID,
@@ -289,6 +304,7 @@ func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 				"groups":        []string{"Developer", "Engineer"}},
 			WantClaimsParsed: &TypedJwtMapClaims{
 				Groups: []string{"Developer", "Engineer"},
+				Name:   "User",
 				Email:  "user@mail.com",
 				Roles:  []string{"Developer_ROLE"},
 			},
@@ -305,6 +321,7 @@ func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 			},
 			WantClaimsParsed: &TypedJwtMapClaims{
 				Groups: []string{"Developer"},
+				Name:   "User",
 				Email:  "user@mail.com",
 				Roles:  []string{"Developer_ROLE"},
 			},
@@ -321,6 +338,7 @@ func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 			},
 			WantClaimsParsed: &TypedJwtMapClaims{
 				Groups: []string{"Developer"},
+				Name:   "User",
 				Email:  "user@mail.com",
 				Roles:  []string{"Developer_ROLE"},
 			},
@@ -336,6 +354,7 @@ func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 				"groups":        []string{"Developer", "Hero of Time"}},
 			WantClaimsParsed: &TypedJwtMapClaims{
 				Groups: []string{"Developer", "Hero of Time"},
+				Name:   "User",
 				Email:  "",
 				Roles:  []string{"Developer_ROLE", "Hero of Time_ROLE"},
 			},
@@ -351,6 +370,7 @@ func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 				"groups":        []string{"group1"}},
 			WantClaimsParsed: &TypedJwtMapClaims{
 				Groups: []string{"group1"},
+				Name:   "User",
 				Email:  "",
 				Roles:  []string{"group1_ROLE"},
 			},
@@ -366,7 +386,25 @@ func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 				"groups":        []string{"group1"}},
 			WantClaimsParsed: &TypedJwtMapClaims{
 				Groups: []string{"group1"},
+				Name:   "User",
 				Email:  "",
+				Roles:  []string{"group1_ROLE"},
+			},
+			WantHeaderRoles: []string{"group1_ROLE"},
+		},
+
+		{
+			Name: "Email but no Name still works",
+			claims: jwtV5.MapClaims{
+				jwt.AudienceKey: clientID,
+				jwt.IssuerKey:   appDex.IssuerURL,
+				"name":          nil,
+				"email":         "user@example.com",
+				"groups":        []string{"group1"}},
+			WantClaimsParsed: &TypedJwtMapClaims{
+				Groups: []string{"group1"},
+				Name:   "",
+				Email:  "user@example.com",
 				Roles:  []string{"group1_ROLE"},
 			},
 			WantHeaderRoles: []string{"group1_ROLE"},

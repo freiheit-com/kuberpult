@@ -321,6 +321,7 @@ func (a *DexAppClient) oauth2Config(scopes []string) (c *oauth2.Config, err erro
 
 type TypedJwtMapClaims struct {
 	Email  string
+	Name   string
 	Groups []string
 	Roles  []string
 }
@@ -380,7 +381,9 @@ func VerifyToken(ctx context.Context, r *http.Request, clientID, baseURL, dexSer
 	if len(groupsResult) == 0 && email == "" {
 		return nil, fmt.Errorf("need required fields to determine group of user")
 	}
-	return &TypedJwtMapClaims{Email: email, Groups: groupsResult, Roles: roles}, nil
+
+	name, _ := claims["name"].(string)
+	return &TypedJwtMapClaims{Name: name, Email: email, Groups: groupsResult, Roles: roles}, nil
 }
 
 // AppendRoleForPolicy appends the Role of the policy, if we find a policy where policy.Group=userGroup

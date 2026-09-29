@@ -19,9 +19,13 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -36,6 +40,9 @@ import (
 	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	jwxjwt "github.com/lestrrat-go/jwx/v2/jwt"
 	"google.golang.org/protobuf/proto"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
@@ -503,47 +510,299 @@ func TestEnvVarParsing(t *testing.T) {
 }
 
 func TestAuthServeHTTPInner(t *testing.T) {
+	const (
+		azureClientId = "testClientId"
+		azureTenantId = "testTenantId"
+		azureName     = "Azure User"
+		azureEmail    = "azure.user@example.com"
+		dexEmail      = "dex-user@example.com"
+		dexName       = "Dex User"
+	)
+
+	azureJWKS, err := makeAzureTestJWKS()
+	if err != nil {
+		t.Fatalf("failed to create test JWKS: %v", err)
+	}
+	azureToken, err := makeAzureTestToken(azureClientId, azureTenantId, azureName, azureEmail)
+	if err != nil {
+		t.Fatalf("failed to create test token: %v", err)
+	}
+
 	tcs := []struct {
 		Name          string
 		ServerConfig  *config.ServerConfig
 		Request       *http.Request
+		DexClaims     map[string]any // nil = no Dex cookie attached at all
+		AttachAzure   bool
+		Policy        *auth.RBACPolicies
 		ExpectedError string
-	}{
+		ExpectedUser  *auth.User // nil = don't check (e.g. the error case)
+		ClientEmail   string     // sent by the client
+		ClientName    string     // sent by the client
+	}{{
+		Name:         "server config nil",
+		ServerConfig: nil,
+		Request: &http.Request{
+			Method: "GET",
+			URL:    &url.URL{Path: "/test"},
+			Header: http.Header{},
+		},
+		ExpectedError: "serverConfig is nil in Auth middleware",
+	},
 		{
-			Name:         "server config nil",
-			ServerConfig: nil,
-			Request: &http.Request{
-				Method: "GET",
-				URL:    &url.URL{Path: "/test"},
-				Header: http.Header{},
+			Name: "Dex login succeeds: combined user is the Dex user, not the default",
+			ServerConfig: &config.ServerConfig{
+				//exhaustruct:ignore
+				DexEnabled:  true,
+				DexClientId: "test-client",
+				// unused when the request has no Dex cookie/token to validate against a live
+				// server, but here it must point at our mock OIDC server for discovery to succeed.
+				DexUseClusterInternalCommunication: false,
 			},
-			ExpectedError: "serverConfig is nil in Auth middleware",
+			DexClaims: map[string]any{
+				"email": dexEmail,
+				"name":  dexName,
+			},
+			Policy: &auth.RBACPolicies{},
+			ExpectedUser: &auth.User{
+				Email:          dexEmail,
+				Name:           dexName,
+				DexAuthContext: &auth.DexAuthContext{},
+			},
+		},
+		{
+			Name: "Dex login succeeds and policy arrives in claims",
+			ServerConfig: &config.ServerConfig{
+				//exhaustruct:ignore
+				DexEnabled:  true,
+				DexClientId: "test-client",
+				// unused when the request has no Dex cookie/token to validate against a live
+				// server, but here it must point at our mock OIDC server for discovery to succeed.
+				DexUseClusterInternalCommunication: false,
+			},
+			DexClaims: map[string]any{
+				"email": dexEmail,
+				"name":  dexName,
+			},
+			Policy: &auth.RBACPolicies{Groups: map[string]auth.RBACGroup{
+				"x": {Group: dexEmail, Role: "Developer_ROLE"},
+			}},
+			ExpectedUser: &auth.User{
+				Email:          dexEmail,
+				Name:           dexName,
+				DexAuthContext: &auth.DexAuthContext{Role: []string{"Developer_ROLE"}},
+			},
+		},
+		{
+			Name: "Dex login succeeds without a name claim: email is used, name falls back to email",
+			ServerConfig: &config.ServerConfig{
+				DexEnabled:  true,
+				DexClientId: "test-client",
+			},
+			DexClaims: map[string]any{
+				"email": dexEmail,
+			},
+			Policy: &auth.RBACPolicies{},
+			ExpectedUser: &auth.User{
+				Email:          dexEmail,
+				Name:           dexEmail,
+				DexAuthContext: &auth.DexAuthContext{},
+			},
+		},
+		{
+			Name: "Dex enabled, no token at all: falls back to the default user",
+			ServerConfig: &config.ServerConfig{
+				//exhaustruct:ignore
+				DexEnabled:  true,
+				DexClientId: "test-client",
+			},
+			DexClaims: nil,
+			Policy:    &auth.RBACPolicies{},
+			ExpectedUser: &auth.User{
+				Email: "default@example.com",
+				Name:  "default",
+			},
+		},
+
+		{
+			Name: "Azure succeeds, Dex enabled but no Dex session: Azure identity must be preserved",
+			ServerConfig: &config.ServerConfig{
+				//exhaustruct:ignore
+				AzureEnableAuth: true,
+				AzureClientId:   azureClientId,
+				AzureTenantId:   azureTenantId,
+				DexEnabled:      true,
+				DexClientId:     "test-client",
+			},
+			AttachAzure: true,
+			DexClaims:   nil,
+			Policy:      &auth.RBACPolicies{},
+			ExpectedUser: &auth.User{
+				Email: azureEmail,
+				Name:  azureName,
+			},
+		},
+		{
+			Name: "Dex token with groups but no email, no other source: default identity, roles from groups",
+			ServerConfig: &config.ServerConfig{
+				DexEnabled:  true,
+				DexClientId: "test-client",
+			},
+			DexClaims: map[string]any{
+				"groups": []string{"group1"},
+			},
+			Policy: &auth.RBACPolicies{Groups: map[string]auth.RBACGroup{
+				"x": {Group: "group1", Role: "Group1_ROLE"},
+			}},
+			ExpectedUser: &auth.User{
+				Email:          "default@example.com",
+				Name:           "default",
+				DexAuthContext: &auth.DexAuthContext{Role: []string{"Group1_ROLE"}},
+			},
+		},
+		{
+			Name: "Azure succeeds and Dex token has groups but no email: Azure identity, roles from groups",
+			ServerConfig: &config.ServerConfig{
+				AzureEnableAuth: true,
+				AzureClientId:   azureClientId,
+				AzureTenantId:   azureTenantId,
+				DexEnabled:      true,
+				DexClientId:     "test-client",
+			},
+			AttachAzure: true,
+			DexClaims: map[string]any{
+				"groups": []string{"group1"},
+			},
+			Policy: &auth.RBACPolicies{Groups: map[string]auth.RBACGroup{
+				"x": {Group: "group1", Role: "Group1_ROLE"},
+			}},
+			ExpectedUser: &auth.User{
+				Email:          azureEmail,
+				Name:           azureName,
+				DexAuthContext: &auth.DexAuthContext{Role: []string{"Group1_ROLE"}},
+			},
+		},
+		{
+			Name: "Azure and Dex both succeed with an email: az identity is kept and dex roles win",
+			ServerConfig: &config.ServerConfig{
+				AzureEnableAuth: true,
+				AzureClientId:   azureClientId,
+				AzureTenantId:   azureTenantId,
+				DexEnabled:      true,
+				DexClientId:     "test-client",
+			},
+			AttachAzure: true,
+			DexClaims: map[string]any{
+				"email": dexEmail,
+				"name":  dexName,
+			},
+			Policy: &auth.RBACPolicies{Groups: map[string]auth.RBACGroup{
+				"x": {Group: dexEmail, Role: "Developer_ROLE"},
+			}},
+			ExpectedUser: &auth.User{
+				Email:          azureEmail,
+				Name:           azureName,
+				DexAuthContext: &auth.DexAuthContext{Role: []string{"Developer_ROLE"}},
+			},
+		},
+		{
+			Name: "Dex token with groups but no email ignores client-supplied author headers",
+			ServerConfig: &config.ServerConfig{
+				DexEnabled:  true,
+				DexClientId: "test-client",
+			},
+			DexClaims: map[string]any{
+				"groups": []string{"group1"},
+			},
+			Policy: &auth.RBACPolicies{Groups: map[string]auth.RBACGroup{
+				"x": {Group: "group1", Role: "Group1_ROLE"},
+			}},
+			ClientEmail: "spoofed@evil.example.com",
+			ClientName:  "Spoofed User",
+			ExpectedUser: &auth.User{
+				Email:          "default@example.com",
+				Name:           "default",
+				DexAuthContext: &auth.DexAuthContext{Role: []string{"Group1_ROLE"}},
+			},
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			mockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
-			auth := &Auth{
+			req := tc.Request
+			if req == nil {
+				req = httptest.NewRequest(http.MethodPut, "/test", nil)
+			}
+			if tc.AttachAzure {
+				req.Header.Set("authorization", azureToken)
+			}
+			if tc.ClientEmail != "" {
+				req.Header.Set(auth.HeaderUserEmail, auth.Encode64(tc.ClientEmail))
+			}
+			if tc.ClientName != "" {
+				req.Header.Set(auth.HeaderUserName, auth.Encode64(tc.ClientName))
+			}
+			if tc.ServerConfig != nil && tc.ServerConfig.DexEnabled {
+				if tc.DexClaims != nil {
+					keySet, privateKey, err := makeDexKeySet()
+					if err != nil {
+						t.Fatalf("failed to create dex key set: %v", err)
+					}
+					oidcServer := makeDexOIDCServer(keySet)
+					defer oidcServer.Close()
+					tc.ServerConfig.DexBaseURL = oidcServer.URL
+
+					claims := map[string]any{"aud": tc.ServerConfig.DexClientId, "iss": oidcServer.URL + "/dex"}
+					for k, v := range tc.DexClaims {
+						claims[k] = v
+					}
+					token, err := signDexToken(privateKey, claims)
+					if err != nil {
+						t.Fatalf("failed to sign dex token: %v", err)
+					}
+					req.AddCookie(&http.Cookie{Name: "kuberpult.oauth", Value: token})
+				} else {
+					// No cookie/token attached: point DexBaseURL somewhere that is never
+					// dialed (Dex verification fails before any network call, see VerifyToken).
+					tc.ServerConfig.DexBaseURL = "http://dex.invalid"
+				}
+			}
+			var capturedRequest *http.Request
+			mockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				capturedRequest = r
+			})
+			authMw := &Auth{
 				HttpServer: mockHandler,
 				DefaultUser: auth.User{
 					Name:  "default",
 					Email: "default@example.com",
 				},
+				Policy:       tc.Policy,
+				AzureJWKS:    azureJWKS,
 				serverConfig: tc.ServerConfig,
 			}
 			w := &mockResponseWriter{}
 
-			err := auth.serveHTTPInner(context.Background(), w, tc.Request)
+			err := authMw.serveHTTPInner(context.Background(), w, req)
 
-			if tc.ExpectedError != "" && err == nil {
-				t.Error("expected error, but got none")
+			if tc.ExpectedError != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.ExpectedError) {
+					t.Errorf("expected error to contain %q, got %v", tc.ExpectedError, err)
+				}
+				return
 			}
-			if tc.ExpectedError == "" && err != nil {
-				t.Errorf("expected no error, got %v", err)
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
 			}
-			if !strings.Contains(err.Error(), tc.ExpectedError) {
-				t.Errorf("expected error to contain %q, got %v", tc.ExpectedError, err)
+
+			if tc.ExpectedUser != nil {
+				gotUser, err := auth.ReadUserFromContext(capturedRequest.Context())
+				if err != nil {
+					t.Fatalf("could not read user from context: %v", err)
+				}
+				if diff := cmp.Diff(tc.ExpectedUser, gotUser); diff != "" {
+					t.Errorf("user mismatch (-want, +got):\n%s", diff)
+				}
 			}
 		})
 	}
@@ -898,4 +1157,68 @@ func (m *mockResponseWriter) Write(data []byte) (int, error) {
 
 func (m *mockResponseWriter) WriteHeader(statusCode int) {
 	// no-op
+}
+
+// makeDexKeySet generates an RSA keypair wrapped as a JWK set, for signing/verifying test Dex tokens.
+func makeDexKeySet() (jwk.Set, jwk.Key, error) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, err
+	}
+	jwkPrivateKey, err := jwk.FromRaw(privateKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	jwkPublicKey, err := jwk.FromRaw(&privateKey.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	_ = jwkPrivateKey.Set(jwk.KeyIDKey, "dex-test-kid")
+	_ = jwkPublicKey.Set(jwk.KeyIDKey, "dex-test-kid")
+	keySet := jwk.NewSet()
+	if err := keySet.AddKey(jwkPublicKey); err != nil {
+		return nil, nil, err
+	}
+	return keySet, jwkPrivateKey, nil
+}
+
+// signDexToken signs claims (plus a 1h expiry) as an RS256 JWT, mimicking a Dex ID token.
+func signDexToken(privateKey jwk.Key, claims map[string]any) (string, error) {
+	token := jwxjwt.New()
+	_ = token.Set(jwxjwt.ExpirationKey, time.Now().Add(time.Hour).Unix())
+	for k, v := range claims {
+		_ = token.Set(k, v)
+	}
+	signed, err := jwxjwt.Sign(token, jwxjwt.WithKey(jwa.RS256, privateKey))
+	if err != nil {
+		return "", err
+	}
+	return string(signed), nil
+}
+
+// makeDexOIDCServer serves the OIDC discovery doc and JWKS endpoint that ValidateOIDCToken
+// discovers via DexBaseURL+"/dex" (see pkg/auth/dex.go).
+func makeDexOIDCServer(keySet jwk.Set) *httptest.Server {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	ts.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/dex/.well-known/openid-configuration":
+			_, _ = fmt.Fprintf(w, `{
+    "issuer": "%[1]s/dex",
+    "authorization_endpoint": "%[1]s/dex/auth",
+    "token_endpoint": "%[1]s/dex/token",
+    "jwks_uri": "%[1]s/dex/keys",
+    "response_types_supported": ["code"],
+    "subject_types_supported": ["public"],
+    "id_token_signing_alg_values_supported": ["RS256"]
+  }`, ts.URL)
+		case "/dex/keys":
+			out, _ := json.Marshal(keySet)
+			_, _ = w.Write(out)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	return ts
 }
