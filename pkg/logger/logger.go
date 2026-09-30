@@ -33,7 +33,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/zap/ctxzap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"google.golang.org/grpc/codes"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 
 	"github.com/freiheit-com/kuberpult/pkg/ctxkeys"
@@ -103,9 +102,7 @@ func Wrap(ctx context.Context, inner func(ctx context.Context) error) (err error
 
 func DisableLogging() []grpc_zap.Option {
 	return []grpc_zap.Option{
-		grpc_zap.WithLevels(func(code codes.Code) zapcore.Level {
-			return zapcore.InvalidLevel // disables logging entirely for gRPC middleware
-		}),
+		grpc_zap.WithDecider(func(string, error) bool { return false }),
 	}
 }
 
