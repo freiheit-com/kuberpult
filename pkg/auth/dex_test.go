@@ -280,7 +280,7 @@ func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 		WantHeaderRoles  []string
 	}{
 		{
-			Name: "Email but no name claim: name stays empty in the parsed claims",
+			Name: "With Email and empty string in name claim: returns empty string name",
 			claims: jwtV5.MapClaims{
 				jwt.AudienceKey: clientID,
 				jwt.IssuerKey:   appDex.IssuerURL,
@@ -290,6 +290,22 @@ func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 				Groups: []string{"group1"},
 				Name:   "",
 				Email:  "dex-user@example.com",
+				Roles:  []string{"group1_ROLE"},
+			},
+			WantHeaderRoles: []string{"group1_ROLE"},
+		},
+		{
+			Name: "With Email and nil Name still results in empty string name",
+			claims: jwtV5.MapClaims{
+				jwt.AudienceKey: clientID,
+				jwt.IssuerKey:   appDex.IssuerURL,
+				"name":          nil,
+				"email":         "user@example.com",
+				"groups":        []string{"group1"}},
+			WantClaimsParsed: &TypedJwtMapClaims{
+				Groups: []string{"group1"},
+				Name:   "",
+				Email:  "user@example.com",
 				Roles:  []string{"group1_ROLE"},
 			},
 			WantHeaderRoles: []string{"group1_ROLE"},
@@ -388,23 +404,6 @@ func TestVerifyTokenAndGetContextFromDex(t *testing.T) {
 				Groups: []string{"group1"},
 				Name:   "User",
 				Email:  "",
-				Roles:  []string{"group1_ROLE"},
-			},
-			WantHeaderRoles: []string{"group1_ROLE"},
-		},
-
-		{
-			Name: "Email but no Name still works",
-			claims: jwtV5.MapClaims{
-				jwt.AudienceKey: clientID,
-				jwt.IssuerKey:   appDex.IssuerURL,
-				"name":          nil,
-				"email":         "user@example.com",
-				"groups":        []string{"group1"}},
-			WantClaimsParsed: &TypedJwtMapClaims{
-				Groups: []string{"group1"},
-				Name:   "",
-				Email:  "user@example.com",
 				Roles:  []string{"group1_ROLE"},
 			},
 			WantHeaderRoles: []string{"group1_ROLE"},
