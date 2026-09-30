@@ -711,16 +711,34 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 		source = "iap"
 	}
 	if p.serverConfig.DexEnabled {
-		source = "dex"
 		dexServiceURL := auth.GetDexServiceURL(p.serverConfig.DexFullNameOverride)
-		dexAuthContext := getUserFromDex(r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
-		if dexAuthContext == nil {
-			logging.Info(ctx, "No role assigned for Dex user", zap.Any("user", user))
+		dexUser := getUserFromDex(r, p.serverConfig.DexClientId, p.serverConfig.DexBaseURL, dexServiceURL, p.Policy, p.serverConfig.DexUseClusterInternalCommunication)
+		if dexUser != nil {
+			if user == nil {
+				u := p.DefaultUser // copy, so that the DefaultUser cannot change
+				user = &u
+				source = "default"
+				if dexUser.Email != "" {
+					user.Email = dexUser.Email
+					user.Name = dexUser.Name
+					source = "dex"
+				}
+			}
+			user.DexAuthContext = dexUser.DexAuthContext
 		} else {
 			if user == nil {
-				user = &p.DefaultUser
+				logging.Info(ctx, "failure in getUserFromDex, using defaultUser instead",
+					zap.String("defaultUserName", p.DefaultUser.Name),
+					zap.String("defaultUserEmail", p.DefaultUser.Email))
+				u := p.DefaultUser // copy, so that the DefaultUser cannot change
+				user = &u
+				source = "default"
+			} else {
+				logging.Info(ctx, "failure in getUserFromDex, using user from other source instead",
+					zap.String("source", source),
+					zap.String("userName", user.Name),
+					zap.String("userEmail", user.Email))
 			}
-			user.DexAuthContext = dexAuthContext
 		}
 	}
 	if user != nil {
@@ -746,19 +764,21 @@ func (p *Auth) serveHTTPInner(ctx context.Context, w http.ResponseWriter, r *htt
 	return nil
 }
 
-func getUserFromDex(req *http.Request, clientID, baseURL, dexServiceURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.DexAuthContext {
-	_, err := auth.GetContextFromDex(req.Context(), req, clientID, baseURL, dexServiceURL, policy, useClusterInternalCommunication)
+func getUserFromDex(req *http.Request, clientID, baseURL, dexServiceURL string, policy *auth.RBACPolicies, useClusterInternalCommunication bool) *auth.User {
+	claims, err := auth.VerifyToken(req.Context(), req, clientID, baseURL, dexServiceURL, useClusterInternalCommunication, policy)
 	if err != nil {
-		logging.Info(req.Context(), "could not get context from dex", zap.Error(err))
+		logging.Info(req.Context(), "could not verify dex token", zap.Error(err))
 		return nil
 	}
-	headerRole64 := req.Header.Get(auth.HeaderUserRole)
-	headerRole, err := auth.Decode64(headerRole64)
-	if err != nil {
-		logging.Info(req.Context(), "could not decode user role", zap.String("headerRole64", headerRole64), zap.Error(err))
-		return nil
+	roles := claims.Roles
+	if claims.Email != "" {
+		roles = auth.AppendRoleForPolicy(claims.Email, claims.Roles, policy)
 	}
-	return &auth.DexAuthContext{Role: strings.Split(headerRole, ",")}
+	return &auth.User{
+		Email:          claims.Email,
+		Name:           claims.Name,
+		DexAuthContext: &auth.DexAuthContext{Role: roles},
+	}
 }
 
 // GrpcProxy passes through gRPC messages to another server.
