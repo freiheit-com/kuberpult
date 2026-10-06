@@ -909,7 +909,7 @@ spec:
 				CommonPrefix:          "AA",
 				IsAAEnv:               tt.config.ArgoCd.ConcreteEnvName != "",
 			}
-			got, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, environmentInfo, tt.appData, tt.pointToBrackets, false)
+			got, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, environmentInfo, tt.appData, tt.pointToBrackets, false, "")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
