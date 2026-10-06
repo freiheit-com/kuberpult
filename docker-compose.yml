@@ -101,6 +101,7 @@ services:
       - KUBERPULT_ALLOW_BRACKET_MOVES=true
       - KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENABLED=false
       - KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENVIRONMENTS=development,staging,aa-test
+      - KUBERPULT_ARGO_SOURCE_NAMESPACE=
     volumes:
       - ./services/cd-service:/kp/kuberpult
     ports:

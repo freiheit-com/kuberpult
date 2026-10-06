@@ -38,6 +38,8 @@ type RenderOptions struct {
 	PointToBrackets   bool // do we point the root app to brackets?
 	AllowBracketMoves bool // do we allow moving apps between brackets?
 
+	SourceNamespace string
+
 	RootAppFiltering RootAppFiltering
 }
 type RootAppFiltering struct {
@@ -92,7 +94,7 @@ func Render(ctx context.Context, gitUrl string, gitBranch string, info *Environm
 		return nil, fmt.Errorf("no ArgoCd configured for environment %s", info.GetFullyQualifiedName())
 	}
 	result := map[ApiVersion][]byte{}
-	if content, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, info, appsData, options.PointToBrackets, options.AllowBracketMoves); err != nil {
+	if content, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, info, appsData, options.PointToBrackets, options.AllowBracketMoves, options.SourceNamespace); err != nil {
 		return nil, err
 	} else {
 		result[V1Alpha1] = content
@@ -100,7 +102,7 @@ func Render(ctx context.Context, gitUrl string, gitBranch string, info *Environm
 	return result, nil
 }
 
-func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData, pointToBrackets bool, allowBracketMoves bool) ([]byte, error) {
+func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *EnvironmentInfo, appsData []AppData, pointToBrackets bool, allowBracketMoves bool, sourceNamespace string) ([]byte, error) {
 	applicationNs := ""
 	cfg := info.ArgoCDConfig
 	if cfg.Destination.Namespace != nil {
@@ -145,6 +147,16 @@ func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *
 	}
 	appProjectDestination.Namespace = appProjectNs
 
+	spec := v1alpha1.AppProjectSpec{
+		Description:              info.GetFullyQualifiedName(),
+		SourceRepos:              []string{"*"},
+		Destinations:             []v1alpha1.ApplicationDestination{appProjectDestination},
+		SyncWindows:              syncWindows,
+		ClusterResourceWhitelist: accessEntries,
+	}
+	if sourceNamespace != "" {
+		spec.SourceNamespaces = append(spec.SourceNamespaces, sourceNamespace)
+	}
 	project := v1alpha1.AppProject{
 		TypeMeta: v1alpha1.AppProjectTypeMeta,
 		ObjectMeta: v1alpha1.ObjectMeta{
@@ -153,13 +165,7 @@ func RenderV1Alpha1(ctx context.Context, gitUrl string, gitBranch string, info *
 			Finalizers:  nil,
 			Name:        info.GetFullyQualifiedName(),
 		},
-		Spec: v1alpha1.AppProjectSpec{
-			Description:              info.GetFullyQualifiedName(),
-			SourceRepos:              []string{"*"},
-			Destinations:             []v1alpha1.ApplicationDestination{appProjectDestination},
-			SyncWindows:              syncWindows,
-			ClusterResourceWhitelist: accessEntries,
-		},
+		Spec: spec,
 	}
 	if content, err := yaml.Marshal(&project); err != nil {
 		return nil, err

@@ -301,6 +301,11 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
+	renderOptions.SourceNamespace, err = valid.ReadEnvVar("KUBERPULT_ARGO_SOURCE_NAMESPACE")
+	if err != nil {
+		return err
+	}
+
 	renderOptions.RootAppFiltering.Enabled, err = valid.ReadEnvVarBool("KUBERPULT_EXPERIMENTAL_ROOT_APP_FILTER_ENABLED")
 	if err != nil {
 		return err
