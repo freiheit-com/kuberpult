@@ -277,6 +277,8 @@ spec:
           value: "{{ .Values.manifestRepoExport.rendering.experimentalRootAppsPointToBrackets }}"
         - name: KUBERPULT_ALLOW_BRACKET_MOVES
           value: "{{ .Values.manifestRepoExport.allowBracketMoves }}"
+        - name: KUBERPULT_ARGO_SOURCE_NAMESPACE
+          value: "{{ .Values.argocd.experimentalSourceNamespace }}"
         volumeMounts:
         - name: repository
           # The repository volume, an emptyDir, is mounted to the kp directory.

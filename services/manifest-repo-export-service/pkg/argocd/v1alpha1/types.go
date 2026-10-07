@@ -128,6 +128,8 @@ type AppProjectSpec struct {
 	SyncWindows SyncWindows `json:"syncWindows,omitempty" protobuf:"bytes,8,opt,name=syncWindows"`
 	// By default, cluster wide resources are forbidden in argo. With this whitelist we can allow them
 	ClusterResourceWhitelist []AccessEntry `json:"clusterResourceWhitelist,omitempty" protobuf:"bytes,9,opt,name=clusterResourceWhitelist"`
+	// SourceNamespaces defines the namespaces application resources are allowed to be created in
+	SourceNamespaces []string `json:"sourceNamespaces,omitempty" protobuf:"bytes,12,opt,name=sourceNamespaces"`
 }
 
 // SyncWindows is a collection of sync windows in this project

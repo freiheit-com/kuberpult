@@ -536,6 +536,12 @@ argocd:
 
   generateFiles: true
 
+  # SourceNamespace is directly passed on to the ArgoCD AppProjects.
+  # We only allow up to one namespace here.
+  # In most case you should leave this as default.
+  # This is only relevant for specific scenarios, like having 2 ArgoCDs in once cluster.
+  experimentalSourceNamespace: ""
+
 datadogTracing:
   enabled: false
   debugging: false
