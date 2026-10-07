@@ -336,6 +336,7 @@ func TestRenderV1Alpha1(t *testing.T) {
 		config          config.EnvironmentConfig
 		appData         []AppData
 		pointToBrackets bool
+		sourceNamespace string
 		want            string
 		wantErr         bool
 	}{
@@ -355,6 +356,26 @@ spec:
   description: test-env
   destinations:
   - {}
+  sourceRepos:
+  - '*'
+`,
+		},
+		{
+			name: "with argo source namespace",
+			config: config.EnvironmentConfig{
+				ArgoCd: &config.EnvironmentConfigArgoCd{},
+			},
+			sourceNamespace: "my-namespace",
+			want: `apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: test-env
+spec:
+  description: test-env
+  destinations:
+  - {}
+  sourceNamespaces:
+  - my-namespace
   sourceRepos:
   - '*'
 `,
@@ -909,7 +930,7 @@ spec:
 				CommonPrefix:          "AA",
 				IsAAEnv:               tt.config.ArgoCd.ConcreteEnvName != "",
 			}
-			got, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, environmentInfo, tt.appData, tt.pointToBrackets, false, "")
+			got, err := RenderV1Alpha1(ctx, gitUrl, gitBranch, environmentInfo, tt.appData, tt.pointToBrackets, false, tt.sourceNamespace)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
