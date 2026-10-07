@@ -20,6 +20,8 @@ import (
 	"time"
 )
 
+// SimpleBackoff offers a backoff that grows by a factor of 2 on each NextBackOff() call,
+// and it guarantees the backoff always stays between initialDuration and maxDuration.
 type SimpleBackoff struct {
 	initialDuration time.Duration
 	nextDuration    time.Duration

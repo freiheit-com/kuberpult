@@ -770,14 +770,11 @@ func ProcessOneEvent(
 
 			err2 = repo.PushRepo(ctx)
 			if err2 != nil {
-				d := sleepDuration.NextBackOff()
 				logging.Info(ctx, "error pushing, will try again.", zap.Error(err2))
 				measureGitPushFailures(ctx, ddMetrics, true)
-				time.Sleep(d)
 				return err2
-			} else {
-				measureGitPushFailures(ctx, ddMetrics, false)
 			}
+			measureGitPushFailures(ctx, ddMetrics, false)
 
 			// A batch produces a chain of <= N commits. Write one commit-transaction-timestamp per
 			// commit, using that event's own Created time. Events that produced no commit (NoOp) have
@@ -811,6 +808,7 @@ func ProcessOneEvent(
 			// If we fail to push to repo or to update the cutoff, we say that SYNC has failed. Each
 			// event's unsynced apps are keyed under its own transformer id, so we must loop over every
 			// esl version in the batch (not just the highest).
+			pushErr := err
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, b := range batch {
 					if e := dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(b.Esl.EslVersion), db.SYNC_FAILED); e != nil {
@@ -819,14 +817,22 @@ func ProcessOneEvent(
 				}
 				return nil
 			})
-			logging.Error(ctx, "error updating state for ui.", zap.Error(err))
+			if err != nil {
+				logging.Error(ctx, "error updating state for ui.", zap.Error(err))
+			}
+
+			d := sleepDuration.NextBackOff()
+			if sleepDuration.IsAtMax() {
+				return 0, fmt.Errorf("max retries reached while trying to push: %w", pushErr)
+			}
+
 			err3 := repo.FetchAndReset(ctx)
 			if err3 != nil {
-				d := sleepDuration.NextBackOff()
 				logging.Info(ctx, "error fetching repo, will try again.")
-				return d, nil
 			}
+			return d, nil
 		} else {
+			sleepDuration.Reset()
 			// After a successful push, mark all batched events' apps SYNCED. Loop per esl version for
 			// the same reason as the SYNC_FAILED path above.
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
