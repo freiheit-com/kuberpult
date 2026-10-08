@@ -1214,12 +1214,12 @@ func TestProcessOneEventBackoffResetsAfterPushRecovers(t *testing.T) {
 		{
 			Name:                            "backoff stays at initial value when nothing failed",
 			GivenFailedProcessOneEventCalls: 0,
-			ExpectedBackoff:                 2,
+			ExpectedBackoff:                 1,
 		},
 		{
 			Name:                            "one failed push, leads to recovery",
 			GivenFailedProcessOneEventCalls: 1,
-			ExpectedBackoff:                 4,
+			ExpectedBackoff:                 2,
 		},
 	}
 	for _, tc := range tcs {
@@ -1288,7 +1288,7 @@ func TestProcessOneEventBackoffResetsAfterPushRecovers(t *testing.T) {
 
 			// After a successful push the backoff should be back at its starting value.
 			probe = sleepDuration
-			if diff := testutil.CmpDiff(2*minSleep, probe.NextBackOff()); diff != "" {
+			if diff := testutil.CmpDiff(minSleep, probe.NextBackOff()); diff != "" {
 				t.Errorf("backoff after successful push mismatch (-want, +got):\n%s", diff)
 			}
 		})
@@ -1314,7 +1314,7 @@ func TestProcessOneEventStopsAfterMaxReached(t *testing.T) {
 			ExpectedError: errs.ContainsErrMatcher{
 				Messages: []string{"max retries reached", "simulated push failure: 6"},
 			},
-			ExpectedSleepDurations: []time.Duration{2, 4, 8, 16, 32, 0}, // 0 indicates "maximum reached"
+			ExpectedSleepDurations: []time.Duration{1, 2, 4, 8, 16, 0}, // 0 indicates "maximum reached"
 		},
 	}
 	for _, tc := range tcs {

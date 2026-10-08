@@ -37,11 +37,12 @@ func MakeSimpleBackoff(initialDuration time.Duration, maxDuration time.Duration)
 }
 
 func (b *SimpleBackoff) NextBackOff() time.Duration {
+	var thisDuration = b.nextDuration
 	b.nextDuration = b.nextDuration * 2
 	if b.nextDuration > b.maxDuration || b.nextDuration < 0 {
 		b.nextDuration = b.maxDuration
 	}
-	return b.nextDuration
+	return thisDuration
 }
 
 func (b *SimpleBackoff) Reset() {
