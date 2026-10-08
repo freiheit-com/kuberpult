@@ -735,6 +735,7 @@ func ProcessOneEvent(
 		if err2 != nil {
 			return 0, fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
 		}
+		notifyAndMeasure(ctx, repo, dbHandler, ddMetrics)
 		sleepDuration.Reset()
 	} else {
 		if len(batch) == 0 {
@@ -829,7 +830,7 @@ func ProcessOneEvent(
 
 			err3 := repo.FetchAndReset(ctx)
 			if err3 != nil {
-				logging.Info(ctx, "error fetching repo, will try again.")
+				logging.Info(ctx, "error fetching repo, will try again.", zap.Error(err3))
 			}
 			return d, nil
 		}
