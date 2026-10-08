@@ -809,7 +809,7 @@ func ProcessOneEvent(
 			// If we fail to push to repo or to update the cutoff, we say that SYNC has failed. Each
 			// event's unsynced apps are keyed under its own transformer id, so we must loop over every
 			// esl version in the batch (not just the highest).
-			pushErr := err
+			previousErr := err
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, b := range batch {
 					if e := dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(b.Esl.EslVersion), db.SYNC_FAILED); e != nil {
@@ -825,7 +825,7 @@ func ProcessOneEvent(
 
 			d := sleepDuration.NextBackOff()
 			if sleepDuration.IsAtMax() {
-				return 0, fmt.Errorf("max retries reached while trying to push: %w", pushErr)
+				return 0, fmt.Errorf("max retries reached: %w", previousErr)
 			}
 
 			err3 := repo.FetchAndReset(ctx)
