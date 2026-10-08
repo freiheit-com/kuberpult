@@ -1240,13 +1240,16 @@ func TestProcessOneEventBackoffResetsAfterPushRecovers(t *testing.T) {
 				seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-1", env, true)
 				return nil
 			})
-			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				return baseRepo.Apply(ctx, transaction, &repository.CreateEnvironment{
 					Environment:         env,
 					Config:              envConfig,
 					TransformerMetadata: repository.TransformerMetadata{AuthorName: "author", AuthorEmail: "email@example.com"},
 				})
 			})
+			if err != nil {
+				t.Fatalf("baseRepo.Apply: %v", err)
+			}
 
 			sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
 
@@ -1366,6 +1369,97 @@ func TestProcessOneEventStopsAfterMaxReached(t *testing.T) {
 				}
 
 			}
+		})
+	}
+}
+
+func TestProcessOneEventNotifiesSyncStatus(t *testing.T) {
+	const env = types.EnvName("production")
+	tcs := []struct {
+		Name              string
+		GivenPushFails    bool
+		GivenInvalidEvent bool // force an invalid json blob into an event
+		ExpectedNotified  bool
+	}{
+		{
+			Name:              "notifies after failed push",
+			GivenPushFails:    true,
+			GivenInvalidEvent: false,
+			ExpectedNotified:  true,
+		},
+		{
+			Name:              "notifies after successful push",
+			GivenPushFails:    false,
+			GivenInvalidEvent: false,
+			ExpectedNotified:  true,
+		},
+		{
+			Name:              "notifies after invalid event",
+			GivenPushFails:    false,
+			GivenInvalidEvent: true,
+			ExpectedNotified:  true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			baseRepo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+			repo := &failingPushRepo{Repository: baseRepo, fail: tc.GivenPushFails}
+			envConfig := config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+				ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "prod-server"}},
+			}
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteEnvironment(ctx, transaction, env, envConfig); err != nil {
+					t.Fatalf("write env: %v", err)
+				}
+				if tc.GivenInvalidEvent {
+					if err := dbHandler.DBWriteEslEventWithJson(ctx, transaction, db.EvtCreateApplicationVersion, `{ this is not valid json`); err != nil {
+						t.Fatalf("seed invalid event: %v", err)
+					}
+				} else {
+					seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-1", env, true)
+				}
+				return nil
+			})
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return baseRepo.Apply(ctx, transaction, &repository.CreateEnvironment{
+					Environment:         env,
+					Config:              envConfig,
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "author", AuthorEmail: "email@example.com"},
+				})
+			})
+			if err != nil {
+				t.Fatalf("apply environment: %v", err)
+			}
+			ch, unsubscribe := repo.Notify().Subscribe()
+			defer unsubscribe()
+			<-ch // drain the initial signal that Subscribe() always sends
+
+			sleepDuration := backoff.MakeSimpleBackoff(time.Nanosecond, 64*time.Nanosecond)
+			if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1); err != nil {
+				t.Fatalf("ProcessOneEvent: %v", err)
+			}
+
+			notified := false
+			select {
+			case <-ch:
+				notified = true
+			default:
+			}
+			if diff := testutil.CmpDiff(tc.ExpectedNotified, notified); diff != "" {
+				t.Errorf("notification mismatch (-want, +got):\n%s", diff)
+			}
+
+			expectedPushes := 1
+			if tc.GivenInvalidEvent {
+				expectedPushes = 0
+			}
+			if diff := testutil.CmpDiff(expectedPushes, repo.pushCount); diff != "" {
+				t.Errorf("push count mismatch (-want, +got):\n%s", diff)
+			}
+
 		})
 	}
 }
