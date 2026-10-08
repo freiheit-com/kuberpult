@@ -685,10 +685,10 @@ func ProcessOneEvent(
 	//  at the start of every apply attempt
 	oldCommitId, err := repo.GetHeadCommitId()
 	if err != nil {
-		d := sleepDuration.NextBackOff()
 		if sleepDuration.IsAtMax() {
 			return 0, err
 		}
+		d := sleepDuration.NextBackOff()
 		logging.Info(ctx, "error getting current commid ID, will try again.", zap.Error(err))
 		return d, nil
 	}
@@ -715,10 +715,10 @@ func ProcessOneEvent(
 			// the recursive call below would capture the dirty HEAD as its own baseline and push those
 			// leftover commits.
 			if resetErr := repo.ResetHardTo(ctx, oldCommitId); resetErr != nil {
-				d := sleepDuration.NextBackOff()
 				if sleepDuration.IsAtMax() {
 					return 0, resetErr
 				}
+				d := sleepDuration.NextBackOff()
 				logging.Info(ctx, "error resetting before single-event fallback, will try again.", zap.Error(resetErr))
 				return d, nil
 			}
@@ -823,10 +823,10 @@ func ProcessOneEvent(
 			}
 			notifyAndMeasure(ctx, repo, dbHandler, ddMetrics)
 
-			d := sleepDuration.NextBackOff()
 			if sleepDuration.IsAtMax() {
 				return 0, fmt.Errorf("max retries reached: %w", previousErr)
 			}
+			d := sleepDuration.NextBackOff()
 
 			err3 := repo.FetchAndReset(ctx)
 			if err3 != nil {

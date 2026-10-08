@@ -1309,12 +1309,12 @@ func TestProcessOneEventStopsAfterMaxReached(t *testing.T) {
 	}{
 		{
 			Name:                            "stops with error when max backoff is reached",
-			GivenFailedProcessOneEventCalls: 6,
-			ExpectedErrorIndex:              5,
+			GivenFailedProcessOneEventCalls: 7,
+			ExpectedErrorIndex:              6,
 			ExpectedError: errs.ContainsErrMatcher{
-				Messages: []string{"max retries reached", "simulated push failure: 6"},
+				Messages: []string{"max retries reached", "simulated push failure: 7"},
 			},
-			ExpectedSleepDurations: []time.Duration{1, 2, 4, 8, 16, 0}, // 0 indicates "maximum reached"
+			ExpectedSleepDurations: []time.Duration{1, 2, 4, 8, 16, 32, 0}, // 0 indicates "maximum reached"
 		},
 	}
 	for _, tc := range tcs {
