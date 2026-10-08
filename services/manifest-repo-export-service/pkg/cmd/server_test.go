@@ -1305,7 +1305,7 @@ func TestProcessOneEventStopsAfterMaxReached(t *testing.T) {
 		ExpectedSleepDurations          []time.Duration
 	}{
 		{
-			Name:                            "\"stops with error when max backoff is reached",
+			Name:                            "stops with error when max backoff is reached",
 			GivenFailedProcessOneEventCalls: 6,
 			ExpectedErrorIndex:              5,
 			ExpectedError: errs.ContainsErrMatcher{
@@ -1332,13 +1332,16 @@ func TestProcessOneEventStopsAfterMaxReached(t *testing.T) {
 				seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-1", env, true)
 				return nil
 			})
-			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				return baseRepo.Apply(ctx, transaction, &repository.CreateEnvironment{
 					Environment:         env,
 					Config:              envConfig,
 					TransformerMetadata: repository.TransformerMetadata{AuthorName: "author", AuthorEmail: "email@example.com"},
 				})
 			})
+			if err != nil {
+				t.Fatalf("apply environment: %v", err)
+			}
 
 			sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
 
