@@ -394,7 +394,7 @@ func TestProcessOneEvent(t *testing.T) {
 			withCutoff:            nil,
 			expectedError:         nil,
 			expectedTransformer:   nil,
-			expectedSleepDuration: 2,
+			expectedSleepDuration: 1,
 			expectedSyncStatus:    []GitSyncStatusRow{},
 			expectNotification:    false,
 		},

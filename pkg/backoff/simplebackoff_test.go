@@ -88,3 +88,37 @@ func TestCreateBackOffProviderNanoSecondsBugfix(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateBackOffProviderGivesExactDurations(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		inputDuration     time.Duration
+		inputMaxDuration  time.Duration
+		expectedDurations []time.Duration
+		expectedIsMax     []bool
+	}{
+		{
+			Name:              "should double until it reaches the maximum",
+			inputDuration:     1,
+			inputMaxDuration:  10,
+			expectedDurations: []time.Duration{1, 2, 4, 8, 10, 10},
+			expectedIsMax:     []bool{false, false, false, false, true, true},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			provider := MakeSimpleBackoff(tc.inputDuration, tc.inputMaxDuration)
+			for i := 0; i < len(tc.expectedDurations); i++ {
+				actualMax:= provider.IsAtMax();
+				if actualMax != tc.expectedIsMax[i] {
+					t.Errorf("expected %v in loop[%d], got %v", tc.expectedIsMax[i], i, actualMax)
+				}
+				actualDuration := provider.NextBackOff()
+				if actualDuration != tc.expectedDurations[i] {
+					t.Errorf("expected %v in loop[%d], got %v", tc.expectedDurations[i], i, actualDuration)
+				}
+			}
+		})
+	}
+}
