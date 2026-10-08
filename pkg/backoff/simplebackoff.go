@@ -36,6 +36,8 @@ func MakeSimpleBackoff(initialDuration time.Duration, maxDuration time.Duration)
 	}
 }
 
+// NextBackOff returns initialDuration on the first call,
+// and doubles on each call until it reaches the maxDuration.
 func (b *SimpleBackoff) NextBackOff() time.Duration {
 	var result = b.nextDuration
 	b.nextDuration = b.nextDuration * 2
