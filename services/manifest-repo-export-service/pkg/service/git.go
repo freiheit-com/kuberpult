@@ -47,7 +47,7 @@ type GitServer struct {
 	Repository repository.Repository
 	PageSize   uint64
 
-	shutdown                    <-chan struct{}
+	Shutdown                    <-chan struct{}
 	streamGitSyncStatusInitFunc sync.Once
 	notify                      notify.Notify
 	DBHandler                   *db.DBHandler
@@ -235,7 +235,7 @@ func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 			defer unsub()
 			for {
 				select {
-				case <-s.shutdown:
+				case <-s.Shutdown:
 					return
 				case <-ch:
 
@@ -258,7 +258,7 @@ func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 	done := stream.Context().Done()
 	for {
 		select {
-		case <-s.shutdown:
+		case <-s.Shutdown:
 			return nil
 		case <-ch:
 			response, err := s.GetGitSyncStatus(ctx, in)
