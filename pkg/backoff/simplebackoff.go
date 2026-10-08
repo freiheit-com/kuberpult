@@ -20,6 +20,8 @@ import (
 	"time"
 )
 
+// SimpleBackoff offers a backoff that grows by a factor of 2 on each NextBackOff() call,
+// and it guarantees the backoff always stays between initialDuration and maxDuration.
 type SimpleBackoff struct {
 	initialDuration time.Duration
 	nextDuration    time.Duration
@@ -34,12 +36,15 @@ func MakeSimpleBackoff(initialDuration time.Duration, maxDuration time.Duration)
 	}
 }
 
+// NextBackOff returns initialDuration on the first call,
+// and doubles on each call until it reaches the maxDuration.
 func (b *SimpleBackoff) NextBackOff() time.Duration {
+	var result = b.nextDuration
 	b.nextDuration = b.nextDuration * 2
 	if b.nextDuration > b.maxDuration || b.nextDuration < 0 {
 		b.nextDuration = b.maxDuration
 	}
-	return b.nextDuration
+	return result
 }
 
 func (b *SimpleBackoff) Reset() {

@@ -685,10 +685,10 @@ func ProcessOneEvent(
 	//  at the start of every apply attempt
 	oldCommitId, err := repo.GetHeadCommitId()
 	if err != nil {
-		d := sleepDuration.NextBackOff()
 		if sleepDuration.IsAtMax() {
 			return 0, err
 		}
+		d := sleepDuration.NextBackOff()
 		logging.Info(ctx, "error getting current commid ID, will try again.", zap.Error(err))
 		return d, nil
 	}
@@ -715,10 +715,10 @@ func ProcessOneEvent(
 			// the recursive call below would capture the dirty HEAD as its own baseline and push those
 			// leftover commits.
 			if resetErr := repo.ResetHardTo(ctx, oldCommitId); resetErr != nil {
-				d := sleepDuration.NextBackOff()
 				if sleepDuration.IsAtMax() {
 					return 0, resetErr
 				}
+				d := sleepDuration.NextBackOff()
 				logging.Info(ctx, "error resetting before single-event fallback, will try again.", zap.Error(resetErr))
 				return d, nil
 			}
@@ -735,6 +735,7 @@ func ProcessOneEvent(
 		if err2 != nil {
 			return 0, fmt.Errorf("error in DBWriteFailedEslEvent %v", err2)
 		}
+		notifyAndMeasure(ctx, repo, dbHandler, ddMetrics)
 		sleepDuration.Reset()
 	} else {
 		if len(batch) == 0 {
@@ -770,14 +771,11 @@ func ProcessOneEvent(
 
 			err2 = repo.PushRepo(ctx)
 			if err2 != nil {
-				d := sleepDuration.NextBackOff()
 				logging.Info(ctx, "error pushing, will try again.", zap.Error(err2))
 				measureGitPushFailures(ctx, ddMetrics, true)
-				time.Sleep(d)
 				return err2
-			} else {
-				measureGitPushFailures(ctx, ddMetrics, false)
 			}
+			measureGitPushFailures(ctx, ddMetrics, false)
 
 			// A batch produces a chain of <= N commits. Write one commit-transaction-timestamp per
 			// commit, using that event's own Created time. Events that produced no commit (NoOp) have
@@ -811,6 +809,7 @@ func ProcessOneEvent(
 			// If we fail to push to repo or to update the cutoff, we say that SYNC has failed. Each
 			// event's unsynced apps are keyed under its own transformer id, so we must loop over every
 			// esl version in the batch (not just the highest).
+			previousErr := err
 			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
 				for _, b := range batch {
 					if e := dbHandler.DBBulkUpdateUnsyncedApps(ctx, transaction, db.TransformerID(b.Esl.EslVersion), db.SYNC_FAILED); e != nil {
@@ -819,37 +818,49 @@ func ProcessOneEvent(
 				}
 				return nil
 			})
-			logging.Error(ctx, "error updating state for ui.", zap.Error(err))
+			if err != nil {
+				logging.Error(ctx, "error updating state for ui.", zap.Error(err))
+			}
+			notifyAndMeasure(ctx, repo, dbHandler, ddMetrics)
+
+			if sleepDuration.IsAtMax() {
+				return 0, fmt.Errorf("max retries reached: %w", previousErr)
+			}
+			d := sleepDuration.NextBackOff()
+
 			err3 := repo.FetchAndReset(ctx)
 			if err3 != nil {
-				d := sleepDuration.NextBackOff()
-				logging.Info(ctx, "error fetching repo, will try again.")
-				return d, nil
+				logging.Info(ctx, "error fetching repo, will try again.", zap.Error(err3))
 			}
-		} else {
-			// After a successful push, mark all batched events' apps SYNCED. Loop per esl version for
-			// the same reason as the SYNC_FAILED path above.
-			err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
-				for _, b := range batch {
-					if e := dbHandler.DBBulkUpdateAllApps(ctx, transaction, db.TransformerID(b.Esl.EslVersion), db.TransformerID(b.Esl.EslVersion), db.SYNCED); e != nil {
-						return e
-					}
-				}
-				return nil
-			})
-			if err != nil {
-				logging.Error(ctx, "Failed writing sync status after successful operation! Repo has been updated, but sync status has not.", zap.Error(err))
-			}
+			return d, nil
 		}
+		sleepDuration.Reset()
+		// After a successful push, mark all batched events' apps SYNCED. Loop per esl version for
+		// the same reason as the SYNC_FAILED path above.
+		err = dbHandler.WithTransactionR(ctx, 2, false, func(ctx context.Context, transaction *sql.Tx) error {
+			for _, b := range batch {
+				if e := dbHandler.DBBulkUpdateAllApps(ctx, transaction, db.TransformerID(b.Esl.EslVersion), db.TransformerID(b.Esl.EslVersion), db.SYNCED); e != nil {
+					return e
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			logging.Error(ctx, "Failed writing sync status after successful operation! Repo has been updated, but sync status has not.", zap.Error(err))
+		}
+		notifyAndMeasure(ctx, repo, dbHandler, ddMetrics)
 	}
-	repo.Notify().Notify() // Notify git sync status
+	return 0, nil
+}
 
-	err = repository.MeasureGitSyncStatus(ctx, ddMetrics, dbHandler)
+// notifyAndMeasure is intended to be called after each git sync update
+func notifyAndMeasure(ctx context.Context, repo repository.Repository, dbHandler *db.DBHandler, ddMetrics statsd.ClientInterface) {
+	repo.Notify().Notify() // Notify git sync status
+	err := repository.MeasureGitSyncStatus(ctx, ddMetrics, dbHandler)
 	if err != nil {
 		logging.Error(ctx, "Failed sending git sync status metrics.", zap.Error(err))
 		// if just the metrics fail, we don't want to exit with an error
 	}
-	return 0, nil
 }
 
 func handleFailedEvent(ctx context.Context, dbHandler *db.DBHandler, transactionRetries uint8, esl *db.EslEventRow, reason string) error {
