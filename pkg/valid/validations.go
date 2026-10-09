@@ -104,10 +104,6 @@ func SHA1CommitID(commitID string) bool {
 	return commitIDPrefixRx.MatchString(commitID)
 }
 
-func SHA1CommitIDPrefix(prefix string) bool {
-	return commitIDPrefixRx.MatchString(prefix)
-}
-
 func ReadEnvVar(envName string) (string, error) {
 	envValue, ok := os.LookupEnv(envName)
 	if !ok {

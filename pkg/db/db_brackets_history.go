@@ -269,23 +269,6 @@ func DBSelectBracketHistoryById(ctx context.Context, h *DBHandler, tx *sql.Tx, e
 	return executeSelectQuery(ctx, tx, selectQuery, args...)
 }
 
-func DBSelectBracketHistoryLatestBeforeId(ctx context.Context, h *DBHandler, tx *sql.Tx, maxEslVersion TransformerID) (result *BracketRow, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryLatestBeforeId")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
-	args := []any{maxEslVersion}
-	selectQuery := h.AdaptQuery(`
-		SELECT created_at, all_brackets, source_transformer_esl_id
-		FROM ` + bracketsHistoryTable + `
-		WHERE source_transformer_esl_id  < (?)   -- get the rows that existed before the given transformer ID
-		ORDER BY source_transformer_esl_id desc  -- sort by biggest(latest) Id first
-		LIMIT 1                                  -- only take latest Id
-	;`)
-	return executeSelectQuery(ctx, tx, selectQuery, args...)
-}
-
 func processBracketHistoryRow(rows *sql.Rows) (*BracketRow, error) {
 	var rawJson []byte
 	// Migration 1776181279323115 added source_transformer_esl_id via ALTER TABLE without a default
