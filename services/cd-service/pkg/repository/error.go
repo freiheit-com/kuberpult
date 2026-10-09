@@ -201,3 +201,5 @@ func (e *TeamNotFoundErr) Is(target error) bool {
 	_, ok := target.(*TeamNotFoundErr)
 	return ok
 }
+
+var _ error = (*TeamNotFoundErr)(nil)

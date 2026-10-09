@@ -58,57 +58,6 @@ func GetCreateReleaseGeneralFailure(err error) *CreateReleaseError {
 	}
 }
 
-func GetCreateReleaseAlreadyExistsSame() *CreateReleaseError {
-	response := api.CreateReleaseResponseAlreadyExistsSame{}
-	return &CreateReleaseError{
-		response: api.CreateReleaseResponse{
-			Response: &api.CreateReleaseResponse_AlreadyExistsSame{
-				AlreadyExistsSame: &response,
-			},
-		},
-	}
-}
-
-func GetCreateReleaseAlreadyExistsDifferent(firstDifferingField api.DifferingField, diff string) *CreateReleaseError {
-	response := api.CreateReleaseResponseAlreadyExistsDifferent{
-		FirstDifferingField: firstDifferingField,
-		Diff:                diff,
-	}
-	return &CreateReleaseError{
-		response: api.CreateReleaseResponse{
-			Response: &api.CreateReleaseResponse_AlreadyExistsDifferent{
-				AlreadyExistsDifferent: &response,
-			},
-		},
-	}
-}
-
-func GetCreateReleaseTooOld() *CreateReleaseError {
-	response := api.CreateReleaseResponseTooOld{}
-	return &CreateReleaseError{
-		response: api.CreateReleaseResponse{
-			Response: &api.CreateReleaseResponse_TooOld{
-				TooOld: &response,
-			},
-		},
-	}
-}
-
-func GetCreateReleaseAppNameTooLong(appName string, regExp string, maxLen uint32) *CreateReleaseError {
-	response := api.CreateReleaseResponseAppNameTooLong{
-		AppName: appName,
-		RegExp:  regExp,
-		MaxLen:  maxLen,
-	}
-	return &CreateReleaseError{
-		response: api.CreateReleaseResponse{
-			Response: &api.CreateReleaseResponse_TooLong{
-				TooLong: &response,
-			},
-		},
-	}
-}
-
 type LockedError struct {
 	EnvironmentApplicationLocks map[string]Lock
 	EnvironmentLocks            map[string]Lock
@@ -124,16 +73,3 @@ func (l *LockedError) Error() string {
 }
 
 var _ error = (*LockedError)(nil)
-
-type TeamNotFoundErr struct {
-	err error
-}
-
-func (e *TeamNotFoundErr) Error() string {
-	return e.err.Error()
-}
-
-func (e *TeamNotFoundErr) Is(target error) bool {
-	_, ok := target.(*TeamNotFoundErr)
-	return ok
-}
