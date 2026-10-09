@@ -608,8 +608,6 @@ func (d *BatchServer) handleError(applyErr *repository.TransformerBatchApplyErro
 			}
 			return &api.BatchResponse{Results: errorResults}, nil
 		}
-	case *repository.TeamNotFoundErr:
-		return nil, status.Error(codes.FailedPrecondition, fmt.Sprintf("Could not process ProcessBatch request. Err: %s", applyErr.TransformerError.Error()))
 	default:
 		tmp, ok := status.FromError(applyErr.TransformerError)
 		if tmp != nil && ok {

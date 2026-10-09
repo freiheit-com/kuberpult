@@ -57,19 +57,3 @@ func GetCreateReleaseGeneralFailure(err error) *CreateReleaseError {
 		},
 	}
 }
-
-type LockedError struct {
-	EnvironmentApplicationLocks map[string]Lock
-	EnvironmentLocks            map[string]Lock
-	TeamLocks                   map[string]Lock
-}
-
-func (l *LockedError) String() string {
-	return "locked"
-}
-
-func (l *LockedError) Error() string {
-	return l.String()
-}
-
-var _ error = (*LockedError)(nil)

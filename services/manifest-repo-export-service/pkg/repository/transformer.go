@@ -1516,12 +1516,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			}
 			err := tCtx.Execute(ctx, d, transaction)
 			if err != nil {
-				_, ok := err.(*LockedError)
-				if ok {
-					continue // locked error are expected
-				} else {
-					return "", err
-				}
+				return "", err
 			}
 		}
 	}
