@@ -29,6 +29,11 @@ import (
 	"strings"
 	"time"
 
+	billy "github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
+	"go.uber.org/zap"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
+
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/config"
@@ -41,24 +46,10 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 	"github.com/freiheit-com/kuberpult/pkg/valid"
 	"github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/argocd"
-	billy "github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
-	"go.uber.org/zap"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
 	queueFileName         = "queued_version"
-	fieldCreatedAt        = "created_at"
-	fieldCreatedByName    = "created_by_name"
-	fieldCreatedByEmail   = "created_by_email"
-	fieldSourceCommitId   = "source_commit_id"
-	fieldDisplayVersion   = "display_version"
-	fieldMessage          = "message"
-	fieldSourceMessage    = "source_message"
-	fieldSourceAuthor     = "source_author"
-	fieldNextCommidId     = "nextCommit"
-	fieldPreviousCommitId = "previousCommit"
 	keptVersionsOnCleanup = 20
 )
 
