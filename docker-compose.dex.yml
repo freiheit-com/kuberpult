@@ -1,0 +1,57 @@
+services:
+  # The service name must match `KUBERPULT_DEX_FULL_NAME_OVERRIDE`, because kuberpult reaches dex at
+  # http://<fullNameOverride>:5556 (see dexServiceURLPattern in pkg/auth/dex.go).
+  kuberpult-dex:
+    image: ghcr.io/dexidp/dex:v2.36.0
+    # dex does not expand environment variables in its config file, so we replace the placeholder
+    # for the port of the frontend-service ourselves before starting dex.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        sed "s/KUBERPULT_FRONTEND_PORT/$$KUBERPULT_PORT_FRONTEND_HTTP/g" \
+          /etc/dex/config-template.yaml > /tmp/dex-config.yaml
+        exec dex serve /tmp/dex-config.yaml
+    volumes:
+      - ./infrastructure/docker/dex/dex-config-template.yaml:/etc/dex/config-template.yaml:ro
+    environment:
+      # the issuer and the redirect URI must use the port that the browser uses to reach the
+      # frontend-service, so it has to match the published port of docker-compose.
+      - KUBERPULT_PORT_FRONTEND_HTTP=${KUBERPULT_PORT_FRONTEND_HTTP:-8081}
+    ports:
+      - "${KUBERPULT_PORT_DEX:-5556}:5556"
+    stop_grace_period: 0.5s
+
+  frontend-service:
+    depends_on:
+      - kuberpult-dex
+    environment:
+      - KUBERPULT_DEX_ENABLED=true
+      - KUBERPULT_DEX_CLIENT_ID=kuberpult
+      - KUBERPULT_DEX_CLIENT_SECRET=kuberpult-secret
+      # This is the URL that the browser uses, so it must be the *published* port.
+      - KUBERPULT_DEX_BASE_URL=http://localhost:${KUBERPULT_PORT_FRONTEND_HTTP:-8081}
+      - KUBERPULT_DEX_FULL_NAME_OVERRIDE=kuberpult-dex
+      # `KUBERPULT_DEX_SCOPES` must not be empty, otherwise dex rejects the login with
+      # "missing required scope openid".
+      - KUBERPULT_DEX_SCOPES=openid,profile,email,groups
+      # Verify the tokens by talking to dex directly (http://kuberpult-dex:5556/dex).
+      # Without this, the frontend-service would verify them by calling its own /dex/ proxy on
+      # `KUBERPULT_DEX_BASE_URL`, which does not work when the published port differs from 8081.
+      - KUBERPULT_DEX_USE_CLUSTER_INTERNAL_COMMUNICATION=true
+      # The frontend-service image is built `FROM scratch` and has no /etc/policy.csv,
+      # so we point to the policy in the mounted repository instead.
+      - KUBERPULT_DEX_RBAC_POLICY_PATH=/kp/kuberpult/infrastructure/docker/dex/policy.csv
+
+  cd-service:
+    # The final stage of the cd-service image contains neither /etc/policy.csv nor /etc/team.csv
+    # (they are only copied into the `compiler` stage), so both files have to be mounted.
+    volumes:
+      - ./infrastructure/docker/dex/policy.csv:/etc/policy.csv:ro
+      - ./services/cd-service/team.csv:/etc/team.csv:ro
+    environment:
+      - KUBERPULT_DEX_ENABLED=true
+      # `KUBERPULT_DEX_MOCK` must stay false: the mock replaces every author with a dummy user.
+      - KUBERPULT_DEX_MOCK=false
+      - KUBERPULT_DEX_RBAC_POLICY_PATH=/etc/policy.csv

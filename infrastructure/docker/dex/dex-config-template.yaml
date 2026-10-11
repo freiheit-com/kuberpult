@@ -1,0 +1,56 @@
+# This file is part of kuberpult.
+
+# Kuberpult is free software: you can redistribute it and/or modify
+# it under the terms of the Expat(MIT) License as published by
+# the Free Software Foundation.
+
+# Kuberpult is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MIT License for more details.
+
+# You should have received a copy of the MIT License
+# along with kuberpult. If not, see <https://directory.fsf.org/wiki/License:Expat>.
+
+# Copyright freiheit.com
+# Local-only Dex configuration, used by docker-compose.dex.yml (`make kuberpult-dex`).
+# Its purpose is to reproduce and test Dex-specific behaviour locally.
+# Do not use any of this in a real setup: the client secret and the user password are public.
+#
+# This is a template, because dex does not expand environment variables in its config file:
+# the placeholder KUBERPULT_FRONTEND_PORT is replaced with the port that docker-compose publishes
+# for the frontend-service (KUBERPULT_PORT_FRONTEND_HTTP, see .env.local) when the container starts.
+
+# The issuer must be `KUBERPULT_DEX_BASE_URL` + "/dex", because that is the URL that kuberpult asks
+# for the dex endpoints (see oauth2Config in pkg/auth/dex.go). The browser is redirected to those
+# endpoints, and the frontend-service reverse-proxies /dex/* to this container.
+issuer: http://localhost:KUBERPULT_FRONTEND_PORT/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+oauth2:
+  # `passwordConnector` enables the password grant, so that a token can be requested with curl,
+  # without going through the browser login.
+  passwordConnector: local
+  skipApprovalScreen: true
+
+staticClients:
+  - id: kuberpult
+    secret: kuberpult-secret
+    name: kuberpult
+    redirectURIs:
+      # = `KUBERPULT_DEX_BASE_URL` + "/callback" (see callbackPATH in pkg/auth/dex.go)
+      - http://localhost:KUBERPULT_FRONTEND_PORT/callback
+
+enablePasswordDB: true
+staticPasswords:
+  - email: dex-user@example.com
+    username: Dex User
+    userID: "1"
+    # bcrypt hash of the password "password". To generate a new one:
+    #   docker run --rm httpd:alpine htpasswd -bnBC 10 "" password | tr -d ':\n'
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
