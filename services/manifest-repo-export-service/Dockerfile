@@ -19,9 +19,11 @@ ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
 
 RUN apk add protoc protobuf-dev
 
-COPY services/manifest-repo-export-service/install-libgit2.sh /tmp/install-libgit2.sh
 COPY services/manifest-repo-export-service/gitconfig /etc/gitconfig
-RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh
+COPY --from=builder /usr/lib/libgit2.so* /usr/lib/
+COPY --from=builder /usr/lib/pkgconfig/libgit2.pc /usr/lib/pkgconfig/
+COPY --from=builder /usr/include/git2.h /usr/include/
+COPY --from=builder /usr/include/git2/ /usr/include/git2/
 
 ENV TZ=Europe/Berlin
 RUN adduser --disabled-password --home "/kp" --uid ${UID} kp
@@ -32,9 +34,9 @@ WORKDIR /kp
 
 COPY --from=builder --chown=kp:kp /go/pkg/mod /kp/go/pkg/mod
 
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.1
+COPY --from=builder /go/bin/protoc-gen-go /kp/go/bin/protoc-gen-go
+COPY --from=builder /go/bin/protoc-gen-go-grpc /kp/go/bin/protoc-gen-go-grpc
+COPY --from=builder /go/bin/oapi-codegen /kp/go/bin/oapi-codegen
 
 COPY --from=builder /kp/go.mod ./go.mod
 COPY --from=builder /kp/go.sum ./go.sum
