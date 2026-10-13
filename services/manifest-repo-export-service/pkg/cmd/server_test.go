@@ -394,7 +394,7 @@ func TestProcessOneEvent(t *testing.T) {
 			withCutoff:            nil,
 			expectedError:         nil,
 			expectedTransformer:   nil,
-			expectedSleepDuration: 2,
+			expectedSleepDuration: 1,
 			expectedSyncStatus:    []GitSyncStatusRow{},
 			expectNotification:    false,
 		},
@@ -1050,7 +1050,7 @@ type failingPushRepo struct {
 func (f *failingPushRepo) PushRepo(ctx context.Context) error {
 	f.pushCount++
 	if f.fail {
-		return fmt.Errorf("simulated push failure")
+		return fmt.Errorf("simulated push failure: %d", f.pushCount)
 	}
 	return f.Repository.PushRepo(ctx)
 }
@@ -1198,6 +1198,268 @@ func TestProcessOneEventMixedSequence(t *testing.T) {
 				t.Errorf("after iteration %d expected cutoff %d, got %v", i, step.expectedCutoff, cutoff)
 			}
 			return nil
+		})
+	}
+}
+
+func TestProcessOneEventBackoffResetsAfterPushRecovers(t *testing.T) {
+	const minSleep = time.Nanosecond * 1
+	const maxSleep = time.Nanosecond * 64
+	const env = types.EnvName("production")
+	tcs := []struct {
+		Name                            string
+		GivenFailedProcessOneEventCalls int
+		ExpectedBackoff                 time.Duration
+	}{
+		{
+			Name:                            "backoff stays at initial value when nothing failed",
+			GivenFailedProcessOneEventCalls: 0,
+			ExpectedBackoff:                 1,
+		},
+		{
+			Name:                            "one failed push, leads to recovery",
+			GivenFailedProcessOneEventCalls: 1,
+			ExpectedBackoff:                 2,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			baseRepo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+			repo := &failingPushRepo{Repository: baseRepo, fail: true}
+
+			envConfig := config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+				ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "prod-server"}},
+			}
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteEnvironment(ctx, transaction, env, envConfig); err != nil {
+					t.Fatalf("write env: %v", err)
+				}
+				seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-1", env, true)
+				return nil
+			})
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return baseRepo.Apply(ctx, transaction, &repository.CreateEnvironment{
+					Environment:         env,
+					Config:              envConfig,
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "author", AuthorEmail: "email@example.com"},
+				})
+			})
+			if err != nil {
+				t.Fatalf("baseRepo.Apply: %v", err)
+			}
+
+			sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
+
+			// The push keeps failing, so the same event is reprocessed and the backoff grows each time.
+			for i := 0; i < tc.GivenFailedProcessOneEventCalls; i++ {
+				if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1); err != nil {
+					t.Fatalf("ProcessOneEvent (failing push %d): %v", i, err)
+				}
+			}
+			probe := sleepDuration // value copy, so reading it does not change the real backoff
+			if diff := testutil.CmpDiff(tc.ExpectedBackoff, probe.NextBackOff()); diff != "" {
+				t.Errorf("backoff after failures mismatch (-want, +got):\n%s", diff)
+			}
+
+			// The push recovers: the event is processed and the cutoff advances.
+			repo.fail = false
+			if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1); err != nil {
+				t.Fatalf("ProcessOneEvent (recovered push): %v", err)
+			}
+
+			// prove that the failure actually comes from a push:
+			if diff := testutil.CmpDiff(tc.GivenFailedProcessOneEventCalls+1, repo.pushCount); diff != "" {
+				t.Errorf("push count mismatch (-want, +got):\n%s", diff)
+			}
+
+			_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				cutoff, err := db.DBReadCutoff(dbHandler, ctx, transaction)
+				if err != nil {
+					t.Fatalf("read cutoff: %v", err)
+				}
+				if cutoff == nil {
+					t.Fatalf("expected cutoff to advance after recovered push, got nil")
+				}
+				return nil
+			})
+
+			// After a successful push the backoff should be back at its starting value.
+			probe = sleepDuration
+			if diff := testutil.CmpDiff(minSleep, probe.NextBackOff()); diff != "" {
+				t.Errorf("backoff after successful push mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestProcessOneEventStopsAfterMaxReached(t *testing.T) {
+	const minSleep = time.Nanosecond * 1
+	const maxSleep = time.Nanosecond * 64
+	const env = types.EnvName("production")
+
+	tcs := []struct {
+		Name                            string
+		GivenFailedProcessOneEventCalls int
+		ExpectedErrorIndex              int // where we expect an error
+		ExpectedError                   error
+		ExpectedSleepDurations          []time.Duration
+	}{
+		{
+			Name:                            "stops with error when max backoff is reached",
+			GivenFailedProcessOneEventCalls: 7,
+			ExpectedErrorIndex:              6,
+			ExpectedError: errs.ContainsErrMatcher{
+				Messages: []string{"max retries reached", "simulated push failure: 7"},
+			},
+			ExpectedSleepDurations: []time.Duration{1, 2, 4, 8, 16, 32, 0}, // 0 indicates "maximum reached"
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			baseRepo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+			repo := &failingPushRepo{Repository: baseRepo, fail: true}
+
+			envConfig := config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+				ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "prod-server"}},
+			}
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteEnvironment(ctx, transaction, env, envConfig); err != nil {
+					t.Fatalf("write env: %v", err)
+				}
+				seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-1", env, true)
+				return nil
+			})
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return baseRepo.Apply(ctx, transaction, &repository.CreateEnvironment{
+					Environment:         env,
+					Config:              envConfig,
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "author", AuthorEmail: "email@example.com"},
+				})
+			})
+			if err != nil {
+				t.Fatalf("apply environment: %v", err)
+			}
+
+			sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
+
+			if tc.GivenFailedProcessOneEventCalls != len(tc.ExpectedSleepDurations) {
+				t.Fatalf("ExpectedSleepDurations has wrong slice length: %d, expected exactly %d", len(tc.ExpectedSleepDurations), tc.GivenFailedProcessOneEventCalls)
+			}
+
+			// The push keeps failing, so the same event is reprocessed and the backoff grows each time.
+			for i := 0; i < tc.GivenFailedProcessOneEventCalls; i++ {
+				actualSleepDuration, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1)
+				if i == tc.ExpectedErrorIndex {
+					if diff := testutil.CmpDiff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
+						t.Errorf("expected an error at index %d: (-want, +got):\n%s", i, diff)
+					}
+				} else {
+					if diff := testutil.CmpDiff(nil, err, cmpopts.EquateErrors()); diff != "" {
+						t.Errorf("expected no error at index %d: (-want, +got):\n%s", i, diff)
+					}
+				}
+				if diff := testutil.CmpDiff(tc.ExpectedSleepDurations[i], actualSleepDuration); diff != "" {
+					t.Errorf("expected different sleep duration at index %d: (-want, +got):\n%s", i, diff)
+				}
+
+			}
+		})
+	}
+}
+
+func TestProcessOneEventNotifiesSyncStatus(t *testing.T) {
+	const env = types.EnvName("production")
+	tcs := []struct {
+		Name              string
+		GivenPushFails    bool
+		GivenInvalidEvent bool // force an invalid json blob into an event
+		ExpectedNotified  bool
+	}{
+		{
+			Name:              "notifies after failed push",
+			GivenPushFails:    true,
+			GivenInvalidEvent: false,
+			ExpectedNotified:  true,
+		},
+		{
+			Name:              "notifies after successful push",
+			GivenPushFails:    false,
+			GivenInvalidEvent: false,
+			ExpectedNotified:  true,
+		},
+		{
+			Name:              "notifies after invalid event",
+			GivenPushFails:    false,
+			GivenInvalidEvent: true,
+			ExpectedNotified:  true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			baseRepo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+			repo := &failingPushRepo{Repository: baseRepo, fail: tc.GivenPushFails}
+			envConfig := config.EnvironmentConfig{
+				Upstream: &config.EnvironmentConfigUpstream{Latest: true},
+				ArgoCd:   &config.EnvironmentConfigArgoCd{Destination: config.ArgoCdDestination{Server: "prod-server"}},
+			}
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := dbHandler.DBWriteEnvironment(ctx, transaction, env, envConfig); err != nil {
+					t.Fatalf("write env: %v", err)
+				}
+				if tc.GivenInvalidEvent {
+					if err := dbHandler.DBWriteEslEventWithJson(ctx, transaction, db.EvtCreateApplicationVersion, `{ this is not valid json`); err != nil {
+						t.Fatalf("seed invalid event: %v", err)
+					}
+				} else {
+					seedCommittingCreateApp(ctx, t, dbHandler, transaction, "app-1", env, true)
+				}
+				return nil
+			})
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return baseRepo.Apply(ctx, transaction, &repository.CreateEnvironment{
+					Environment:         env,
+					Config:              envConfig,
+					TransformerMetadata: repository.TransformerMetadata{AuthorName: "author", AuthorEmail: "email@example.com"},
+				})
+			})
+			if err != nil {
+				t.Fatalf("apply environment: %v", err)
+			}
+			ch, unsubscribe := repo.Notify().Subscribe()
+			defer unsubscribe()
+			<-ch // drain the initial signal that Subscribe() always sends
+
+			sleepDuration := backoff.MakeSimpleBackoff(time.Nanosecond, 64*time.Nanosecond)
+			if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1); err != nil {
+				t.Fatalf("ProcessOneEvent: %v", err)
+			}
+
+			notified := false
+			select {
+			case <-ch:
+				notified = true
+			default:
+			}
+			if diff := testutil.CmpDiff(tc.ExpectedNotified, notified); diff != "" {
+				t.Errorf("notification mismatch (-want, +got):\n%s", diff)
+			}
+
+			expectedPushes := 1
+			if tc.GivenInvalidEvent {
+				expectedPushes = 0
+			}
+			if diff := testutil.CmpDiff(expectedPushes, repo.pushCount); diff != "" {
+				t.Errorf("push count mismatch (-want, +got):\n%s", diff)
+			}
+
 		})
 	}
 }
