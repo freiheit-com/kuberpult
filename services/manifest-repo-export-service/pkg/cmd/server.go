@@ -488,6 +488,7 @@ func Run(ctx context.Context) error {
 						Policy:     dexRbacPolicy,
 						Team:       dexRbacTeam,
 					},
+					Shutdown: shutdownCh,
 				})
 				reflection.Register(srv)
 			},
@@ -660,6 +661,7 @@ func processEsls(
 			return err
 		}
 		if wantedSleepTime > 0 {
+			logging.Info(ctx, "sleeping", zap.String("duration", wantedSleepTime.String()))
 			time.Sleep(wantedSleepTime)
 		}
 	}
