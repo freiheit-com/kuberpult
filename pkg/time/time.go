@@ -27,14 +27,6 @@ var (
 	ctxMarkerKey = &ctxMarker{}
 )
 
-func GetTimeNow(ctx context.Context) time.Time {
-	t, ok := ctx.Value(ctxMarkerKey).(time.Time)
-	if !ok {
-		panic("no time in context")
-	}
-	return t
-}
-
 func WithTimeNow(ctx context.Context, t time.Time) context.Context {
 	if _, ok := ctx.Value(ctxMarkerKey).(time.Time); ok {
 		// already has time. used in testing

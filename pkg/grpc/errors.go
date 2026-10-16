@@ -35,10 +35,6 @@ func PublicError(_ context.Context, err error) error {
 	return status.Error(codes.InvalidArgument, "error: "+err.Error())
 }
 
-func CanceledError(_ context.Context, err error) error {
-	return status.Error(codes.Canceled, err.Error())
-}
-
 func FailedPrecondition(_ context.Context, err error) error {
 	return status.Error(codes.FailedPrecondition, "error: "+err.Error())
 }

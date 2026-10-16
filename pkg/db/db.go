@@ -1201,19 +1201,6 @@ func (h *DBHandler) RunGit2DBMigrations(
 	return nil
 }
 
-func NewNullInt(s *int64) sql.NullInt64 {
-	if s == nil {
-		return sql.NullInt64{
-			Int64: 0,
-			Valid: false,
-		}
-	}
-	return sql.NullInt64{
-		Int64: *s,
-		Valid: true,
-	}
-}
-
 // CUSTOM MIGRATIONS
 
 func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFun GetAllAppsFun, writeAllReleasesFun WriteAllReleasesFun) (err error) {

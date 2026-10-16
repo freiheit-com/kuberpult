@@ -25,7 +25,6 @@ import (
 	"os"
 	"path"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -34,7 +33,6 @@ import (
 	"github.com/go-git/go-billy/v5/util"
 	"go.uber.org/zap"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-	yaml3 "gopkg.in/yaml.v3"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -52,16 +50,6 @@ import (
 
 const (
 	queueFileName         = "queued_version"
-	fieldCreatedAt        = "created_at"
-	fieldCreatedByName    = "created_by_name"
-	fieldCreatedByEmail   = "created_by_email"
-	fieldSourceCommitId   = "source_commit_id"
-	fieldDisplayVersion   = "display_version"
-	fieldMessage          = "message"
-	fieldSourceMessage    = "source_message"
-	fieldSourceAuthor     = "source_author"
-	fieldNextCommidId     = "nextCommit"
-	fieldPreviousCommitId = "previousCommit"
 	keptVersionsOnCleanup = 20
 )
 
@@ -267,59 +255,12 @@ func (r *transformerRunner) DeleteEnvFromApp(app string, env types.EnvName) {
 	})
 }
 
-type RawNode struct{ *yaml3.Node }
-
-func (n *RawNode) UnmarshalYAML(node *yaml3.Node) error {
-	n.Node = node
-	return nil
-}
-
 func wrapFileError(e error, filename string, message string) error {
 	return fmt.Errorf("%s '%s': %w", message, filename, e)
 }
 
 type Authentication struct {
 	RBACConfig auth.RBACConfig
-}
-
-type QueueApplicationVersion struct {
-	Environment           types.EnvName
-	Application           string
-	Version               uint64
-	Revision              uint64
-	TransformerEslVersion db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-}
-
-func (c *QueueApplicationVersion) GetEslVersion() db.TransformerID {
-	return c.TransformerEslVersion
-}
-
-func (c *QueueApplicationVersion) SetEslVersion(eslVersion db.TransformerID) {
-	c.TransformerEslVersion = eslVersion
-}
-
-func (c *QueueApplicationVersion) Transform(
-	ctx context.Context,
-	state *State,
-	t TransformerContext,
-	transaction *sql.Tx,
-) (string, error) {
-	fs := state.Filesystem
-	// Create a symlink to the release
-	applicationDir := fs.Join("environments", string(c.Environment), "applications", c.Application)
-	if err := fs.MkdirAll(applicationDir, 0777); err != nil {
-		return "", err
-	}
-	queuedVersionFile := fs.Join(applicationDir, queueFileName)
-	if err := fs.Remove(queuedVersionFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", err
-	}
-	releaseDir := releasesDirectoryWithVersion(fs, c.Application, types.MakeReleaseNumbers(c.Version, c.Revision))
-	if err := fs.Symlink(fs.Join("..", "..", "..", "..", releaseDir), queuedVersionFile); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("Queued version %d of app %q in env %q", c.Version, c.Application, c.Environment), nil
 }
 
 type DeployApplicationVersion struct {
@@ -818,70 +759,6 @@ func (c *CreateApplicationVersion) Transform(
 	return fmt.Sprintf("created version %v of %q", version, c.Application), nil
 }
 
-// Finds old releases for an application: Checks for the oldest release that is currently deployed on any environment
-// Releases older that the oldest deployed release are eligible for deletion. releaseVersionsLimit
-func findOldApplicationVersions(ctx context.Context, transaction *sql.Tx, state *State, appName string, allEnvironments AllEnvironments) ([]types.ReleaseNumbers, error) {
-	// 1) get release in each env:
-	var envConfigs AllEnvironments
-	if allEnvironments == nil {
-		var err error
-		envConfigs, err = state.GetAllEnvironmentConfigsFromDB(ctx, transaction)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		envConfigs = allEnvironments
-	}
-	versions, err := state.GetApplicationReleasesFromFile(appName)
-	if err != nil {
-		return nil, err
-	}
-	if len(versions) == 0 {
-		return nil, err
-	}
-
-	oldestDeployedVersion := versions[len(versions)-1]
-	for env := range envConfigs {
-		version, err := state.GetEnvironmentApplicationVersion(ctx, transaction, env, appName)
-		if err != nil {
-			return nil, err
-		}
-		if version.Version != nil {
-			if types.Greater(oldestDeployedVersion, version) {
-				oldestDeployedVersion = version
-			}
-		}
-	}
-	positionOfOldestVersion := sort.Search(len(versions), func(i int) bool {
-		return types.GreaterOrEqual(versions[i], oldestDeployedVersion)
-	})
-
-	if positionOfOldestVersion < (int(state.ReleaseVersionsLimit) - 1) {
-		return nil, nil
-	}
-	indexToKeep := positionOfOldestVersion - 1
-	majorsCount := 0
-	for ; indexToKeep >= 0; indexToKeep-- {
-		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, types.AppName(appName), types.ReleaseNumbers{Version: versions[indexToKeep].Version, Revision: versions[indexToKeep].Revision}, false)
-		if err != nil {
-			return nil, err
-		}
-		if release == nil {
-			majorsCount += 1
-			logging.Info(ctx, "Release not found in database.")
-		} else if !release.Metadata.IsMinor && !release.Metadata.IsPrepublish {
-			majorsCount += 1
-		}
-		if majorsCount >= int(state.ReleaseVersionsLimit) {
-			break
-		}
-	}
-	if indexToKeep < 0 {
-		return nil, nil
-	}
-	return versions[0:indexToKeep], nil
-}
-
 type CreateEnvironmentTeamLock struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
@@ -1262,88 +1139,6 @@ func removeCommit(fs billy.Filesystem, commitID string, application types.AppNam
 	return nil
 }
 
-type CleanupOldApplicationVersions struct {
-	Application              string
-	TransformerMetadata      `json:"metadata"`
-	TransformerEslVersion    db.TransformerID `json:"-"` // Tags the transformer with EventSourcingLight eslVersion
-	CreationTimestamp        time.Time        `json:"-"`
-	AllEnvironmentsPreloaded AllEnvironments  `json:"-"`
-}
-
-func (c *CleanupOldApplicationVersions) GetCreationTimestamp() time.Time {
-	return c.CreationTimestamp
-}
-
-func (c *CleanupOldApplicationVersions) SetCreationTimestamp(ts time.Time) {
-	c.CreationTimestamp = ts
-}
-
-var _ Transformer = &CleanupOldApplicationVersions{} // ensure it implements Transformer
-
-func (c *CleanupOldApplicationVersions) GetGitTag() types.GitTag {
-	return ""
-}
-
-func (c *CleanupOldApplicationVersions) GetEslVersion() db.TransformerID {
-	return c.TransformerEslVersion
-}
-
-func (c *CleanupOldApplicationVersions) SetEslVersion(eslVersion db.TransformerID) {
-	c.TransformerEslVersion = eslVersion
-}
-
-func (c *CleanupOldApplicationVersions) GetDBEventType() db.EventType {
-	panic("CleanupOldApplicationVersions GetDBEventType")
-}
-
-func (c *CleanupOldApplicationVersions) Transform(
-	ctx context.Context,
-	state *State,
-	_ TransformerContext,
-	transaction *sql.Tx,
-) (result string, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "CleanupOldApplicationVersions")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-	fs := state.Filesystem
-	var oldVersions []types.ReleaseNumbers
-	oldVersions, err = findOldApplicationVersions(ctx, transaction, state, c.Application, c.AllEnvironmentsPreloaded)
-	if err != nil {
-		return "", fmt.Errorf("cleanup: could not get application releases for app '%s': %w", c.Application, err)
-	}
-
-	msg := ""
-	for _, oldRelease := range oldVersions {
-		// delete oldRelease:
-		releasesDir, err := state.checkWhichVersionDirectoryExists(fs, c.Application, oldRelease)
-		if err != nil {
-			return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not stat")
-		}
-		{
-			commitIDFile := fs.Join(releasesDir, fieldSourceCommitId)
-			dat, err := util.ReadFile(fs, commitIDFile)
-			if err != nil {
-				// not a problem, might be the undeploy commit or the commit has was not specified in CreateApplicationVersion
-			} else {
-				commitID := string(dat)
-				if valid.SHA1CommitID(commitID) {
-					if err := removeCommit(fs, commitID, types.AppName(c.Application)); err != nil {
-						return "", wrapFileError(err, releasesDir, "CleanupOldApplicationVersions: could not remove commit path")
-					}
-				}
-			}
-		}
-		err = fs.Remove(releasesDir)
-		if err != nil {
-			return "", fmt.Errorf("CleanupOldApplicationVersions: Unexpected error app %s: %w",
-				c.Application, err)
-		}
-		msg = fmt.Sprintf("%sremoved version %d of app %v as cleanup\n", msg, oldRelease, c.Application)
-	}
-	return msg, nil
-}
-
 type ReleaseTrain struct {
 	Authentication        `json:"-"`
 	TransformerMetadata   `json:"metadata"`
@@ -1721,12 +1516,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 			}
 			err := tCtx.Execute(ctx, d, transaction)
 			if err != nil {
-				_, ok := err.(*LockedError)
-				if ok {
-					continue // locked error are expected
-				} else {
-					return "", err
-				}
+				return "", err
 			}
 		}
 	}

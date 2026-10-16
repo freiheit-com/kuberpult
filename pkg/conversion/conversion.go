@@ -20,22 +20,8 @@ func FromString(s string) *string {
 	return &s
 }
 
-func ToString(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
 func Bool(b bool) *bool {
 	return &b
-}
-
-func ToUint64(u *uint64) uint64 {
-	if u == nil {
-		return 0
-	}
-	return *u
 }
 
 func ToUint64Slice(us []int64) []uint64 {

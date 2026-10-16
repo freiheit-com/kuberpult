@@ -27,10 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/onokonem/sillyQueueServer/timeuuid"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/logging"
@@ -98,14 +96,6 @@ func MakeArgoCDConfigs(commonName, concreteName string, envNumber int) *config.A
 		toReturn.ArgoCdConfigurations = append(toReturn.ArgoCdConfigurations, MakeDummyArgoCdConfig(concreteName+"-"+strconv.Itoa(i)))
 	}
 	return &toReturn
-}
-
-type TestGenerator struct {
-	Time time.Time
-}
-
-func (t TestGenerator) Generate() string {
-	return timeuuid.UUIDFromTime(t.Time).String()
 }
 
 type IncrementalUUIDBase struct {
