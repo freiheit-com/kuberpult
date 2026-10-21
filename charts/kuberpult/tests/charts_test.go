@@ -2650,6 +2650,123 @@ manifestRepoExport:
 	}
 }
 
+func TestCloudSqlProxyVersion(t *testing.T) {
+	tcs := []struct {
+		Name                string
+		Values              string
+		ExpectedDeployments []string
+		ExpectedImage       string
+	}{
+		{
+			Name: "default version is unchanged for cd and export and reposerver",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+reposerver:
+  enabled: true
+db:
+  cloudSqlProxyEnabled: true
+`,
+			ExpectedDeployments: []string{
+				"kuberpult-cd-service",
+				"kuberpult-manifest-repo-export-service",
+				"kuberpult-reposerver-service",
+			},
+			ExpectedImage: "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0",
+		},
+		{
+			Name: "default version is unchanged for rollout",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+manifestRepoExport:
+  enabled: false
+argocd:
+  server: https://argo:1090
+db:
+  cloudSqlProxyEnabled: true
+`,
+			ExpectedDeployments: []string{"kuberpult-rollout-service"},
+			ExpectedImage:       "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0",
+		},
+		{
+			Name: "custom version for cd and export and reposerver",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+reposerver:
+  enabled: true
+db:
+  cloudSqlProxyEnabled: true
+  cloudSqlProxyVersion: "2.15.0"
+`,
+			ExpectedDeployments: []string{
+				"kuberpult-cd-service",
+				"kuberpult-manifest-repo-export-service",
+				"kuberpult-reposerver-service",
+			},
+			ExpectedImage: "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.0",
+		},
+		{
+			Name: "custom version for rollout",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+rollout:
+  enabled: true
+manifestRepoExport:
+  enabled: false
+argocd:
+  server: https://argo:1090
+db:
+  cloudSqlProxyEnabled: true
+  cloudSqlProxyVersion: "2.15.0"
+`,
+			ExpectedDeployments: []string{"kuberpult-rollout-service"},
+			ExpectedImage:       "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.0",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			testDirName := t.TempDir()
+			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			deployments, err := getDeployments(outputFile)
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			for _, name := range tc.ExpectedDeployments {
+				deployment, found := deployments[name]
+				if !found {
+					t.Fatalf("deployment %s not found", name)
+				}
+				actualImage := ""
+				for _, container := range deployment.Spec.Template.Spec.Containers {
+					if container.Name == "cloud-sql-proxy" {
+						actualImage = container.Image
+					}
+				}
+				if actualImage != tc.ExpectedImage {
+					t.Errorf("deployment %s: expected proxy image %q, got %q", name, tc.ExpectedImage, actualImage)
+				}
+			}
+		})
+	}
+}
+
 func TestReposerverServiceDisabled(t *testing.T) {
 	tcs := []struct {
 		Name        string

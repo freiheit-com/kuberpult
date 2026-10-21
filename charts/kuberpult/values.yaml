@@ -145,6 +145,8 @@ db:
 # k8sServiceAccountName is the name of the kubernetes service account that enables access to CloudSQL.
   k8sServiceAccountName: "kp-k8s-service-account"
   cloudSqlProxyEnabled: false
+  # Version (image tag) of the Google Cloud SQL proxy sidecar, used by all services that connect to the database.
+  cloudSqlProxyVersion: "2.11.0"
   dbConnectionName: "connectioname"
   dbName: "databaseName"
   dbUser: "username"
