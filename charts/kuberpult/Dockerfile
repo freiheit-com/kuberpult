@@ -1,7 +1,7 @@
 FROM python:3.12-alpine
 WORKDIR /deps
 
-RUN apk add envsubst curl git
+RUN apk add envsubst curl git 'ca-certificates>=20261020-r0' 'ca-certificates-bundle>=20261020-r0'
 
 RUN pip install yamale yamllint
 

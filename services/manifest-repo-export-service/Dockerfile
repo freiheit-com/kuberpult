@@ -5,7 +5,7 @@ FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
 FROM alpine:3.22.1 AS compiler
 
 RUN apk add --no-cache  \
-        ca-certificates tar tzdata curl bash git \
+        'ca-certificates>=20261020-r0' 'ca-certificates-bundle>=20261020-r0' tar tzdata curl bash git \
         gcc g++ pkgconfig make cmake \
         python3 py3-pip \
         musl-dev libffi-dev openssl-dev libssh2-dev \
@@ -61,6 +61,8 @@ RUN ldd /main | awk '/=>/ {print $3}' | xargs -r -I '{}' sh -c 'if [ ! -e "/lib/
 RUN chmod +x /main
 
 FROM alpine:3.22.1
+
+RUN apk add --no-cache 'ca-certificates-bundle>=20261020-r0'
 
 ARG UID=1000
 
