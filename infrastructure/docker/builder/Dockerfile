@@ -9,6 +9,8 @@ RUN apk add --no-cache  \
         sqlite sqlite-dev \
         nodejs npm
 
+RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle
+
 COPY services/manifest-repo-export-service/install-libgit2.sh /tmp/install-libgit2.sh
 COPY services/manifest-repo-export-service/gitconfig /etc/gitconfig
 RUN /tmp/install-libgit2.sh && rm /tmp/install-libgit2.sh

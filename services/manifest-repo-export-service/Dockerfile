@@ -2,7 +2,7 @@ ARG BUILDER_IMAGE_TAG
 ARG BUILDER_IMAGE=europe-west3-docker.pkg.dev/fdc-public-docker-registry/kuberpult/infrastructure/docker/builder
 
 FROM ${BUILDER_IMAGE}:${BUILDER_IMAGE_TAG} AS builder
-FROM alpine:3.22.1 AS compiler
+FROM alpine:3.22.7 AS compiler
 
 RUN apk add --no-cache  \
         ca-certificates tar tzdata curl bash git \
@@ -60,7 +60,7 @@ RUN mv /tmp/main /main
 RUN ldd /main | awk '/=>/ {print $3}' | xargs -r -I '{}' sh -c 'if [ ! -e "/lib/$(basename {})" ]; then cp -v "{}" /lib/; fi'
 RUN chmod +x /main
 
-FROM alpine:3.22.1
+FROM alpine:3.22.7
 
 ARG UID=1000
 
