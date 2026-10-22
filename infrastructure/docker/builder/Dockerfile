@@ -1,7 +1,8 @@
 FROM golang:1.25.8-alpine3.23
 
 RUN apk add --no-cache  \
-        ca-certificates tar tzdata curl bash git \
+        tar tzdata curl bash git \
+        'ca-certificates>=20261020-r0' 'ca-certificates-bundle>=20261020-r0' \
         gcc g++ pkgconfig make cmake \
         go protoc protobuf-dev \
         python3 py3-pip \

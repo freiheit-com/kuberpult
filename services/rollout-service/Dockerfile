@@ -12,7 +12,7 @@ COPY --from=builder /usr/local/go /usr/local/go
 
 ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
 
-RUN apk add protoc protobuf-dev
+RUN apk add protoc protobuf-dev 'ca-certificates-bundle>=20261020-r0'
 
 RUN adduser --disabled-password --home "/kp" --uid ${UID} kp
 
@@ -51,6 +51,8 @@ RUN chmod +x /main
 
 
 FROM alpine:3.21
+
+RUN apk add --no-cache 'ca-certificates-bundle>=20261020-r0'
 
 ARG UID=1000
 
