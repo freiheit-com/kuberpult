@@ -6,8 +6,7 @@ LABEL description="Git over SSH with UID/GID handling"
 
 RUN apk add --no-cache \
         git \
-        openssh \
-        'ca-certificates-bundle>=20261020-r0'
+        openssh
 
 WORKDIR /git/
 
