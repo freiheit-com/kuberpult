@@ -100,8 +100,6 @@ func TestEnvVarParsing(t *testing.T) {
 				"KUBERPULT_GRPC_MAX_RECV_MSG_SIZE":  "1",
 				"KUBERPULT_VERSION":                 "1.0",
 				"KUBERPULT_LOCK_TYPE":               "db",
-
-				"KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS": "",
 			},
 			ExpectedConfiguration: &Config{
 				DbMaxIdleConnections: 10,
@@ -174,8 +172,6 @@ func TestEnvVarParsing(t *testing.T) {
 				"KUBERPULT_DEX_DEFAULT_ROLE_ENABLED": "true",
 				"KUBERPULT_DATADOG_API_KEY_LOCATION": "/secret/location",
 				"KUBERPULT_DB_MIGRATIONS_LOCATION":   "/path/migration",
-
-				"KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS": "",
 			},
 			ExpectedConfiguration: &Config{
 				DbMaxIdleConnections: 10,

@@ -452,27 +452,6 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-argocd:
-  sendWebHooks: false
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_GIT_URL",
-					Value: "testURL",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Two variables involved web hook enabled",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-argocd:
-  sendWebHooks: false
-  server: testServer
 `,
 			ExpectedEnvs: []core.EnvVar{
 				{
@@ -660,43 +639,6 @@ db:
 			},
 			ExpectedMissing: []core.EnvVar{},
 		},
-		{
-			Name: "Test experimental brackets clusters default (empty) for cd-service",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
-					Value: "",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test experimental brackets clusters with one env enabled for cd-service",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  experimentalBrackets:
-    enabled: true
-    clusters:
-      staging: true
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
-					Value: "staging",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
 	}
 
 	for _, tc := range tcs {
@@ -721,36 +663,6 @@ rollout:
 						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
 					}
 				}
-			}
-		})
-	}
-}
-
-func TestHelmChartsKuberpultDeprecatedParameters(t *testing.T) {
-	tcs := []struct {
-		Name            string
-		Values          string
-		ExpectedEnvs    []core.EnvVar
-		ExpectedMissing []core.EnvVar
-	}{
-		{
-			Name: "Test Argocd.sendWebhooks being set to true",
-			Values: `
-git:
-  url:  "checkThisValue"
-ingress:
-  domainName: "kuberpult-example.com"
-argocd:
-  sendWebhooks: true
-`},
-	}
-
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
-			testDirname := t.TempDir()
-			_, err := runHelm(t, []byte(tc.Values), testDirname)
-			if err == nil {
-				t.Fatalf("Paramater should be deprecated")
 			}
 		})
 	}
@@ -1524,438 +1436,6 @@ manifestRepoExport:
 	}
 }
 
-func TestHelmChartsKuberpultRolloutEnvVariables(t *testing.T) {
-	tcs := []struct {
-		Name            string
-		Values          string
-		ExpectedEnvs    []core.EnvVar
-		ExpectedMissing []core.EnvVar
-	}{
-		{
-			Name: "Test db max connections",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-db:
-  connections:
-    rollout:
-      maxOpen: 777
-      maxIdle: 321
-`,
-
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_MAX_OPEN_CONNECTIONS",
-					Value: "777",
-				},
-				{
-					Name:  "KUBERPULT_DB_MAX_IDLE_CONNECTIONS",
-					Value: "321",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test persist argo events disabled",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-  persistArgoEvents: false
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-`,
-
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_PERSIST_ARGO_EVENTS",
-					Value: "false",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_ARGO_EVENTS_BATCH_SIZE",
-					Value: "does-not-matter",
-				},
-			},
-		},
-		{
-			Name: "Test default argo events batch size",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-  persistArgoEvents: true
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-`,
-
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_PERSIST_ARGO_EVENTS",
-					Value: "true",
-				},
-				{
-					Name:  "KUBERPULT_ARGO_EVENTS_BATCH_SIZE",
-					Value: "1",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test batch size is configurable",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-  persistArgoEvents: true
-  argoEventsBatchSize: 50
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-`,
-
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_PERSIST_ARGO_EVENTS",
-					Value: "true",
-				},
-				{
-					Name:  "KUBERPULT_ARGO_EVENTS_BATCH_SIZE",
-					Value: "50",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test Argo Events Channel Size",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-  argoEventsChannelSize: 100
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-`,
-
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_ARGO_EVENTS_CHANNEL_SIZE",
-					Value: "100",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test Kuberpult Events Channel Size",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-  kuberpultEventsChannelSize: 99
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-`,
-
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_KUBERPULT_EVENTS_CHANNEL_SIZE",
-					Value: "99",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test enable all metrics",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-  metrics:
-    doraMetricsEnabled: true
-    argoEventsMetricsEnabled: true
-    kuberpultEventsMetricsEnabled: true
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-`,
-
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_ARGO_EVENTS_METRICS_ENABLED",
-					Value: "true",
-				},
-				{
-					Name:  "KUBERPULT_KUBERPULT_EVENTS_METRICS_ENABLED",
-					Value: "true",
-				},
-				{
-					Name:  "KUBERPULT_DORA_EVENTS_METRICS_ENABLED",
-					Value: "true",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test enable all metrics with dora",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-manifestRepoExport:
-  enabled: false
-revolution:
-  dora:
-    enabled: true
-    dryRun: true
-argocd:
-  server: https://argo:1090
-`,
-
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_REVOLUTION_DORA_ENABLED",
-					Value: "true",
-				},
-				{
-					Name:  "KUBERPULT_REVOLUTION_DORA_DRY_RUN",
-					Value: "true",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test experimental brackets clusters default (empty)",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
-					Value: "",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test experimental brackets clusters with one env enabled",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-  experimentalBrackets:
-    enabled: true
-    clusters:
-      production: true
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
-					Value: "production",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test experimental brackets clusters with multiple envs, some disabled",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-  experimentalBrackets:
-    enabled: true
-    clusters:
-      staging: true
-      production: true
-      dev: false
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
-					Value: "production,staging",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-		{
-			Name: "Test experimental brackets clusters ignored when enabled is false",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-  experimentalBrackets:
-    enabled: false
-    clusters:
-      production: true
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-`,
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS",
-					Value: "",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			testDirName := t.TempDir()
-			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
-			if err != nil {
-				t.Fatalf("%v", err)
-			}
-			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf("%v", err)
-			} else {
-				targetDocument := out["kuberpult-rollout-service"]
-				for _, env := range tc.ExpectedEnvs {
-					if !CheckForEnvVariable(t, env, &targetDocument) {
-						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
-					}
-				}
-				for _, env := range tc.ExpectedMissing {
-					if CheckForEnvVariable(t, env, &targetDocument) {
-						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
-					}
-				}
-			}
-		})
-	}
-}
-
-func TestHelmChartsKuberpultReposerverEnvVariables(t *testing.T) {
-	tcs := []struct {
-		Name            string
-		Values          string
-		ExpectedEnvs    []core.EnvVar
-		ExpectedMissing []core.EnvVar
-	}{
-		{
-			Name: "Test db max connections",
-			Values: `
-git:
-  url: "testURL"
-reposerver:
-  enabled: true
-db:
-  connections:
-    reposerver:
-      maxOpen: 777
-      maxIdle: 321
-`,
-
-			ExpectedEnvs: []core.EnvVar{
-				{
-					Name:  "KUBERPULT_DB_MAX_OPEN_CONNECTIONS",
-					Value: "777",
-				},
-				{
-					Name:  "KUBERPULT_DB_MAX_IDLE_CONNECTIONS",
-					Value: "321",
-				},
-			},
-			ExpectedMissing: []core.EnvVar{},
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			testDirName := t.TempDir()
-			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
-			if err != nil {
-				t.Fatalf("%v", err)
-			}
-			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf("%v", err)
-			} else {
-				targetDocument := out["kuberpult-reposerver-service"]
-				for _, env := range tc.ExpectedEnvs {
-					if !CheckForEnvVariable(t, env, &targetDocument) {
-						t.Fatalf("Environment variable '%s' with value '%s' was expected, but not found.", env.Name, env.Value)
-					}
-				}
-				for _, env := range tc.ExpectedMissing {
-					if CheckForEnvVariable(t, env, &targetDocument) {
-						t.Fatalf("Found enviroment variable '%s' with value '%s', but was not expecting it.", env.Name, env.Value)
-					}
-				}
-			}
-		})
-	}
-}
-
 func TestIngress(t *testing.T) {
 	ingressClassGcePrivate := "gce-private"
 	tcs := []struct {
@@ -2147,8 +1627,6 @@ func TestAnnotations(t *testing.T) {
 		ExpectedManifestRepoExportServiceAnnotations map[string]string
 		ExpectedFrontendPodAnnotations               map[string]string
 		ExpectedFrontendServiceAnnotations           map[string]string
-		ExpectedRolloutPodAnnotations                map[string]string
-		ExpectedRolloutServiceAnnotations            map[string]string
 	}{
 		{
 			Name: "Test no annotations",
@@ -2166,8 +1644,6 @@ git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
 manifestRepoExport:
   enabled: true
   experimentalRolloutWithManifest:
@@ -2185,9 +1661,6 @@ datadogTracing:
 			},
 			ExpectedFrontendPodAnnotations: map[string]string{
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"shared"`,
-			},
-			ExpectedRolloutPodAnnotations: map[string]string{
-				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-rollout-service","DD_ENV":"shared"`,
 			},
 		},
 		{
@@ -2213,12 +1686,6 @@ frontend:
     annotations:
       test-key: test-value3
       secondKey: secondValue3
-rollout:
-  enabled: true
-  pod:
-    annotations:
-      test-key: test-value4
-      secondKey: secondValue4
 db:
 argocd:
   server: https://argo:1090
@@ -2234,10 +1701,6 @@ argocd:
 			ExpectedFrontendPodAnnotations: map[string]string{
 				"test-key":  "test-value3",
 				"secondKey": "secondValue3",
-			},
-			ExpectedRolloutPodAnnotations: map[string]string{
-				"test-key":  "test-value4",
-				"secondKey": "secondValue4",
 			},
 		},
 		{
@@ -2263,12 +1726,6 @@ frontend:
     annotations:
       test-key: test-value3
       secondKey: secondValue3
-rollout:
-  enabled: true
-  pod:
-    annotations:
-      test-key: test-value4
-      secondKey: secondValue4
 datadogTracing:
   enabled: true
 argocd:
@@ -2288,11 +1745,6 @@ argocd:
 				"test-key":              "test-value3",
 				"secondKey":             "secondValue3",
 				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-frontend-service","DD_ENV":"shared"`,
-			},
-			ExpectedRolloutPodAnnotations: map[string]string{
-				"test-key":              "test-value4",
-				"secondKey":             "secondValue4",
-				"apm.datadoghq.com/env": `{"DD_SERVICE":"kuberpult-rollout-service","DD_ENV":"shared"`,
 			},
 		},
 		{
@@ -2318,12 +1770,6 @@ frontend:
     annotations:
       test-key: test-value3
       secondKey: secondValue3
-rollout:
-  enabled: true
-  service:
-    annotations:
-      test-key: test-value4
-      secondKey: secondValue4
 ingress:
   iap:
     enabled: true
@@ -2342,10 +1788,6 @@ argocd:
 				"test-key":                        "test-value3",
 				"secondKey":                       "secondValue3",
 				"cloud.google.com/backend-config": `{"default": "kuberpult"}`,
-			},
-			ExpectedRolloutServiceAnnotations: map[string]string{
-				"test-key":  "test-value4",
-				"secondKey": "secondValue4",
 			},
 		},
 	}
@@ -2367,8 +1809,6 @@ argocd:
 				filterDDVersion(manifestPodAnnotations)
 				frontendPodAnnotations := deployments["kuberpult-frontend-service"].Spec.Template.ObjectMeta.Annotations
 				filterDDVersion(frontendPodAnnotations)
-				rolloutPodAnnotations := deployments["kuberpult-rollout-service"].Spec.Template.ObjectMeta.Annotations
-				filterDDVersion(rolloutPodAnnotations)
 				if diff := cmp.Diff(tc.ExpectedCdPodAnnotations, cdPodAnnotations); diff != "" {
 					t.Fatalf("wrong cd pod annotations (-want, +got):\n%s", diff)
 				}
@@ -2377,9 +1817,6 @@ argocd:
 				}
 				if diff := cmp.Diff(tc.ExpectedFrontendPodAnnotations, frontendPodAnnotations); diff != "" {
 					t.Fatalf("wrong frontend pod annotations (-want, +got):\n%s", diff)
-				}
-				if diff := cmp.Diff(tc.ExpectedRolloutPodAnnotations, rolloutPodAnnotations); diff != "" {
-					t.Fatalf("wrong rollout pod annotations (-want, +got):\n%s", diff)
 				}
 			}
 			if service, err := getServices(outputFile); err != nil {
@@ -2394,9 +1831,6 @@ argocd:
 				if diff := cmp.Diff(tc.ExpectedFrontendServiceAnnotations, service["kuberpult-frontend-service"].ObjectMeta.Annotations); diff != "" {
 					t.Fatalf("wrong frontend service annotations (-want, +got):\n%s", diff)
 				}
-				if diff := cmp.Diff(tc.ExpectedRolloutServiceAnnotations, service["kuberpult-rollout-service"].ObjectMeta.Annotations); diff != "" {
-					t.Fatalf("wrong rollout service annotations (-want, +got):\n%s", diff)
-				}
 			}
 		})
 	}
@@ -2410,19 +1844,35 @@ func TestHelmErrors(t *testing.T) {
 		ExpectedError error
 	}{
 		{
-			Name: "Rollout and manifest-export should not go together",
+			Name: "reposerver-service is not allowed",
 			Values: `
 git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
 manifestRepoExport:
+  enabled: false
+reposerver:
   enabled: true
+`,
+			ExpectedError: ContainsErrMatcher{
+				Messages: []string{"Values.reposerver.enabled cannot be used anymore, because the reposerver-service was removed"},
+			},
+		},
+		{
+			Name: "Rollout is not allowed",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+manifestRepoExport:
+  enabled: false
 rollout:
   enabled: true
 `,
 			ExpectedError: ContainsErrMatcher{
-				Messages: []string{"cannot enable both rollout and manifestRepoExport at the same time"},
+				Messages: []string{"Values.rollout.enabled cannot be used anymore, because the rollout-service was removed"},
 			},
 		},
 		{
@@ -2452,25 +1902,6 @@ manifestRepoExport:
     experimentalRootAppsPointToBrackets: false
 `,
 			ExpectedError: infixErrMatcher{"Cannot point to apps when not rendering apps"},
-		},
-		{
-			Name: "experimental brackets require manageArgoApplications.filter to be wildcard",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  experimentalBrackets:
-    enabled: true
-manageArgoApplications:
-  enabled: true
-  filter:
-    - "team1"
-`,
-			ExpectedError: ContainsErrMatcher{
-				Messages: []string{"bracket apps have no team and cannot be managed under a team-specific filter"},
-			},
 		},
 		{
 			Name: "secretName and apiKey cannot set at the same time for datadogProfiling",
@@ -2587,7 +2018,6 @@ func makeAllIngressPaths(withDex, withUi, withOldApi, withNewApi bool) []network
 			makeIngressPrefixPath("/api.v1.OverviewService/"),
 			makeIngressPrefixPath("/api.v1.BatchService/"),
 			makeIngressPrefixPath("/api.v1.FrontendConfigService/"),
-			makeIngressPrefixPath("/api.v1.RolloutService/"),
 			makeIngressPrefixPath("/api.v1.ManifestExportGitService/"),
 			makeIngressPrefixPath("/api.v1.ProductSummaryService/"),
 			makeIngressPrefixPath("/api.v1.VersionService/"),
@@ -2658,52 +2088,28 @@ func TestCloudSqlProxyVersion(t *testing.T) {
 		ExpectedImage       string
 	}{
 		{
-			Name: "default version is unchanged for cd and export and reposerver",
+			Name: "default version is unchanged for cd and export",
 			Values: `
 git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-reposerver:
-  enabled: true
 db:
   cloudSqlProxyEnabled: true
 `,
 			ExpectedDeployments: []string{
 				"kuberpult-cd-service",
 				"kuberpult-manifest-repo-export-service",
-				"kuberpult-reposerver-service",
 			},
 			ExpectedImage: "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0",
 		},
 		{
-			Name: "default version is unchanged for rollout",
+			Name: "custom version for cd and export",
 			Values: `
 git:
   url: "testURL"
 ingress:
   domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-db:
-  cloudSqlProxyEnabled: true
-`,
-			ExpectedDeployments: []string{"kuberpult-rollout-service"},
-			ExpectedImage:       "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0",
-		},
-		{
-			Name: "custom version for cd and export and reposerver",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-reposerver:
-  enabled: true
 db:
   cloudSqlProxyEnabled: true
   cloudSqlProxyVersion: "2.15.0"
@@ -2711,29 +2117,8 @@ db:
 			ExpectedDeployments: []string{
 				"kuberpult-cd-service",
 				"kuberpult-manifest-repo-export-service",
-				"kuberpult-reposerver-service",
 			},
 			ExpectedImage: "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.0",
-		},
-		{
-			Name: "custom version for rollout",
-			Values: `
-git:
-  url: "testURL"
-ingress:
-  domainName: "kuberpult-example.com"
-rollout:
-  enabled: true
-manifestRepoExport:
-  enabled: false
-argocd:
-  server: https://argo:1090
-db:
-  cloudSqlProxyEnabled: true
-  cloudSqlProxyVersion: "2.15.0"
-`,
-			ExpectedDeployments: []string{"kuberpult-rollout-service"},
-			ExpectedImage:       "gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.0",
 		},
 	}
 
@@ -2761,54 +2146,6 @@ db:
 				}
 				if actualImage != tc.ExpectedImage {
 					t.Errorf("deployment %s: expected proxy image %q, got %q", name, tc.ExpectedImage, actualImage)
-				}
-			}
-		})
-	}
-}
-
-func TestReposerverServiceDisabled(t *testing.T) {
-	tcs := []struct {
-		Name        string
-		Values      string
-		ShouldExist bool
-	}{
-		{
-			Name: "Disabled Reposerver Service",
-			Values: `
-git:
-  url: "testURL"
-reposerver:
-  enabled: false
-`,
-			ShouldExist: false,
-		},
-		{
-			Name: "Enabled Reposerver Service",
-			Values: `
-git:
-  url: "testURL"
-reposerver:
-  enabled: true
-`,
-			ShouldExist: true,
-		},
-	}
-
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			testDirName := t.TempDir()
-			outputFile, err := runHelm(t, []byte(tc.Values), testDirName)
-			if err != nil {
-				t.Fatalf("%v", err)
-			}
-			if out, err := getDeployments(outputFile); err != nil {
-				t.Fatalf("%v", err)
-			} else {
-				_, found := out["kuberpult-reposerver-service"]
-				if found != tc.ShouldExist {
-					t.Fatalf("Expected existence: %t, got: %t", tc.ShouldExist, found)
 				}
 			}
 		})
