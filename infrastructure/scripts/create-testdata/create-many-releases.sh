@@ -35,11 +35,6 @@ for appId in $(seq -w "${MIN}" "${MAX}" ); do
     echo '{
 "actions": [
   {
-    "prepare_undeploy": {
-      "application": "'"${app}"'"
-    }
-  },
-  {
     "undeploy": {
       "application": "'"${app}"'"
     }
