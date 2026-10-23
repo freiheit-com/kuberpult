@@ -168,7 +168,6 @@ message BatchAction {
     CreateEnvironmentApplicationLockRequest create_environment_application_lock = 3;
     DeleteEnvironmentApplicationLockRequest delete_environment_application_lock = 4;
     DeployRequest deploy = 5;
-    PrepareUndeployRequest prepare_undeploy = 6;
     UndeployRequest undeploy = 7;
     DeleteEnvironmentFromAppRequest delete_env_from_app = 8;
     CreateEnvironmentRequest create_environment = 9;
@@ -469,7 +468,6 @@ service OverviewService {
   rpc GetOverview (GetOverviewRequest) returns (GetOverviewResponse) {}
   rpc StreamOverview (GetOverviewRequest) returns (stream GetOverviewResponse) {}
 
-  rpc StreamChangedApps (GetChangedAppsRequest) returns (stream GetChangedAppsResponse) {}
   rpc GetAppDetails (GetAppDetailsRequest) returns (GetAppDetailsResponse) {}
   rpc GetAllAppLocks (GetAllAppLocksRequest) returns (GetAllAppLocksResponse) {}
   rpc GetAllEnvTeamLocks (GetAllEnvTeamLocksRequest) returns (GetAllEnvTeamLocksResponse) {}
@@ -483,30 +481,6 @@ service EnvironmentService {
 }
 
 message GetChangedAppsRequest {}
-
-message GetChangedAppsResponse {
-  repeated GetAppDetailsResponse changed_apps = 1;
-  repeated GetBracketDetailsResponse changed_brackets = 2;
-  int64 transformer_esl_id = 3; // max ESL ID from event_sourcing_light at the moment this message was sent
-}
-
-message BracketDeployment {
-  string version = 1;
-  google.protobuf.Timestamp deployed_at = 2;
-  string source_commit_id = 3;
-}
-
-message GetBracketDetailsResponse {
-  string bracket_name = 1;
-  map<string, BracketDeployment> deployments = 2;
-  // Names of brackets that gained some members that this bracket lost in this change.
-  // The rollout-service must not refresh this bracket's Argo app spec (which
-  // would prune the moved apps' resources) until each named bracket has
-  // adopted them (reported Synced by Argo CD).
-  // For example we move b1/app1 -> b2/app2:
-  // in this case b1 would have a "lost_members_to=b2"
-  repeated string lost_members_to = 3;
-}
 
 message GetAllAppLocksRequest {}
 
@@ -799,51 +773,6 @@ message Application {
 message Actor {
   string name = 1;
   string email = 2;
-}
-
-service RolloutService {
-  rpc StreamStatus (StreamStatusRequest) returns (stream StreamStatusResponse) {}
-  rpc GetStatus (GetStatusRequest) returns (GetStatusResponse) {}
-}
-
-message StreamStatusRequest {}
-message GetStatusRequest {
-  string environment_group = 1;
-  string team = 2;
-  uint64 wait_seconds = 3;
-}
-
-/*
-
-Unknown = can't tell
-Successful = everything is fine
-Progressing = waiting for something
-Error = error
-*/
-enum RolloutStatus {
-  ROLLOUT_STATUS_UNKNOWN = 0; // argocd didn't report anything for this app
-  ROLLOUT_STATUS_SUCCESFUL = 1; // sync succesful
-  ROLLOUT_STATUS_PROGRESSING = 2; // argocd picked up the change but didn't apply it yet
-  ROLLOUT_STATUS_ERROR = 3; // argocd applied the change but failed
-  ROLLOUT_STATUS_PENDING = 4; // argocd hasn't yet picked up the change
-  ROLLOUT_STATUS_UNHEALTHY = 5; // argocd applied the change succesfully, but the app is unhealthy
-}
-
-message StreamStatusResponse {
-  string environment = 1;
-  string application = 2;
-  uint64 version     = 3;
-  RolloutStatus rollout_status = 4;
-}
-
-message GetStatusResponse {
-  message ApplicationStatus {
-    string environment = 1;
-    string application = 2;
-    RolloutStatus rollout_status = 3;
-  }
-  RolloutStatus status = 1;
-  repeated ApplicationStatus applications = 2;
 }
 
 service ReleaseTrainPrognosisService {
