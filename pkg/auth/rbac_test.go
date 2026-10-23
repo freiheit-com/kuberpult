@@ -34,10 +34,10 @@ func TestValidateRbacPermission(t *testing.T) {
 	}{
 		{
 			Name:       "Validating RBAC works as expected",
-			Permission: "p,role:Developer,CreateUndeploy,dev:*,*,allow",
+			Permission: "p,role:Developer,DeployUndeploy,dev:*,*,allow",
 			WantPermission: Permission{
 				Role:        "Developer",
-				Action:      "CreateUndeploy",
+				Action:      "DeployUndeploy",
 				Application: "*",
 				Environment: "dev:*",
 			},
@@ -307,8 +307,8 @@ func TestCheckUserPermissions(t *testing.T) {
 			env:         "production",
 			envGroup:    "production",
 			application: "app1",
-			action:      PermissionCreateUndeploy,
-			rbacConfig:  RBACConfig{DexEnabled: true, Policy: &RBACPolicies{Permissions: map[string]Permission{"p,role:Developer,CreateUndeploy,production:*,*,allow": {Role: "Developer"}}}},
+			action:      PermissionDeployUndeploy,
+			rbacConfig:  RBACConfig{DexEnabled: true, Policy: &RBACPolicies{Permissions: map[string]Permission{"p,role:Developer,DeployUndeploy,production:*,*,allow": {Role: "Developer"}}}},
 			team:        "team",
 		},
 		{
