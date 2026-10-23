@@ -155,7 +155,7 @@ then
   if "$BUILD_FRONTEND"; then
     IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -j5 -C ../../charts/kuberpult build-all-docker
   else
-    IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -j4 -C ../../charts/kuberpult docker-cd-service docker-manifest-repo-export-service docker-reposerver-service docker-rollout-service
+    IMAGE_TAG=$IMAGE_TAG_KUBERPULT make -j4 -C ../../charts/kuberpult docker-cd-service docker-manifest-repo-export-service
   fi
 else
   print 'not building services...'
@@ -163,12 +163,9 @@ fi
 
 cd_imagename="${IMAGE_REGISTRY}/kuberpult-cd-service:${IMAGE_TAG_KUBERPULT}"
 manifest_repo_export_imagename="${IMAGE_REGISTRY}/kuberpult-manifest-repo-export-service:${IMAGE_TAG_KUBERPULT}"
-rollout_imagename="${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_KUBERPULT}"
-reposerver_imagename="${IMAGE_REGISTRY}/kuberpult-reposerver-service:${IMAGE_TAG_KUBERPULT}"
 
 print "cd image: $cd_imagename"
 print "frontend image: $frontend_imagename"
-print "rollout image: $rollout_imagename"
 
 if ! "$LOCAL_EXECUTION"
 then
@@ -178,10 +175,6 @@ then
   docker pull "$manifest_repo_export_imagename"
   print 'pulling frontend service...'
   docker pull "$frontend_imagename"
-  print 'pulling rollout service...'
-  docker pull "$rollout_imagename"
-  print 'pulling reposerver service...'
-  docker pull "$reposerver_imagename"
 else
   print 'not pulling cd or frontend service...'
 fi
@@ -190,7 +183,7 @@ print 'loading kuberpult docker images into kind...'
 print "$cd_imagename"
 print "$frontend_imagename"
 (
-  for image in "$cd_imagename" "$manifest_repo_export_imagename" "$rollout_imagename" "$reposerver_imagename" "$frontend_imagename"
+  for image in "$cd_imagename" "$manifest_repo_export_imagename" "$frontend_imagename"
   do
     kind load docker-image "${image}" &
   done
@@ -209,18 +202,8 @@ print "starting argoCd..."
 helm repo add argo-cd https://argoproj.github.io/argo-helm
 
 
-reposerver_service=kuberpult-reposerver-service
-namespace=default
-
 cat <<YAML > argocd-values.yml
-repoServer:
-  replicas: 0
 configs:
-  params:
-    repo.server: ${reposerver_service}.${namespace}.svc.cluster.local:8443
-    controller.repo.server.plaintext: true
-    server.repo.server.plaintext: true
-    applicationsetcontroller.log.level: warn
   ssh:
     knownHosts: |
 $(sed -e "s/^/        /" <../../services/cd-service/known_hosts)
@@ -257,12 +240,8 @@ helm upgrade --install --history-max 1 argocd argo-cd/argo-cd --values argocd-va
 
 print applying app...
 
-#waitForDeployment "default" "app.kubernetes.io/name=argocd-repo-server"
 waitForDeployment "default" "app.kubernetes.io/name=argocd-server"
 portForwardAndWait "default" service/argocd-server 5001 443
-
-# For now, we are only creating development here
-# This means argo cd will only handle development, including the rollout-status
 
 # when testing on our gke environment, note that the namespace is different:
 #export ARGO_NAMESPACE=tools

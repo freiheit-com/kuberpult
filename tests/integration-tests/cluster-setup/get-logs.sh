@@ -14,12 +14,6 @@ kubectl logs -l "app=kuberpult-cd-service" --tail -1
 echo "************************************************************"
 echo "************************************************************"
 
-echo "getting rollout-service logs..."
-echo "************************************************************"
-kubectl logs -l "app=kuberpult-rollout-service" --tail -1
-echo "************************************************************"
-echo "************************************************************"
-
 echo "getting export-service logs..."
 echo "************************************************************"
 kubectl logs -l "app=kuberpult-manifest-repo-export-service" --tail -1
