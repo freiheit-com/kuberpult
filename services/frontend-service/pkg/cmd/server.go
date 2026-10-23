@@ -255,7 +255,10 @@ func runServer(ctx context.Context) error {
 		defer tracer.Stop()
 
 		grpcStreamInterceptors = append(grpcStreamInterceptors,
-			grpctrace.StreamServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-frontend-service"))),
+			grpctrace.StreamServerInterceptor(
+				grpctrace.WithServiceName(tracing.ServiceName("kuberpult-frontend-service")),
+				grpctrace.WithStreamMessages(false),
+			),
 		)
 		grpcUnaryInterceptors = append(grpcUnaryInterceptors,
 			grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-frontend-service"))),
@@ -263,7 +266,10 @@ func runServer(ctx context.Context) error {
 
 		grpcClientOpts = append(grpcClientOpts,
 			grpc.WithStreamInterceptor(
-				grpctrace.StreamClientInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-frontend-service"))),
+				grpctrace.StreamClientInterceptor(
+					grpctrace.WithServiceName(tracing.ServiceName("kuberpult-frontend-service")),
+					grpctrace.WithStreamMessages(false),
+				),
 			),
 			grpc.WithUnaryInterceptor(
 				grpctrace.UnaryClientInterceptor(grpctrace.WithServiceName(tracing.ServiceName("kuberpult-frontend-service"))),
