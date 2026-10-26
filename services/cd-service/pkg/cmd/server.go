@@ -306,7 +306,10 @@ func RunServer() {
 			defer tracer.Stop()
 
 			grpcStreamInterceptors = append(grpcStreamInterceptors,
-				grpctrace.StreamServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName(datadogNameCd))),
+				grpctrace.StreamServerInterceptor(
+					grpctrace.WithServiceName(tracing.ServiceName(datadogNameCd)),
+					grpctrace.WithStreamMessages(false),
+				),
 			)
 			grpcUnaryInterceptors = append(grpcUnaryInterceptors,
 				grpctrace.UnaryServerInterceptor(grpctrace.WithServiceName(tracing.ServiceName(datadogNameCd))),

@@ -1,14 +1,15 @@
 FROM golang:1.25.8-alpine3.23
 
 RUN apk add --no-cache  \
-        tar tzdata curl bash git \
-        'ca-certificates>=20261020-r0' 'ca-certificates-bundle>=20261020-r0' \
+        ca-certificates tar tzdata curl bash git \
         gcc g++ pkgconfig make cmake \
         go protoc protobuf-dev \
         python3 py3-pip \
         musl-dev libffi-dev openssl-dev libssh2-dev \
         sqlite sqlite-dev \
         nodejs npm
+
+RUN apk upgrade --no-cache ca-certificates ca-certificates-bundle
 
 COPY services/manifest-repo-export-service/install-libgit2.sh /tmp/install-libgit2.sh
 COPY services/manifest-repo-export-service/gitconfig /etc/gitconfig

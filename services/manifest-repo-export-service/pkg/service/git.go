@@ -249,10 +249,7 @@ func (s *GitServer) subscribeGitSyncStatus() (<-chan struct{}, notify.Unsubscrib
 
 func (s *GitServer) StreamGitSyncStatus(in *api.GetGitSyncStatusRequest,
 	stream api.ManifestExportGitService_StreamGitSyncStatusServer) (err error) {
-	span, ctx := tracer.StartSpanFromContext(stream.Context(), "StreamGitSyncStatus")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
+	ctx := stream.Context()
 	ch, unsubscribe := s.subscribeGitSyncStatus()
 	defer unsubscribe()
 	done := stream.Context().Done()

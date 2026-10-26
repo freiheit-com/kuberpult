@@ -12,9 +12,7 @@ COPY --from=builder /usr/local/go /usr/local/go
 
 ENV PATH="/usr/local/go/bin:/kp/go/bin:${PATH}"
 
-RUN apk add protoc protobuf-dev 'ca-certificates-bundle>=20261020-r0'
-
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+RUN apk add protoc protobuf-dev
 
 RUN adduser --disabled-password --home "/kp" --uid ${UID} kp
 RUN chown -R kp:kp /kp
@@ -31,6 +29,7 @@ RUN go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.1
 COPY --from=builder /kp/go.mod ./go.mod
 COPY --from=builder /kp/go.sum ./go.sum
 
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 COPY services/cd-service/gitconfig /etc/gitconfig
@@ -57,8 +56,6 @@ RUN chmod +x /main
 CMD ["/main"]
 
 FROM alpine:3.21
-
-RUN apk add --no-cache 'ca-certificates-bundle>=20261020-r0'
 
 ARG UID=1000
 
