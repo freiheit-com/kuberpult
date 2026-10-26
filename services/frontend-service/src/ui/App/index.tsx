@@ -21,9 +21,7 @@ import * as React from 'react';
 import {
     AppDetailsState,
     EnableGitSyncStatus,
-    EnableRolloutStatus,
     FlushGitSyncStatus,
-    FlushRolloutStatus,
     PanicOverview,
     showSnackbarWarn,
     UpdateAllApplicationLocks,
@@ -33,7 +31,6 @@ import {
     UpdateFrontendConfig,
     UpdateGitSyncStatus,
     UpdateOverview,
-    UpdateRolloutStatus,
     useKuberpultVersion,
     useReleaseDialogParams,
 } from '../utils/store';
@@ -182,30 +179,6 @@ export const App: React.FC = () => {
                     (error) => {
                         PanicOverview.set({ error: JSON.stringify({ msg: 'error in streamoverview', error }) });
                         showSnackbarWarn('Connection Error: Refresh the page');
-                    }
-                );
-            return (): void => subscription.unsubscribe();
-        }
-    }, [api, authHeader, authReady]);
-
-    React.useEffect(() => {
-        if (authReady) {
-            const subscription = api
-                .rolloutService()
-                .StreamStatus({}, authHeader)
-                .pipe(retryWhen(retryStrategy(1)))
-                .subscribe(
-                    (result) => {
-                        UpdateRolloutStatus(result);
-                    },
-                    (error) => {
-                        if (error.code === 12) {
-                            // Error code 12 means "not implemented". That is what we get when the rollout service is not enabled.
-                            FlushRolloutStatus();
-                            return;
-                        }
-                        PanicOverview.set({ error: JSON.stringify({ msg: 'error in rolloutstatus', error }) });
-                        EnableRolloutStatus();
                     }
                 );
             return (): void => subscription.unsubscribe();

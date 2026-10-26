@@ -22,7 +22,6 @@ import {
     appendAction,
     DisplayLock,
     FlushGitSyncStatus,
-    FlushRolloutStatus,
     ReleaseNumbers,
     SnackbarStatus,
     UpdateAction,
@@ -32,14 +31,12 @@ import {
     updateAppDetails,
     UpdateGitSyncStatus,
     UpdateOverview,
-    UpdateRolloutStatus,
     UpdateSnackbar,
     useGitSyncStatus,
     useLocksConflictingWithActions,
     useLocksSimilarTo,
     useNavigateWithSearchParams,
     useReleaseDifference,
-    useRolloutStatus,
 } from './store';
 import {
     AllAppLocks,
@@ -53,9 +50,7 @@ import {
     OverviewApplication,
     Priority,
     ReleaseTrainRequest_TargetType,
-    RolloutStatus,
     GitSyncStatus,
-    StreamStatusResponse,
     UndeploySummary,
 } from '../../api/api';
 import { makeDisplayLock, makeLock } from '../../setupTests';
@@ -410,121 +405,6 @@ describe('Test useNavigateWithSearchParams', () => {
     });
 });
 
-describe('Rollout Status', () => {
-    type Testcase = {
-        name: string;
-        events: Array<StreamStatusResponse | { error: true }>;
-        expectedApps: Array<{
-            application: string;
-            environment: string;
-            version: number;
-            rolloutStatus: RolloutStatus | undefined;
-        }>;
-    };
-
-    const testdata: Array<Testcase> = [
-        {
-            name: 'not enabled if empty',
-            events: [],
-
-            expectedApps: [
-                {
-                    application: 'app1',
-                    environment: 'env1',
-                    version: 0,
-                    rolloutStatus: undefined,
-                },
-            ],
-        },
-        {
-            name: 'updates one app',
-            events: [
-                {
-                    environment: 'env1',
-                    application: 'app1',
-                    version: 1,
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
-                },
-            ],
-
-            expectedApps: [
-                {
-                    application: 'app1',
-                    environment: 'env1',
-                    version: 1,
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
-                },
-            ],
-        },
-        {
-            name: 'keep the latest entry per app and environment',
-            events: [
-                {
-                    environment: 'env1',
-                    application: 'app1',
-                    version: 1,
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
-                },
-                {
-                    environment: 'env1',
-                    application: 'app1',
-                    version: 2,
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
-                },
-            ],
-
-            expectedApps: [
-                {
-                    application: 'app1',
-                    environment: 'env1',
-                    version: 2,
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
-                },
-            ],
-        },
-        {
-            name: 'flushes the state',
-            events: [
-                {
-                    environment: 'env1',
-                    application: 'app1',
-                    version: 1,
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
-                },
-                { error: true },
-            ],
-
-            expectedApps: [
-                {
-                    application: 'app1',
-                    environment: 'env1',
-                    version: 0,
-                    rolloutStatus: undefined,
-                },
-            ],
-        },
-    ];
-
-    describe.each(testdata)('with', (testcase) => {
-        it(testcase.name, () => {
-            FlushRolloutStatus();
-            testcase.events.forEach((ev) => {
-                if ('error' in ev) {
-                    FlushRolloutStatus();
-                } else {
-                    UpdateRolloutStatus(ev);
-                }
-            });
-            testcase.expectedApps.forEach((app) => {
-                const rollout = renderHook(() =>
-                    useRolloutStatus((getter) => getter.getAppStatus(app.application, app.version, app.environment))
-                );
-                expect(rollout.result.current).toEqual(app.rolloutStatus);
-            });
-        });
-    });
-});
-
 describe('Git Sync Status', () => {
     type Testcase = {
         name: string;
@@ -866,26 +746,6 @@ describe('Test addAction duplicate detection', () => {
                 action: {
                     $case: 'undeploy',
                     undeploy: {
-                        application: 'app2',
-                    },
-                },
-            },
-            shouldCancel: false,
-        },
-        {
-            name: 'prepare undeploy',
-            firstAction: {
-                action: {
-                    $case: 'prepareUndeploy',
-                    prepareUndeploy: {
-                        application: 'app1',
-                    },
-                },
-            },
-            differentAction: {
-                action: {
-                    $case: 'prepareUndeploy',
-                    prepareUndeploy: {
                         application: 'app2',
                     },
                 },

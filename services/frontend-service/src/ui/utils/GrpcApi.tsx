@@ -22,8 +22,6 @@ export interface Api {
     batchService(): api.BatchService;
     // config service returns basics configuration like for azure auth
     configService(): api.FrontendConfigService;
-    // rollout service
-    rolloutService(): api.RolloutService;
     // tags service
     manifestExportGitService(): api.ManifestExportGitService;
     // product summary service
@@ -38,7 +36,6 @@ class GrpcApi implements Api {
     _overviewService: api.OverviewService;
     _batchService: api.BatchService;
     _configService: api.FrontendConfigService;
-    _rolloutService: api.RolloutService;
     _manifestExportGitService: api.ManifestExportGitService;
     _productSummaryService: api.ProductSummaryService;
     _environmentService: api.EnvironmentService;
@@ -51,7 +48,6 @@ class GrpcApi implements Api {
         this._overviewService = new api.OverviewServiceClientImpl(gcli);
         this._batchService = new api.BatchServiceClientImpl(gcli);
         this._configService = new api.FrontendConfigServiceClientImpl(gcli);
-        this._rolloutService = new api.RolloutServiceClientImpl(gcli);
         this._manifestExportGitService = new api.ManifestExportGitServiceClientImpl(gcli);
         this._productSummaryService = new api.ProductSummaryServiceClientImpl(gcli);
         this._environmentService = new api.EnvironmentServiceClientImpl(gcli);
@@ -67,9 +63,6 @@ class GrpcApi implements Api {
     }
     configService(): api.FrontendConfigService {
         return this._configService;
-    }
-    rolloutService(): api.RolloutService {
-        return this._rolloutService;
     }
     manifestExportGitService(): api.ManifestExportGitService {
         return this._manifestExportGitService;
