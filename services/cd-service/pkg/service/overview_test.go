@@ -891,12 +891,6 @@ func TestGetApplicationDetails(t *testing.T) {
 						secondEnv: "v2",
 					},
 				},
-				&repository.CreateUndeployApplicationVersion{
-					Authentication:        repository.Authentication{},
-					Application:           appName,
-					WriteCommitData:       true,
-					TransformerEslVersion: 1,
-				},
 				&repository.UndeployApplication{
 					Authentication:        repository.Authentication{},
 					Application:           appName,
@@ -3408,9 +3402,6 @@ func TestStreamChangedAppsOnDeleteAppWithBracket(t *testing.T) {
 			Application: "app-b",
 			Environment: bracketEnv,
 			Version:     1,
-		},
-		&repository.CreateUndeployApplicationVersion{
-			Application: "app-a",
 		},
 	} {
 		if err := repo.Apply(ctx, tr); err != nil {

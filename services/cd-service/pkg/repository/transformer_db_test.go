@@ -88,11 +88,6 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 			WriteCommitData: false,
 			PreviousCommit:  "",
 		},
-		&CreateUndeployApplicationVersion{
-			Authentication:  Authentication{},
-			Application:     "myapp",
-			WriteCommitData: false,
-		},
 		&CreateEnvironmentLock{
 			Authentication:    Authentication{},
 			Environment:       "dev",
@@ -162,15 +157,6 @@ func TestTransformerWritesEslDataRoundTrip(t *testing.T) {
 				Author:          "",
 			},
 			dataType: &DeployApplicationVersion{},
-		},
-		{
-			Name: "CreateUndeployApplicationVersion",
-			Transformer: &CreateUndeployApplicationVersion{
-				Authentication:  Authentication{},
-				Application:     "myapp",
-				WriteCommitData: false,
-			},
-			dataType: &CreateUndeployApplicationVersion{},
 		},
 		{
 			Name: "UndeployApplication",
@@ -4119,9 +4105,7 @@ func TestUndeployBracketCascade(t *testing.T) {
 				&CreateEnvironment{Environment: env, Config: config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: env, Latest: true}}},
 				&CreateApplicationVersion{Application: "app1", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "mybracket", Team: "t", WriteCommitData: true},
 				&CreateApplicationVersion{Application: "app2", Version: 1, Manifests: map[types.EnvName]string{env: "{}"}, ArgoBracket: "mybracket", Team: "t", WriteCommitData: true},
-				&CreateUndeployApplicationVersion{Application: "app1"},
 				&UndeployApplication{Application: "app1"},
-				&CreateUndeployApplicationVersion{Application: "app2"},
 				&UndeployApplication{Application: "app2"},
 			},
 			ExpectedRows: []*db.RolloutShouldUndeployCascade{
@@ -4298,9 +4282,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					WriteCommitData: true,
 					Version:         1,
 				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
 				&UndeployApplication{
 					Application: "app1",
 				},
@@ -4325,13 +4306,7 @@ func TestUndeployApplicationDB(t *testing.T) {
 					WriteCommitData: true,
 					Version:         1,
 				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
 				&UndeployApplication{
-					Application: "app1",
-				},
-				&CreateUndeployApplicationVersion{
 					Application: "app1",
 				},
 			},
@@ -4354,9 +4329,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "acceptance",
@@ -4383,9 +4355,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "acceptance",
@@ -4418,9 +4387,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					LockId:      "22133",
 					Message:     string(testAppName),
 				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
 				&UndeployApplication{
 					Application: "app1",
 				},
@@ -4449,9 +4415,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					WriteCommitData: true,
 					Version:         1,
 				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
 				&UndeployApplication{
 					Application: "app1",
 				},
@@ -4471,9 +4434,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
 				},
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
@@ -4503,9 +4463,6 @@ func TestUndeployApplicationDB(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
 				},
 				&CreateApplicationVersion{
 					Application: "app1",
@@ -4595,9 +4552,6 @@ func TestUndeployApplicationDeletesLingeringDeployments(t *testing.T) {
 						Manifests:       map[types.EnvName]string{envAcceptance: "acceptance"},
 						WriteCommitData: true,
 						Version:         1,
-					},
-					&CreateUndeployApplicationVersion{
-						Application: app,
 					},
 				}
 				if _, _, _, err := repo.ApplyTransformersInternal(ctx, transaction, setup...); err != nil {
@@ -5084,18 +5038,6 @@ func TestUndeployTransformerDB(t *testing.T) {
 		expectedError *TransformerBatchApplyError
 	}{
 		{
-			Name: "Access non-existent application",
-			Transformers: []Transformer{
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            0,
-				TransformerError: errMatcher{"cannot undeploy non-existing application 'app1'"},
-			},
-		},
-		{
 			Name: "Success",
 			Transformers: []Transformer{
 				&CreateApplicationVersion{
@@ -5105,9 +5047,6 @@ func TestUndeployTransformerDB(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
 				},
 			},
 		},
@@ -5122,9 +5061,6 @@ func TestUndeployTransformerDB(t *testing.T) {
 					WriteCommitData: true,
 					Version:         1,
 				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
 				&CreateApplicationVersion{
 					Application: "app1",
 					Manifests: map[types.EnvName]string{
@@ -5135,25 +5071,6 @@ func TestUndeployTransformerDB(t *testing.T) {
 					SourceMessage:   "",
 					WriteCommitData: true,
 					Version:         3,
-				},
-			},
-		},
-		{
-			Name: "Undeploy twice should succeed",
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						envProduction: "productionmanifest",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
 				},
 			},
 		},
@@ -5179,96 +5096,6 @@ func TestUndeployTransformerDB(t *testing.T) {
 				_, _, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
 				if err != nil {
 					return err
-				}
-				return nil
-			})
-			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did not expect error but got:\n%+v", err)
-			}
-			if err != nil {
-				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
-					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-				}
-			}
-		})
-	}
-}
-
-func TestCreateUndeployDBState(t *testing.T) {
-	const appName types.AppName = "my-app"
-	tcs := []struct {
-		Name                   string
-		TargetApp              string
-		Transformers           []Transformer
-		expectedError          *TransformerBatchApplyError
-		expectedReleaseNumbers []types.ReleaseNumbers
-	}{
-		{
-			Name: "Success",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envProduction,
-					Config: config.EnvironmentConfig{
-						ArgoCd:           nil,
-						Upstream:         nil,
-						EnvironmentGroup: conversion.FromString("mygroup"),
-					},
-				},
-				&CreateApplicationVersion{
-					Application: appName,
-					Manifests: map[types.EnvName]string{
-						envProduction: "productionmanifest",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: appName,
-				},
-			},
-			expectedReleaseNumbers: []types.ReleaseNumbers{
-				{
-					Version:  uversion(1),
-					Revision: 0,
-				},
-				{
-					Version:  uversion(2),
-					Revision: 0,
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutilauth.MakeTestContext()
-			r := repo.(*repository)
-			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, s, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
-
-				if err != nil {
-					return err
-				}
-
-				allReleases, err2 := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
-				if err2 != nil {
-					t.Fatal(err)
-				}
-				if len(allReleases) == 0 {
-					t.Fatal("Expected some releases, but got none")
-				}
-				if diff := cmp.Diff(tc.expectedReleaseNumbers, allReleases); diff != "" {
-					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
-				}
-				release, err2 := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, allReleases[len(allReleases)-1], true)
-				if err2 != nil {
-					t.Fatal(err)
-				}
-
-				if !release.Metadata.UndeployVersion {
-					t.Fatal("Expected last version to be un-deployed")
 				}
 				return nil
 			})
@@ -5505,142 +5332,6 @@ func TestAllowedCILinksState(t *testing.T) {
 				}
 				if diff := cmp.Diff(tc.expectedDeployments, target, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
 					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
-				}
-				return nil
-			})
-			if tc.expectedError == nil && err != nil {
-				t.Fatalf("Did not expect error but got:\n%+v", err)
-			}
-			if err != nil {
-				if diff := cmp.Diff(tc.expectedError, err.(*TransformerBatchApplyError), cmpopts.EquateErrors()); diff != "" {
-					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-				}
-			}
-		})
-	}
-}
-
-func TestUndeployDBState(t *testing.T) {
-	const appName types.AppName = "my-app"
-
-	tcs := []struct {
-		Name                string
-		TargetApp           string
-		Transformers        []Transformer
-		expectedError       *TransformerBatchApplyError
-		expectedAllReleases []types.ReleaseNumbers
-		expectedDeployments []db.Deployment
-	}{
-		{
-			Name: "Success",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment:           envProduction,
-					Config:                config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envProduction, Latest: true}},
-					TransformerEslVersion: 0,
-				},
-				&CreateApplicationVersion{
-					Application: appName,
-					Manifests: map[types.EnvName]string{
-						envProduction: "productionmanifest",
-					},
-					WriteCommitData:       true,
-					Version:               1,
-					TransformerEslVersion: 1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application:           appName,
-					TransformerEslVersion: 2,
-				},
-				&UndeployApplication{
-					Application:           appName,
-					TransformerEslVersion: 3,
-				},
-			},
-			expectedAllReleases: []types.ReleaseNumbers{},
-			expectedDeployments: []db.Deployment{
-				{
-					// UndeployApplication deletes the deployment and records the un-deployment
-					// in history as a row with a nil release version.
-					App: appName,
-					Env: envProduction,
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  nil,
-					},
-					Metadata: db.DeploymentMetadata{
-						DeployedByEmail: "testmail@example.com",
-						DeployedByName:  "test tester",
-					},
-					TransformerID: 4,
-				},
-				{
-					App: appName,
-					Env: envProduction,
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  uversion(2),
-					},
-					Metadata: db.DeploymentMetadata{
-						DeployedByEmail: "testmail@example.com",
-						DeployedByName:  "test tester",
-					},
-					TransformerID: 3,
-				},
-				{
-					App: appName,
-					Env: envProduction,
-					ReleaseNumbers: types.ReleaseNumbers{
-						Revision: 0,
-						Version:  uversion(1),
-					},
-					Metadata: db.DeploymentMetadata{
-						DeployedByEmail: "testmail@example.com",
-						DeployedByName:  "test tester",
-					},
-					TransformerID: 2,
-				},
-			},
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutilauth.MakeTestContext()
-			r := repo.(*repository)
-			err := r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, s, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
-
-				if err != nil {
-					return err
-				}
-
-				allReleases, err2 := s.DBHandler.DBSelectAllReleasesOfApp(ctx, transaction, appName)
-				if err2 != nil {
-					t.Fatal(err)
-				}
-
-				if diff := cmp.Diff(tc.expectedAllReleases, allReleases); diff != "" {
-					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
-				}
-
-				target, err2 := s.DBHandler.DBSelectDeploymentHistory(ctx, transaction, appName, envProduction, 10)
-
-				if err2 != nil {
-					t.Fatal(err2)
-				}
-				if diff := cmp.Diff(tc.expectedDeployments, target, cmpopts.IgnoreFields(db.Deployment{}, "Created")); diff != "" {
-					t.Fatalf("error mismatch on expected lock ids (-want, +got):\n%s", diff)
-				}
-				allDeployments, err2 := s.DBHandler.DBSelectAllDeploymentsForApp(ctx, transaction, appName)
-				if err2 != nil {
-					t.Fatal(err)
-				}
-
-				if len(allDeployments) != 0 {
-					t.Fatal("No deployments expected, but found some.")
 				}
 				return nil
 			})
@@ -6388,9 +6079,6 @@ func TestChangedApps(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
 				},
 			},
 			Transformers: []Transformer{

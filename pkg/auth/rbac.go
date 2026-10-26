@@ -35,7 +35,6 @@ const (
 	PermissionDeleteLock                   = "DeleteLock"
 	PermissionCreateRelease                = "CreateRelease"
 	PermissionDeployRelease                = "DeployRelease"
-	PermissionCreateUndeploy               = "CreateUndeploy"
 	PermissionDeployUndeploy               = "DeployUndeploy"
 	PermissionCreateEnvironment            = "CreateEnvironment"
 	PermissionDeleteEnvironment            = "DeleteEnvironment"
@@ -68,7 +67,6 @@ func initPolicyConfig() policyConfig {
 			PermissionDeleteLock,
 			PermissionCreateRelease,
 			PermissionDeployRelease,
-			PermissionCreateUndeploy,
 			PermissionDeployUndeploy,
 			PermissionCreateEnvironment,
 			PermissionDeleteEnvironment,
@@ -137,7 +135,7 @@ func (c *policyConfig) validateApplication(app types.AppName) error {
 // followed <ENVIRONMENT_GROUP:*>.
 func isEnvironmentIndependent(action string) bool {
 	switch action {
-	case PermissionCreateUndeploy, PermissionDeployUndeploy, PermissionCreateRelease:
+	case PermissionDeployUndeploy, PermissionCreateRelease:
 		return true
 	}
 	return false

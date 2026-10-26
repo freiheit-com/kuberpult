@@ -88,42 +88,9 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					WriteCommitData: true,
 					Version:         1,
 				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
 				&UndeployApplication{
 					Application: "app1",
 				},
-			},
-		},
-		{
-			Name: "Create un-deploy Version for un-deployed application should not work",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment: envProduction,
-					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: envAcceptance, Latest: true}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						envProduction: "productionmanifest",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-				&UndeployApplication{
-					Application: "app1",
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            4,
-				TransformerError: errMatcher{"cannot undeploy non-existing application 'app1'"},
 			},
 		},
 		{
@@ -140,9 +107,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "acceptance",
@@ -169,9 +133,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
 				},
 				&CreateEnvironmentApplicationLock{
 					Environment: "acceptance",
@@ -203,9 +164,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					WriteCommitData: true,
 					Version:         1,
 				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
 				&UndeployApplication{
 					Application: "app1",
 				},
@@ -225,9 +183,6 @@ func TestUndeployApplicationErrors(t *testing.T) {
 					},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
 				},
 				&CreateEnvironmentLock{
 					Environment: "acceptance",
@@ -1175,136 +1130,6 @@ func TestApplicationDeploymentEvent(t *testing.T) {
 			//}
 		})
 	}
-}
-
-// Tests various error cases in the prepare-Undeploy endpoint, specifically the error messages returned.
-func TestUndeployErrors(t *testing.T) {
-	tcs := []struct {
-		Name              string
-		Transformers      []Transformer
-		expectedError     *TransformerBatchApplyError
-		expectedCommitMsg string
-	}{
-		{
-			Name: "Access non-existent application",
-			Transformers: []Transformer{
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-			},
-			expectedError: &TransformerBatchApplyError{
-				Index:            0,
-				TransformerError: errMatcher{"cannot undeploy non-existing application 'app1'"},
-			},
-			expectedCommitMsg: "",
-		},
-		{
-			Name: "Success",
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						envProduction: "productionmanifest",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-			},
-			expectedCommitMsg: "created undeploy-version 2 of 'app1'",
-		},
-		{
-			Name: "Deploy after Undeploy should work",
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						envProduction: "productionmanifest",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						envProduction: "productionmanifest",
-					},
-					SourceCommitId:  "",
-					SourceAuthor:    "",
-					SourceMessage:   "",
-					WriteCommitData: true,
-					Version:         3,
-				},
-			},
-			expectedCommitMsg: "created version 3 of \"app1\"",
-		},
-		{
-			Name: "Undeploy twice should succeed",
-			Transformers: []Transformer{
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						envProduction: "productionmanifest",
-					},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-				},
-			},
-			expectedCommitMsg: "created undeploy-version 3 of 'app1'",
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
-			t.Parallel()
-			repo := SetupRepositoryTestWithDB(t)
-			ctx := testutilauth.MakeTestContext()
-			r := repo.(*repository)
-			_ = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, &CreateEnvironment{Environment: "production"})
-				if err != nil {
-					t.Fatalf("unexpected error: %v", err)
-				}
-				return nil
-			})
-			_ = r.State().DBHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				_, _, _, err := repo.ApplyTransformersInternal(testutilauth.MakeTestContext(), transaction, tc.Transformers...)
-				if diff := cmp.Diff(tc.expectedError, err, cmpopts.EquateErrors()); diff != "" {
-					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
-				}
-				return nil
-			})
-
-		})
-	}
-}
-
-// Tests various error cases in the release train, specifically the error messages returned.
-type MockTransformer struct {
-	ExecuteFunc func(ctx context.Context, t Transformer, tx *sql.Tx) error
-}
-
-func (m *MockTransformer) Execute(ctx context.Context, t Transformer, tx *sql.Tx) error {
-	if m.ExecuteFunc != nil {
-		return m.ExecuteFunc(ctx, t, tx)
-	}
-	return nil
-}
-
-func (m *MockTransformer) AddAppEnv(app types.AppName, env types.EnvName, team string) {
-}
-
-func (m *MockTransformer) DeleteEnvFromApp(app types.AppName, env types.EnvName) {
 }
 
 func TestConvertLock(t *testing.T) {
@@ -2815,10 +2640,6 @@ func TestRbacTransformerTest(t *testing.T) {
 					Team:            "team",
 					Version:         1,
 				},
-				&CreateUndeployApplicationVersion{
-					Application:    "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
 				&UndeployApplication{
 					Application: "app1",
 					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
@@ -2853,10 +2674,6 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application:    "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -2893,10 +2710,6 @@ func TestRbacTransformerTest(t *testing.T) {
 					WriteCommitData: true,
 					Team:            "team-1",
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application:    "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -2938,10 +2751,6 @@ func TestRbacTransformerTest(t *testing.T) {
 					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 					WriteCommitData: true,
 					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application:    "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
 				},
 				&UndeployApplication{
 					Application: "app1",
@@ -2992,204 +2801,6 @@ func TestRbacTransformerTest(t *testing.T) {
 				User:        "test tester",
 				Role:        "developer",
 				Action:      "CreateEnvironment",
-				Environment: "*",
-			}),
-		},
-		{
-
-			Name: "able to create undeploy with team permissions policy",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment:    "staging",
-					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
-				&CreateEnvironment{
-					Environment:    "production",
-					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						"production": "production",
-						"staging":    "staging",
-					},
-					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-					WriteCommitData: true,
-					Team:            "team",
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
-						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
-						"p,role:developer,DeployRelease,staging:*,app1,allow":     {Role: "developer"},
-					}},
-						Team: &auth.RBACTeams{Permissions: map[string][]string{
-							"testmail@example.com": []string{"team"},
-						}}}},
-				},
-			},
-		},
-		{
-			Name: "able to create undeploy with permissions policy",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment:    "staging",
-					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
-				&CreateEnvironment{
-					Environment:    "production",
-					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						"production": "production",
-						"staging":    "staging",
-					},
-					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
-						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
-						"p,role:developer,DeployRelease,staging:*,app1,allow":     {Role: "developer"},
-					}},
-						Team: &auth.RBACTeams{Permissions: map[string][]string{
-							"testmail@example.com": []string{"*"},
-						}}}},
-				},
-			},
-		},
-		{
-
-			Name: "unable to create undeploy without team permissions",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment:    "staging",
-					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
-				&CreateEnvironment{
-					Environment:    "production",
-					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						"production": "production",
-						"staging":    "staging",
-					},
-					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-					WriteCommitData: true,
-					Team:            "team-1",
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
-						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
-					}},
-						Team: &auth.RBACTeams{Permissions: map[string][]string{
-							"testmail@example.com": []string{"team"},
-						}}}},
-				},
-			},
-			ExpectedError: fixtureWrapTransformError(auth.TeamPermissionError{
-				User:   "test tester",
-				Email:  "testmail@example.com",
-				Action: "CreateUndeploy",
-				Team:   "team-1",
-			}),
-		},
-		{
-			Name: "unable to create undeploy without permissions policy: Missing DeployRelease permission",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment:    "staging",
-					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
-				&CreateEnvironment{
-					Environment:    "production",
-					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						"production": "production",
-						"staging":    "staging",
-					},
-					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
-						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-						"p,role:developer,CreateUndeploy,staging:*,app1,allow":    {Role: "developer"},
-					}},
-						Team: &auth.RBACTeams{Permissions: map[string][]string{
-							"testmail@example.com": []string{"*"},
-						}}}},
-				},
-			},
-			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
-				User:        "test tester",
-				Role:        "developer",
-				Action:      "DeployRelease",
-				Environment: "staging",
-			}),
-		},
-		{
-			Name: "unable to create undeploy without permissions policy: Missing CreateUndeploy permission",
-			Transformers: []Transformer{
-				&CreateEnvironment{
-					Environment:    "staging",
-					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
-				&CreateEnvironment{
-					Environment:    "production",
-					Config:         config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Environment: "staging"}},
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-				},
-				&CreateApplicationVersion{
-					Application: "app1",
-					Manifests: map[types.EnvName]string{
-						"production": "production",
-						"staging":    "staging",
-					},
-					Authentication:  Authentication{RBACConfig: auth.RBACConfig{DexEnabled: false}},
-					WriteCommitData: true,
-					Version:         1,
-				},
-				&CreateUndeployApplicationVersion{
-					Application: "app1",
-					Authentication: Authentication{RBACConfig: auth.RBACConfig{DexEnabled: true, Policy: &auth.RBACPolicies{Permissions: map[string]auth.Permission{
-						"p,role:developer,CreateUndeploy,production:*,app1,allow": {Role: "developer"},
-					}},
-						Team: &auth.RBACTeams{Permissions: map[string][]string{
-							"testmail@example.com": []string{"*"},
-						}}}},
-				},
-			},
-			ExpectedError: fixtureWrapTransformError(auth.PermissionError{
-				User:        "test tester",
-				Role:        "developer",
-				Action:      "CreateUndeploy",
 				Environment: "*",
 			}),
 		},
