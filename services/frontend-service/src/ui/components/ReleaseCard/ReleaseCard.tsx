@@ -18,44 +18,23 @@ import React from 'react';
 import {
     useCurrentlyDeployedAtGroup,
     useOpenReleaseDialog,
-    useRolloutStatus,
     EnvironmentGroupExtended,
     useReleaseOrLog,
-    useAppDetailsForApp,
     useGitSyncStatus,
-    IsAAEnvironment,
     ReleaseNumbers,
 } from '../../utils/store';
 import { Tooltip } from '../tooltip/tooltip';
 import { EnvironmentGroupChipList } from '../chip/EnvironmentGroupChip';
 import { FormattedDate } from '../FormattedDate/FormattedDate';
-import { RolloutStatus, GitSyncStatus } from '../../../api/api';
+import { GitSyncStatus } from '../../../api/api';
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
-import { RolloutStatusDescription } from '../RolloutStatusDescription/RolloutStatusDescription';
 import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
-import { Git, Argo } from '../../../images';
+import { Git } from '../../../images';
 
 export type ReleaseCardProps = {
     className?: string;
     versionInfo: ReleaseNumbers;
     app: string;
-};
-
-const RolloutStatusIcon: React.FC<{ status: RolloutStatus }> = (props) => {
-    const { status } = props;
-    switch (status) {
-        case RolloutStatus.ROLLOUT_STATUS_SUCCESFUL:
-            return <span className="rollout__icon_successful">✓</span>;
-        case RolloutStatus.ROLLOUT_STATUS_PROGRESSING:
-            return <span className="rollout__icon_progressing">↻</span>;
-        case RolloutStatus.ROLLOUT_STATUS_PENDING:
-            return <span className="rollout__icon_pending">⧖</span>;
-        case RolloutStatus.ROLLOUT_STATUS_ERROR:
-            return <span className="rollout__icon_error">!</span>;
-        case RolloutStatus.ROLLOUT_STATUS_UNHEALTHY:
-            return <span className="rollout__icon_unhealthy">⚠</span>;
-    }
-    return <span className="rollout__icon_unknown">?</span>;
 };
 
 const GitSyncStatusIcon: React.FC<{ status: GitSyncStatus }> = (props) => {
@@ -71,24 +50,6 @@ const GitSyncStatusIcon: React.FC<{ status: GitSyncStatus }> = (props) => {
     return <span className="rollout__icon_unknown">?</span>;
 };
 
-// note that the order is important here.
-// "most interesting" must come first.
-// see `calculateDeploymentStatus`
-// The same priority list is also implemented in pkg/service/broadcast.go.
-const rolloutStatusPriority = [
-    // Error is not recoverable by waiting and requires manual intervention
-    RolloutStatus.ROLLOUT_STATUS_ERROR,
-
-    // These states may resolve by waiting longer
-    RolloutStatus.ROLLOUT_STATUS_PROGRESSING,
-    RolloutStatus.ROLLOUT_STATUS_UNHEALTHY,
-    RolloutStatus.ROLLOUT_STATUS_PENDING,
-    RolloutStatus.ROLLOUT_STATUS_UNKNOWN,
-
-    // This is the only successful state
-    RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
-];
-
 const gitSyncStatusPriority = [
     GitSyncStatus.GIT_SYNC_STATUS_ERROR,
     GitSyncStatus.GIT_SYNC_STATUS_UNKNOWN,
@@ -103,72 +64,9 @@ const getStatusPriority = (status: number, priorities: number[]): number => {
     return idx;
 };
 
-type DeploymentStatus = {
-    environmentGroup: string;
-    rolloutStatus: RolloutStatus;
-};
-
 type DeploymentGitSyncStatus = {
     environmentGroup: string;
     gitSyncStatus: number; //status
-};
-
-const useDeploymentStatus = (
-    app: string,
-    deployedAt: EnvironmentGroupExtended[]
-): [Array<DeploymentStatus>, RolloutStatus?] => {
-    const appDetails = useAppDetailsForApp(app);
-    const rolloutEnvGroups = useRolloutStatus((getter) => {
-        const groups: { [envGroup: string]: RolloutStatus } = {};
-        deployedAt.forEach((envGroup) => {
-            const status = envGroup.environments.reduce((cur: RolloutStatus | undefined, env) => {
-                const appVersion = appDetails?.details?.deployments[env.name]?.version;
-                let status: RolloutStatus | undefined;
-                if (!IsAAEnvironment(env.config)) {
-                    status = getter.getAppStatus(app, appVersion, env.name);
-                } else {
-                    status = getter.getMostInterestingStatusAAEnv(app, appVersion, env.name, env.config);
-                }
-
-                if (cur === undefined) {
-                    return status;
-                }
-                if (status === undefined) {
-                    return cur;
-                }
-                if (getStatusPriority(status, rolloutStatusPriority) < getStatusPriority(cur, rolloutStatusPriority)) {
-                    return status;
-                }
-                return cur;
-            }, undefined);
-            groups[envGroup.environmentGroupName] = status ?? RolloutStatus.ROLLOUT_STATUS_UNKNOWN;
-        });
-        return groups;
-    });
-    const rolloutEnvGroupsArray = Object.entries(rolloutEnvGroups).map((e) => ({
-        environmentGroup: e[0],
-        rolloutStatus: e[1],
-    }));
-    rolloutEnvGroupsArray.sort((a, b) => {
-        if (a.environmentGroup < b.environmentGroup) {
-            return -1;
-        } else if (a.environmentGroup > b.environmentGroup) {
-            return 1;
-        }
-        return 0;
-    });
-    // Calculates the most interesting rollout status according to the `rolloutStatusPriority`.
-    const mostInteresting = rolloutEnvGroupsArray.reduce(
-        (cur: RolloutStatus | undefined, item) =>
-            cur === undefined
-                ? item.rolloutStatus
-                : getStatusPriority(item.rolloutStatus, rolloutStatusPriority) <
-                    getStatusPriority(cur, rolloutStatusPriority)
-                  ? item.rolloutStatus
-                  : cur,
-        undefined
-    );
-    return [rolloutEnvGroupsArray, mostInteresting];
 };
 
 const useSyncStatusForDeployment = (
@@ -231,7 +129,6 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
 
     const syncStatus = useGitSyncStatus((getter) => getter);
 
-    const [rolloutEnvs, mostInteresting] = useDeploymentStatus(app, deployedAt);
     const [gitSyncStatuses, mostInterestingSyncStatus] = useSyncStatusForDeployment(app, deployedAt);
     const release = useReleaseOrLog(app, versionInfo.version, versionInfo.revision);
     if (!release) {
@@ -270,7 +167,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                     <FormattedDate className={'date'} createdAt={createdAt} />
                 </div>
             )}
-            {rolloutEnvs.length > 0 && (
+            {
                 <table className="release__environment_status">
                     <thead>
                         <tr>
@@ -281,11 +178,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                                     Sync Status
                                     <Git className="status-logo" />
                                 </th>
-                            ) : (
-                                <th className="release-card__statusth tooltip-text">
-                                    Rollout Status <Argo className="status-logo" />
-                                </th>
-                            )}
+                            ) : null}
                         </tr>
                     </thead>
                     <tbody>
@@ -299,17 +192,10 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                                       </td>
                                   </tr>
                               ))
-                            : rolloutEnvs.map((env) => (
-                                  <tr key={env.environmentGroup}>
-                                      <td className={'tooltip-text'}>{env.environmentGroup}</td>
-                                      <td>
-                                          <RolloutStatusDescription status={env.rolloutStatus} />
-                                      </td>
-                                  </tr>
-                              ))}
+                            : null}
                     </tbody>
                 </table>
-            )}
+            }
         </div>
     );
 
@@ -346,11 +232,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                                       <GitSyncStatusIcon status={mostInterestingSyncStatus} />
                                   </div>
                               )
-                            : mostInteresting !== undefined && (
-                                  <div className="release__status">
-                                      <RolloutStatusIcon status={mostInteresting} />
-                                  </div>
-                              )}
+                            : null}
                         <div className="mdc-card__ripple" />
                     </div>
                 </div>

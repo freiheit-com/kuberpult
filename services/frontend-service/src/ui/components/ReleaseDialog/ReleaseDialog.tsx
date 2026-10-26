@@ -20,7 +20,6 @@ import {
     addAction,
     getPriorityClassName,
     gitSyncStatus,
-    IsAAEnvironment,
     ReleaseNumbers,
     showSnackbarWarn,
     useActions,
@@ -32,8 +31,6 @@ import {
     useGitSyncStatus,
     useReleaseDifference,
     useReleaseOptional,
-    useRolloutStatus,
-    useRolloutStatusAAEnv,
     useRootAppsPointToBrackets,
     useTeamFromApplication,
     useTeamLocks,
@@ -52,10 +49,6 @@ import {
 import { ReleaseVersion } from '../ReleaseVersion/ReleaseVersion';
 import { ConfirmationDialog, PlainDialog } from '../dialog/ConfirmationDialog';
 import { DeployLockButtons } from '../button/DeployLockButtons';
-import {
-    AAEnvironmentRolloutDescription,
-    RolloutStatusDescription,
-} from '../RolloutStatusDescription/RolloutStatusDescription';
 import { GitSyncStatusDescription } from '../GitSyncStatusDescription/GitSyncStatusDescription';
 import { Link } from 'react-router-dom';
 import { GetTargetFutureDate, isOutdatedLifetime } from '../LockDisplay/LockDisplay';
@@ -246,20 +239,9 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
     const syncStatus = useGitSyncStatus((getter) => getter.getAppStatus(app, env.name));
     const appGitSyncStatus = gitSyncStatus.get();
 
-    let appRolloutStatus = useRolloutStatus((getter) => getter.getAppStatus(app, deployment?.version, env.name));
-    const aaEnvRolloutStatus = useRolloutStatus((getter) =>
-        getter.getMostInterestingStatusAAEnv(app, deployment?.version, env.name, env.config)
-    );
     const apps = useApplications().filter((application) => application.name === app);
     const teamLocks = useTeamLocks(apps).filter((lock) => lock.environment === env.name);
     const appEnvLocks = useMemo(() => appDetails?.details?.appLocks?.[env.name]?.locks ?? [], [appDetails, env]);
-
-    //Rollout statuses in case this is an AA environment
-    const allRolloutStatusesAA = useRolloutStatusAAEnv(app, deployment?.version, env.name, env.config);
-
-    if (IsAAEnvironment(env.config)) {
-        appRolloutStatus = aaEnvRolloutStatus;
-    }
 
     const plannedLockRemovals = actions
         .filter(
@@ -433,17 +415,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
                     )}
                     {appGitSyncStatus.enabled ? (
                         <GitSyncStatusDescription status={syncStatus}></GitSyncStatusDescription>
-                    ) : (
-                        appRolloutStatus !== undefined &&
-                        (IsAAEnvironment(env.config) ? (
-                            <AAEnvironmentRolloutDescription
-                                statuses={allRolloutStatusesAA}
-                                mostInteresting={appRolloutStatus}
-                            />
-                        ) : (
-                            <RolloutStatusDescription status={appRolloutStatus} />
-                        ))
-                    )}
+                    ) : null}
                 </div>
             </div>
             <div className="content-area">

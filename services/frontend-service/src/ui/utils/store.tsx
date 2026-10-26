@@ -38,8 +38,6 @@ import {
     OverviewApplication,
     Priority,
     Release,
-    RolloutStatus,
-    StreamStatusResponse,
     TagData,
     Warning,
     ManifestLockInfo,
@@ -1425,161 +1423,8 @@ export const useBranch = (): string | undefined => useFrontendConfig((configs) =
 export const useRootAppsPointToBrackets = (): boolean =>
     useFrontendConfig((configs) => configs.configs.rootAppsPointToBrackets);
 
-export type RolloutStatusApplication = {
-    [environment: string]: StreamStatusResponse;
-};
-
-type RolloutStatusStore = {
-    enabled: boolean;
-    applications: {
-        [application: string]: RolloutStatusApplication;
-    };
-};
-
-export const [useEntireRolloutStatus, rolloutStatus] = createStore<RolloutStatusStore>({
-    enabled: false,
-    applications: {},
-});
-export class RolloutStatusGetter {
-    private readonly store: RolloutStatusStore;
-
-    private readonly environmentPriorities: RolloutStatus[] = [
-        // Error is not recoverable by waiting and requires manual intervention
-        RolloutStatus.ROLLOUT_STATUS_ERROR,
-
-        // These states may resolve by waiting longer
-        RolloutStatus.ROLLOUT_STATUS_PROGRESSING,
-        RolloutStatus.ROLLOUT_STATUS_UNHEALTHY,
-        RolloutStatus.ROLLOUT_STATUS_PENDING,
-        RolloutStatus.ROLLOUT_STATUS_UNKNOWN,
-
-        // This is the only successful state
-        RolloutStatus.ROLLOUT_STATUS_SUCCESFUL,
-    ];
-
-    constructor(store: RolloutStatusStore) {
-        this.store = store;
-    }
-
-    public getAppStatus(
-        application: string,
-        applicationVersion: number | undefined,
-        environment: string
-    ): RolloutStatus | undefined {
-        if (!this.store.enabled) {
-            return undefined;
-        }
-        const statusPerEnv = this.store.applications[application];
-        if (statusPerEnv === undefined) {
-            return undefined;
-        }
-
-        const status = statusPerEnv[environment];
-        if (status === undefined) {
-            return undefined;
-        }
-        if (status.rolloutStatus === RolloutStatus.ROLLOUT_STATUS_SUCCESFUL && status.version !== applicationVersion) {
-            // The rollout service might be sligthly behind the UI.
-            return RolloutStatus.ROLLOUT_STATUS_PENDING;
-        }
-        return status.rolloutStatus;
-    }
-
-    getAllAppStatusForAAEnv(
-        application: string,
-        applicationVersion: number | undefined,
-        parentEnvironmentName: string,
-        config: EnvironmentConfig | undefined
-    ): [string, RolloutStatus | undefined][] {
-        if (!IsAAEnvironment(config)) {
-            return [];
-        }
-        const statuses: [string, RolloutStatus | undefined][] = [];
-        config?.argoConfigs?.configs.forEach((current) => {
-            const currentConcreteEnvironmentName =
-                config.argoConfigs?.commonEnvPrefix + '-' + parentEnvironmentName + '-' + current.concreteEnvName;
-
-            statuses.push([
-                currentConcreteEnvironmentName,
-                this.getAppStatus(application, applicationVersion, currentConcreteEnvironmentName),
-            ]);
-        });
-        return statuses;
-    }
-    getMostInterestingStatusAAEnv(
-        application: string,
-        applicationVersion: number | undefined,
-        parentEnvironmentName: string,
-        config: EnvironmentConfig | undefined
-    ): RolloutStatus | undefined {
-        const statuses = this.getAllAppStatusForAAEnv(application, applicationVersion, parentEnvironmentName, config);
-
-        if (statuses.length === 0 || statuses.filter((curr) => curr[1] !== undefined).length === 0) {
-            return undefined;
-        }
-
-        let mostInteresting: RolloutStatus = RolloutStatus.ROLLOUT_STATUS_SUCCESFUL;
-
-        statuses.forEach((curr) => {
-            const currRolloutStatus = curr[1] ? curr[1] : RolloutStatus.ROLLOUT_STATUS_UNKNOWN;
-
-            if (this.getStatusPriority(mostInteresting) > this.getStatusPriority(currRolloutStatus)) {
-                mostInteresting = currRolloutStatus;
-            }
-        });
-        return mostInteresting;
-    }
-
-    private getStatusPriority = (status: RolloutStatus): RolloutStatus => {
-        const idx = this.environmentPriorities.indexOf(status);
-        if (idx === -1) {
-            return this.environmentPriorities.length;
-        }
-        return idx;
-    };
-}
-
 export const IsAAEnvironment = (config: EnvironmentConfig | undefined): boolean =>
     config !== undefined && config.argoConfigs !== undefined && config.argoConfigs.commonEnvPrefix !== undefined;
-
-export const useRolloutStatus = <T,>(f: (getter: RolloutStatusGetter) => T): T =>
-    useEntireRolloutStatus((data) => f(new RolloutStatusGetter(data)));
-
-export const useRolloutStatusAAEnv = (
-    application: string,
-    applicationVersion: number | undefined,
-    parentEnvironmentName: string,
-    config: EnvironmentConfig | undefined
-): [string, RolloutStatus | undefined][] =>
-    new RolloutStatusGetter(useEntireRolloutStatus((m) => m)).getAllAppStatusForAAEnv(
-        application,
-        applicationVersion,
-        parentEnvironmentName,
-        config
-    );
-
-export const UpdateRolloutStatus = (ev: StreamStatusResponse): void => {
-    rolloutStatus.set((data: RolloutStatusStore) => ({
-        enabled: true,
-        applications: {
-            ...data.applications,
-            [ev.application]: {
-                ...(data.applications[ev.application] ?? {}),
-                [ev.environment]: ev,
-            },
-        },
-    }));
-};
-export const invalidateAppDetailsForApp = (appName: string): void => {
-    const details = updateAppDetails.get();
-    details[appName] = {
-        appDetailState: AppDetailsState.NOTREQUESTED,
-        details: undefined,
-        updatedAt: undefined,
-        errorMessage: undefined,
-    };
-    updateAppDetails.set(details);
-};
 
 export const invalidateAppLocks = (envName: string, appName: string, lockId: string): void => {
     const appLockDetails = UpdateAllApplicationLocks.get();
@@ -1589,14 +1434,6 @@ export const invalidateAppLocks = (envName: string, appName: string, lockId: str
     );
 
     UpdateAllApplicationLocks.set(appLockDetails);
-};
-
-export const EnableRolloutStatus = (): void => {
-    rolloutStatus.set({ enabled: true });
-};
-
-export const FlushRolloutStatus = (): void => {
-    rolloutStatus.set({ enabled: false, applications: {} });
 };
 
 export const FlushGitSyncStatus = (): void => {
