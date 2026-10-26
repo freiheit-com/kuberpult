@@ -19,7 +19,7 @@ MAKEFLAGS += --no-builtin-rules
 GO := go
 GO_FILES := $(shell find . -type f -name '*.go')
 GO_SERVER_GEN := server-gen.go
-MIN_COVERAGE?=47
+MIN_COVERAGE?=52
 MAX_DOCKER_SIZE_MB=8
 MAIN_PATH=
 
