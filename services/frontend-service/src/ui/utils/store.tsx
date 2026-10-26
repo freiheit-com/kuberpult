@@ -580,17 +580,6 @@ export const addAction = (action: BatchAction): void => {
             )
                 isDuplicate = true;
             break;
-        case 'prepareUndeploy':
-            if (
-                actions.some(
-                    (act) =>
-                        act.action?.$case === 'prepareUndeploy' &&
-                        action.action?.$case === 'prepareUndeploy' &&
-                        act.action.prepareUndeploy.application === action.action.prepareUndeploy.application
-                )
-            )
-                isDuplicate = true;
-            break;
         case 'releaseTrain':
             // only allow one release train at a time to avoid conflicts or if there are existing deploy actions
             if (actions.some((act) => act.action?.$case === 'releaseTrain' || act.action?.$case === 'deploy')) {
