@@ -108,8 +108,6 @@ type Config struct {
 
 	EnableSqlite bool
 	MinorRegexes string
-
-	ExperimentalBracketsClusters []string
 }
 
 func (c *Config) storageBackend() repository.StorageBackend {
@@ -207,8 +205,6 @@ func parseEnvVars() (_ *Config, err error) {
 
 	c.EnableSqlite = valid.ReadEnvVarBoolWithDefault("KUBERPULT_ENABLE_SQLITE", true)
 	c.MinorRegexes = valid.ReadEnvVarWithDefault("KUBERPULT_MINOR_REGEXES", "")
-
-	c.ExperimentalBracketsClusters = []string{}
 
 	return &c, nil
 }
@@ -452,12 +448,11 @@ func RunServer() {
 					})
 
 					overviewSrv := &service.OverviewServiceServer{
-						Repository:                   repo,
-						RepositoryConfig:             cfg,
-						Shutdown:                     shutdownCh,
-						Context:                      ctx,
-						DBHandler:                    dbHandler,
-						ExperimentalBracketsClusters: c.ExperimentalBracketsClusters,
+						Repository:       repo,
+						RepositoryConfig: cfg,
+						Shutdown:         shutdownCh,
+						Context:          ctx,
+						DBHandler:        dbHandler,
 					}
 					api.RegisterOverviewServiceServer(srv, overviewSrv)
 					api.RegisterProductSummaryServiceServer(srv, &service.ProductSummaryServer{State: repo.State()})

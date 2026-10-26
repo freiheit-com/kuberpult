@@ -51,7 +51,6 @@ type ServerConfig struct {
 	GitAuthorName                      string        `default:"" split_words:"true"`
 	GitAuthorEmail                     string        `default:"" split_words:"true"`
 	BatchClientTimeout                 time.Duration `default:"2m" split_words:"true"`
-	MaxWaitDuration                    time.Duration `default:"10m" split_words:"true"`
 	ApiEnableDespiteNoAuth             bool          `default:"false" split_words:"true"`
 	IapEnabled                         bool          `default:"false" split_words:"true"`
 	GrpcMaxRecvMsgSize                 int           `default:"4" split_words:"true"`

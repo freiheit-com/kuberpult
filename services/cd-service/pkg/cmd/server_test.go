@@ -126,8 +126,6 @@ func TestEnvVarParsing(t *testing.T) {
 				DbAuthProxyPort:      "5432",
 				ReleaseVersionsLimit: 20,
 				DbSslMode:            "verify-full",
-
-				ExperimentalBracketsClusters: []string{},
 			},
 			ExpectedError: nil,
 		},
@@ -216,8 +214,6 @@ func TestEnvVarParsing(t *testing.T) {
 				DbMigrationsLocation:  "/path/migration",
 
 				DexEnabled: false,
-
-				ExperimentalBracketsClusters: []string{},
 			},
 			ExpectedError: nil,
 		},

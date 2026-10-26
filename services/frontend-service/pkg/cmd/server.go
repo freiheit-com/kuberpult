@@ -183,10 +183,6 @@ func parseEnvVars() (*config.ServerConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	r.MaxWaitDuration, err = valid.ReadEnvVarDurationWithDefault("KUBERPULT_MAX_WAIT_DURATION", 10*time.Minute)
-	if err != nil {
-		return nil, err
-	}
 	r.ApiEnableDespiteNoAuth = valid.ReadEnvVarBoolWithDefault("KUBERPULT_API_ENABLE_DESPITE_NO_AUTH", false)
 	r.IapEnabled = valid.ReadEnvVarBoolWithDefault("KUBERPULT_IAP_ENABLED", false)
 	r.GrpcMaxRecvMsgSize, err = valid.ReadEnvVarIntWithDefault("KUBERPULT_GRPC_MAX_RECV_MSG_SIZE", 4)
@@ -347,15 +343,6 @@ func runServer(ctx context.Context) error {
 		manifestRepoGitClient = api.NewManifestExportGitServiceClient(exportCon)
 	}
 
-	var rolloutClient api.RolloutServiceClient = nil
-	if c.RolloutServer != "" {
-		rolloutCon, err := grpc.NewClient(c.RolloutServer, grpcClientOpts...)
-		if err != nil {
-			logging.Fatal(ctx, "grpc.dial.error", zap.Error(err), zap.String("addr", c.RolloutServer))
-		}
-		rolloutClient = api.NewRolloutServiceClient(rolloutCon)
-	}
-
 	batchClient := &service.BatchServiceWithDefaultTimeout{
 		Inner:          api.NewBatchServiceClient(cdCon),
 		DefaultTimeout: c.BatchClientTimeout,
@@ -366,7 +353,6 @@ func runServer(ctx context.Context) error {
 	gproxy := &GrpcProxy{
 		OverviewClient:              api.NewOverviewServiceClient(cdCon),
 		BatchClient:                 batchClient,
-		RolloutServiceClient:        rolloutClient,
 		ProductSummaryClient:        api.NewProductSummaryServiceClient(cdCon),
 		VersionClient:               api.NewVersionServiceClient(cdCon),
 		ManifestExportGitClient:     manifestRepoGitClient,
@@ -376,7 +362,6 @@ func runServer(ctx context.Context) error {
 	}
 	api.RegisterOverviewServiceServer(gsrv, gproxy)
 	api.RegisterBatchServiceServer(gsrv, gproxy)
-	api.RegisterRolloutServiceServer(gsrv, gproxy)
 	api.RegisterProductSummaryServiceServer(gsrv, gproxy)
 	api.RegisterManifestExportGitServiceServer(gsrv, gproxy)
 	api.RegisterEnvironmentServiceServer(gsrv, gproxy)
@@ -416,7 +401,6 @@ func runServer(ctx context.Context) error {
 	grpcWebServer := grpcweb.WrapServer(gsrv)
 	httpHandler := handler.Server{
 		BatchClient:                 batchClient,
-		RolloutClient:               rolloutClient,
 		VersionClient:               api.NewVersionServiceClient(cdCon),
 		ReleaseTrainPrognosisClient: releaseTrainPrognosisClient,
 		CommitDeploymentsClient:     commitDeploymentsClient,
@@ -795,7 +779,6 @@ func getUserFromDex(req *http.Request, clientID, baseURL, dexServiceURL string, 
 type GrpcProxy struct {
 	OverviewClient              api.OverviewServiceClient
 	BatchClient                 api.BatchServiceClient
-	RolloutServiceClient        api.RolloutServiceClient
 	ProductSummaryClient        api.ProductSummaryServiceClient
 	ManifestExportGitClient     api.ManifestExportGitServiceClient
 	VersionClient               api.VersionServiceClient
@@ -906,8 +889,6 @@ func (p *GrpcProxy) StreamGitSyncStatus(
 	stream api.ManifestExportGitService_StreamGitSyncStatusServer) error {
 	if p.ManifestExportGitClient == nil {
 		return status.Error(codes.Unimplemented, "git client not configured")
-	} else if p.RolloutServiceClient != nil {
-		return status.Error(codes.Unimplemented, "rollout service enabled. git sync status is not supported.")
 	}
 
 	c := make(chan *api.GetGitSyncStatusResponse, 10)
@@ -961,24 +942,6 @@ func (p *GrpcProxy) StreamOverview(
 	}
 }
 
-func (p *GrpcProxy) StreamChangedApps(
-	in *api.GetChangedAppsRequest,
-	stream api.OverviewService_StreamChangedAppsServer) error {
-	if resp, err := p.OverviewClient.StreamChangedApps(stream.Context(), in); err != nil {
-		return err
-	} else {
-		for {
-			if item, err := resp.Recv(); err != nil {
-				return err
-			} else {
-				if err := stream.Send(item); err != nil {
-					return err
-				}
-			}
-		}
-	}
-}
-
 func (p *GrpcProxy) StreamDeploymentHistory(
 	in *api.DeploymentHistoryRequest,
 	stream api.OverviewService_StreamDeploymentHistoryServer) error {
@@ -996,33 +959,6 @@ func (p *GrpcProxy) StreamDeploymentHistory(
 			}
 		}
 	}
-}
-
-func (p *GrpcProxy) StreamStatus(in *api.StreamStatusRequest, stream api.RolloutService_StreamStatusServer) error {
-	if p.RolloutServiceClient == nil {
-		return status.Error(codes.Unimplemented, "rollout service not configured")
-	}
-	if resp, err := p.RolloutServiceClient.StreamStatus(stream.Context(), in); err != nil {
-		return err
-	} else {
-		for {
-			item, err := resp.Recv()
-			if err != nil {
-				return err
-			}
-			err = stream.Send(item)
-			if err != nil {
-				return err
-			}
-		}
-	}
-}
-
-func (p *GrpcProxy) GetStatus(ctx context.Context, in *api.GetStatusRequest) (*api.GetStatusResponse, error) {
-	if p.RolloutServiceClient == nil {
-		return nil, status.Error(codes.Unimplemented, "rollout service not configured")
-	}
-	return p.RolloutServiceClient.GetStatus(ctx, in)
 }
 
 func (p *GrpcProxy) GetReleaseTrainPrognosis(ctx context.Context, in *api.ReleaseTrainRequest) (*api.GetReleaseTrainPrognosisResponse, error) {
