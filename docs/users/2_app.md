@@ -22,7 +22,7 @@ In the Home page of Kuberpult all of the applications are listed. By clicking th
 
 
 # Deployment
-You can deploy any release to any environment in Kuberpult. Deploying a release to an environment means applying the manifests of that release and that environment to the corresponding kubernetes cluster.
-By clicking on each release tile in Kuberpult UI, you can see the release dialog for each release. There, you can deploy the releases to environments/environment groups. You can also see the links to the release manifests and also (if the rollout-service is [enabled](https://github.com/freiheit-com/kuberpult/blob/37c21a21c180b070da3cd4c26b0063cd5c4acab8/charts/kuberpult/values.yaml#L230)) link to Argo CD apps.
+You can deploy any release you can see in Kuberpult to any environment. Deploying a release to an environment means applying the manifests of that release and that environment to the corresponding kubernetes cluster.
+By clicking on each release tile in Kuberpult UI, you can see the release dialog for each release. There, you can deploy the releases to environments/environment groups. You can also see the links to the release manifests and link to Argo CD apps.
 
 ![](../../assets/img/app/dialog.png)
