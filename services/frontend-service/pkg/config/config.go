@@ -22,7 +22,6 @@ type ServerConfig struct {
 	CdServer                           string        `default:"kuberpult-cd-service:8443"`
 	ManifestExportServer               string        `default:"kuberpult-manifest-repo-export-service:8443"`
 	CdServerSecure                     bool          `default:"false" split_words:"true"`
-	RolloutServer                      string        `default:""`
 	GKEProjectNumber                   string        `default:"" split_words:"true"`
 	GKEBackendServiceID                string        `default:"" split_words:"true"`
 	GKEBackendServiceName              string        `default:"" split_words:"true"`

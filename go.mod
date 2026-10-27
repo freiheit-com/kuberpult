@@ -189,9 +189,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 )
 
-replace (
-	// https://github.com/kubernetes/kubernetes/issues/79384#issuecomment-505627280
-	k8s.io/apimachinery => k8s.io/apimachinery v0.29.11 // keep
-)
+// https://github.com/kubernetes/kubernetes/issues/79384#issuecomment-505627280
+replace k8s.io/apimachinery => k8s.io/apimachinery v0.29.11 // keep
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen

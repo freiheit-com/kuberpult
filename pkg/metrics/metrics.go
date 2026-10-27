@@ -28,9 +28,8 @@ import (
 )
 
 const (
-	EventTagApplication      = "kuberpult_application"
-	EventTagEnvironment      = "kuberpult_environment"
-	EventTagEnvironmentGroup = "kuberpult_environment_group"
+	EventTagApplication = "kuberpult_application"
+	EventTagEnvironment = "kuberpult_environment"
 )
 
 func Init() (metric.MeterProvider, http.Handler, error) {

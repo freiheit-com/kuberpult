@@ -186,6 +186,9 @@ message BatchAction {
     CreateManifestLockRequest create_manifest_lock = 20;
     DeleteManifestLockRequest delete_manifest_lock = 21;
   }
+  // PrepareUndeploy is not completely gone. "UndeployRequest" replaces it.
+  reserved 6;
+  reserved "prepare_undeploy";
 }
 
 message BatchResponse {
@@ -370,10 +373,6 @@ message DeployRequest {
   LockBehavior lock_behavior = 5;
 }
 
-message PrepareUndeployRequest {
-  string application = 1;
-}
-
 message UndeployRequest {
   string application = 1;
 }
@@ -479,8 +478,6 @@ service OverviewService {
 service EnvironmentService {
   rpc GetEnvironmentConfig(GetEnvironmentConfigRequest) returns (GetEnvironmentConfigResponse) {}
 }
-
-message GetChangedAppsRequest {}
 
 message GetAllAppLocksRequest {}
 

@@ -30,7 +30,6 @@ import {
     GetAllEnvTeamLocksResponse,
     Priority,
     Release,
-    RolloutStatus,
     UndeploySummary,
 } from '../../../api/api';
 import { Spy } from 'spy4js';
@@ -57,12 +56,6 @@ describe('Release Dialog', () => {
         expect_queues: number;
         data_length: number;
         teamName: string;
-        rolloutStatus?: {
-            application: string;
-            environment: string;
-            rolloutStatus: RolloutStatus;
-            rolloutStatusName: string;
-        }[];
     }
     interface dataTLocks {
         name: string;
@@ -569,20 +562,6 @@ describe('Release Dialog', () => {
                     environments: [],
                     ciLink: 'www.somewebsite.com',
                     revision: 0,
-                },
-            ],
-            rolloutStatus: [
-                {
-                    application: 'test1',
-                    environment: 'prod',
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_PENDING,
-                    rolloutStatusName: 'pending',
-                },
-                {
-                    application: 'test1',
-                    environment: 'dev',
-                    rolloutStatus: RolloutStatus.ROLLOUT_STATUS_PROGRESSING,
-                    rolloutStatusName: 'progressing',
                 },
             ],
             expect_message: true,

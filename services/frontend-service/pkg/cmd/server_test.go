@@ -36,15 +36,16 @@ import (
 	"github.com/MicahParks/keyfunc/v2"
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/armor"
-	"github.com/freiheit-com/kuberpult/pkg/auth"
-	"github.com/freiheit-com/kuberpult/pkg/errorMatcher"
-	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	jwxjwt "github.com/lestrrat-go/jwx/v2/jwt"
+
+	"github.com/freiheit-com/kuberpult/pkg/auth"
+	"github.com/freiheit-com/kuberpult/pkg/errorMatcher"
+	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
 )
 
 func TestServerHeader(t *testing.T) {
@@ -261,7 +262,6 @@ func TestEnvVarParsing(t *testing.T) {
 				"KUBERPULT_CDSERVER":             "cd:8443",
 				"KUBERPULT_MANIFESTEXPORTSERVER": "mani:8443",
 				"KUBERPULT_CD_SERVER_SECURE":     "true",
-				"KUBERPULT_ROLLOUTSERVER":        "rollout",
 
 				"KUBERPULT_GKE_PROJECT_NUMBER":       "proj",
 				"KUBERPULT_GKE_BACKEND_SERVICE_ID":   "backend",
@@ -307,7 +307,6 @@ func TestEnvVarParsing(t *testing.T) {
 				CdServer:              "cd:8443",
 				ManifestExportServer:  "mani:8443",
 				CdServerSecure:        true,
-				RolloutServer:         "rollout",
 				GKEProjectNumber:      "proj",
 				GKEBackendServiceID:   "backend",
 				GKEBackendServiceName: "serv-name",

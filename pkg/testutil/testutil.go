@@ -21,9 +21,7 @@ Package testutil provides utilities for anything that has only basic dependencie
 package testutil
 
 import (
-	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -31,7 +29,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
-	"github.com/freiheit-com/kuberpult/pkg/logging"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/pkg/uuid"
 )
@@ -171,21 +168,6 @@ func NewIncrementalUUIDGeneratorForPageSizeTest() uuid.GenerateUUIDs {
 		gen: &fakeGenBase,
 	}
 	return fakeGen
-}
-
-// WrapTestRoutine is intended for tests, because normal logging via logger.FromContext()
-// does not appear in tests by default.
-// LogLevel should be either WARN, INFO, or ERROR
-// NOTE: You need to call this for each spawned go-routine (if any).
-func WrapTestRoutine(t *testing.T, ctx context.Context, logLevel string, inner func(ctx context.Context)) {
-	err := os.Setenv("LOG_LEVEL", logLevel)
-	if err != nil {
-		t.Fatalf("failed to set LOG_LEVEL: %v", err)
-	}
-	logging.Wrap(ctx, func(ctx context.Context) error {
-		inner(ctx)
-		return nil
-	})
 }
 
 // CmpDiff is exactly like cmp.Diff but with type safety

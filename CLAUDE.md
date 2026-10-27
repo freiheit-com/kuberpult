@@ -13,7 +13,7 @@ Three Go microservices plus shared packages:
 - **cd-service** — Core logic: release management, deployment, locks, release trains. Exposes gRPC only (HTTP port serves only a `/health` check).
 - **manifest-repo-export-service** — Reads DB state, pushes manifest changes to the git repository that ArgoCD watches.
 - **frontend-service** — REST/gRPC-web adapter backing the React web UI.
-- **pkg/** — Shared packages: `api/` (protobuf), `db/`, `auth/`, `logger/`, `metrics/`, `tracing/`, `testutil/`, `migrations/`.
+- **pkg/** — Shared packages: `api/` (protobuf), `db/`, `auth/`, `logger/`, `metrics/`, `tracing/`, `testutil/`.
 
 Services communicate via gRPC (port 8443 internal, 8080 HTTP). All service config comes from environment variables. PostgreSQL is the only supported database; migrations run automatically on startup.
 

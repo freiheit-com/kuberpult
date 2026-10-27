@@ -18,7 +18,6 @@ package interceptors
 
 import (
 	"context"
-	"strings"
 
 	"google.golang.org/grpc"
 
@@ -30,13 +29,10 @@ import (
 // if there is a user, it will be written to the context.
 func UnaryUserContextInterceptor(ctx context.Context,
 	req interface{},
-	info *grpc.UnaryServerInfo,
+	_ *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 	reader auth.GrpcContextReader) (interface{}, error) {
 
-	if strings.HasPrefix(info.FullMethod, "/repository.RepoServerService/") {
-		return handler(ctx, req)
-	}
 	user, err := reader.ReadUserFromGrpcContext(ctx)
 	if err != nil {
 		return nil, err

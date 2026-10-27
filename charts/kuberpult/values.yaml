@@ -307,8 +307,9 @@ manifestRepoExport:
   #
   # Consider setting `dogstatsdMetrics.enabled:true`, then the failings of git push operations are measured in the metric "manifest_export_tag_push_failures".
   failOnErrorWithGitPushTags: true
-  # Allows to run the rollout service and the manifest service at the same time.
-  # This is useful if you are migrating from the rollout-service (which is deprecated!) to the manifest-repo-export-service without a downtime.
+  # The rollout-service is gone, but this option stays for now.
+  # This option allows the manifest-repo-export to render a different argocd project name per environment
+  # in the Argo Application under spec.project.
   experimentalRolloutWithManifest:
     enabled: false
     argoProjectNames:

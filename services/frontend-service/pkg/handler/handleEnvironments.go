@@ -35,8 +35,6 @@ func (s Server) HandleEnvironmentGroups(w http.ResponseWriter, req *http.Request
 	switch function {
 	case "locks":
 		s.handleEnvironmentGroupLocks(w, req, envGroup, tail)
-	case "rollout-status":
-		http.Error(w, "rollout status unavailable", http.StatusGone)
 	default:
 		http.Error(w, fmt.Sprintf("unknown function '%s'", function), http.StatusNotFound)
 	}

@@ -136,7 +136,6 @@ func parseEnvVars() (*config.ServerConfig, error) {
 	r.CdServer = valid.ReadEnvVarWithDefault("KUBERPULT_CDSERVER", "kuberpult-cd-service:8443")
 	r.ManifestExportServer = valid.ReadEnvVarWithDefault("KUBERPULT_MANIFESTEXPORTSERVER", "kuberpult-manifest-repo-export-service:8443")
 	r.CdServerSecure = valid.ReadEnvVarBoolWithDefault("KUBERPULT_CD_SERVER_SECURE", false)
-	r.RolloutServer = valid.ReadEnvVarWithDefault("KUBERPULT_ROLLOUTSERVER", "")
 
 	r.GKEProjectNumber = valid.ReadEnvVarWithDefault("KUBERPULT_GKE_PROJECT_NUMBER", "")
 	r.GKEBackendServiceID = valid.ReadEnvVarWithDefault("KUBERPULT_GKE_BACKEND_SERVICE_ID", "")
