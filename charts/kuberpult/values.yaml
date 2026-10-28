@@ -302,6 +302,13 @@ manifestRepoExport:
   # For details, view `docs/operators/timeouts.md`.
   maxExportBatchSize: 1
 
+  # With long running transaction, it can happen that events appear "out of order" in the DB.
+  # For example it could happen, that ID 11 is committed in a transaction, before ID 10 is committed in another one.
+  # The manifest-export detects these gaps, and waits this amount of time before skipping an ID
+  # whose event didn't arrive yet.
+  # For details, view `docs/operators/timeouts.md`.
+  gracePeriodBeforeSkippingEvents: 2m
+
   # This flag only applies when the "gitTag" query parameter in the release train api is used.
   # It handles what happens, if the git tag cannot be pushed to the remote of the manifest-repo:
   # failOnErrorWithGitPushTags==true: The export considers the event processing failed, and tries again. Use this if the git tags are critical for your CI/CD operations.

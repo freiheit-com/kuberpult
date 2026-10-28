@@ -1011,6 +1011,39 @@ manifestRepoExport:
 			},
 		},
 		{
+			Name: "grace period before skipping events has a default",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GRACE_PERIOD_BEFORE_SKIPPING_EVENTS",
+					Value: "2m",
+				},
+			},
+		},
+		{
+			Name: "grace period before skipping events is set",
+			Values: `
+git:
+  url: "testURL"
+ingress:
+  domainName: "kuberpult-example.com"
+
+manifestRepoExport:
+  gracePeriodBeforeSkippingEvents: 1m30s
+`,
+			ExpectedEnvs: []core.EnvVar{
+				{
+					Name:  "KUBERPULT_GRACE_PERIOD_BEFORE_SKIPPING_EVENTS",
+					Value: "1m30s",
+				},
+			},
+		},
+		{
 			Name: "Release version limit set",
 			Values: `
 git:

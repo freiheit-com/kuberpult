@@ -171,6 +171,8 @@ spec:
 {{- end }}
         - name: KUBERPULT_MAX_EXPORT_BATCH_SIZE
           value: {{ .Values.manifestRepoExport.maxExportBatchSize | quote }}
+        - name: KUBERPULT_GRACE_PERIOD_BEFORE_SKIPPING_EVENTS
+          value: {{ .Values.manifestRepoExport.gracePeriodBeforeSkippingEvents | quote }}
 {{- if .Values.datadogTracing.enabled }}
         - name: DD_AGENT_HOST
           valueFrom:
