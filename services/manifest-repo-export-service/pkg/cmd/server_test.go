@@ -264,7 +264,7 @@ func TestHandleBatchEvents(t *testing.T) {
 				return nil
 			})
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-				actualBatch, actualError := HandleBatchEvents(ctx, transaction, dbHandler, repo, 1)
+				actualBatch, actualError := HandleBatchEvents(ctx, transaction, dbHandler, repo, 1, 0, time.Now())
 				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
@@ -286,6 +286,325 @@ func TestHandleBatchEvents(t *testing.T) {
 
 		})
 	}
+}
+
+func TestHandleBatchEventsWithGap(t *testing.T) {
+	tcs := []struct {
+		Name              string
+		GivenAge          time.Duration // how old the event after the gap is
+		ExpectedNumEvents int
+	}{
+		{
+			Name:              "a gap within the grace period holds back the events after it",
+			GivenAge:          time.Minute,
+			ExpectedNumEvents: 0,
+		},
+		{
+			Name:              "a gap older than the grace period is skipped",
+			GivenAge:          4 * time.Minute,
+			ExpectedNumEvents: 1,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+			gracePeriod := 3 * time.Minute
+
+			// The first event is already processed, so the cutoff points to it:
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := writeEmptyEslEvent(ctx, dbHandler, transaction); err != nil {
+					return err
+				}
+				event, err := dbHandler.DBReadEslEventInternal(ctx, transaction, false)
+				if err != nil {
+					return err
+				}
+				return db.DBWriteCutoff(dbHandler, ctx, transaction, event.EslVersion)
+			})
+			if err != nil {
+				t.Fatalf("Unexpected error writing the first event: %v", err)
+			}
+			// The second event is rolled back, which leaves a gap in the esl versions:
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := writeEmptyEslEvent(ctx, dbHandler, transaction); err != nil {
+					return err
+				}
+				return errors.New("rollback on purpose")
+			})
+			// The third event exists:
+			var thirdCreated time.Time
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := writeEmptyEslEvent(ctx, dbHandler, transaction); err != nil {
+					return err
+				}
+				event, err := dbHandler.DBReadEslEventInternal(ctx, transaction, false)
+				if err != nil {
+					return err
+				}
+				thirdCreated = event.Created
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("Unexpected error writing the third event: %v", err)
+			}
+
+			// The age of the gap is the age of the event after it, so we move "now" relative to that event:
+			actualNumEvents := 0
+			err = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+				batch, err := HandleBatchEvents(ctx, transaction, dbHandler, repo, 1, gracePeriod, thirdCreated.Add(tc.GivenAge))
+				actualNumEvents = len(batch)
+				return err
+			})
+			if err != nil {
+				t.Fatalf("Unexpected error in HandleBatchEvents: %v", err)
+			}
+			if diff := testutil.CmpDiff(tc.ExpectedNumEvents, actualNumEvents); diff != "" {
+				t.Errorf("number of events mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestProcessOneEventWithGap(t *testing.T) {
+	const (
+		minSleep = time.Nanosecond * 1
+		maxSleep = time.Nanosecond * 1000
+	)
+	tcs := []struct {
+		Name                  string
+		GivenGrace            time.Duration
+		ExpectedSleepDuration time.Duration
+		ExpectedCutoffOffset  db.EslVersion // the cutoff is the version of the first event plus this offset
+	}{
+		{
+			Name:                  "a gap within the grace period keeps the cutoff and waits",
+			GivenGrace:            time.Hour,
+			ExpectedSleepDuration: minSleep,
+			ExpectedCutoffOffset:  0,
+		},
+		{
+			// The export reads the clock of the database. The third event is written before, so it is older than 1ns:
+			Name:                  "a gap older than the grace period is skipped",
+			GivenGrace:            time.Nanosecond,
+			ExpectedSleepDuration: 0,
+			ExpectedCutoffOffset:  2,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+
+			// The repo needs a commit, and the first event is already processed, so the cutoff points to it:
+			var firstVersion db.EslVersion
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, transformer := range makeSetupTransformer() {
+					if applyErr := repo.Apply(ctx, transaction, transformer); applyErr != nil {
+						return applyErr
+					}
+				}
+				if err := writeEmptyEslEvent(ctx, dbHandler, transaction); err != nil {
+					return err
+				}
+				event, err := dbHandler.DBReadEslEventInternal(ctx, transaction, false)
+				if err != nil {
+					return err
+				}
+				firstVersion = event.EslVersion
+				return db.DBWriteCutoff(dbHandler, ctx, transaction, event.EslVersion)
+			})
+			if err != nil {
+				t.Fatalf("Unexpected error in the setup: %v", err)
+			}
+			// The second event is rolled back, which leaves a gap in the esl versions:
+			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				if err := writeEmptyEslEvent(ctx, dbHandler, transaction); err != nil {
+					return err
+				}
+				return errors.New("rollback on purpose")
+			})
+			// The third event exists:
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return writeEmptyEslEvent(ctx, dbHandler, transaction)
+			})
+			if err != nil {
+				t.Fatalf("Unexpected error writing the third event: %v", err)
+			}
+
+			sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
+			actualSleepDuration, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1, tc.GivenGrace)
+			if err != nil {
+				t.Fatalf("Unexpected error in ProcessOneEvent: %v", err)
+			}
+
+			if diff := testutil.CmpDiff(tc.ExpectedSleepDuration, actualSleepDuration); diff != "" {
+				t.Errorf("sleep duration mismatch (-want, +got):\n%s", diff)
+			}
+			if diff := testutil.CmpDiff(types.Ptr(firstVersion+tc.ExpectedCutoffOffset), readCutoff(t, ctx, dbHandler)); diff != "" {
+				t.Errorf("cutoff mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestProcessOneEventLateCommit is the regression test for the original bug:
+// a transaction takes an esl version, but commits only after another transaction with a higher version.
+func TestProcessOneEventLateCommit(t *testing.T) {
+	const (
+		minSleep = time.Nanosecond * 1
+		maxSleep = time.Nanosecond * 1000
+	)
+	tcs := []struct {
+		Name                            string
+		GivenGrace                      time.Duration
+		ExpectedCutoffOffsetWhileOpen   db.EslVersion // the cutoff is the version of the first event plus this offset
+		ExpectedCutoffOffsetAfterCommit db.EslVersion // same, after the slow transaction committed
+	}{
+		{
+			Name:                            "an event that commits late is processed in order",
+			GivenGrace:                      time.Hour,
+			ExpectedCutoffOffsetWhileOpen:   0,
+			ExpectedCutoffOffsetAfterCommit: 2,
+		},
+		{
+			// This is the original bug: the cutoff moves past the version that is not committed yet,
+			// so that event is never read, even after it was committed.
+			Name:                            "without a grace period the cutoff moves past the uncommitted version",
+			GivenGrace:                      0,
+			ExpectedCutoffOffsetWhileOpen:   2,
+			ExpectedCutoffOffsetAfterCommit: 2,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, dbHandler, _ := SetupRepositoryTestWithDB(t, ctx)
+
+			// GIVEN: the repo has a commit, and the first event is already processed, so the cutoff points to it:
+			var firstVersion db.EslVersion
+			err := dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				for _, transformer := range makeSetupTransformer() {
+					if applyErr := repo.Apply(ctx, transaction, transformer); applyErr != nil {
+						return applyErr
+					}
+				}
+				if err := writeEmptyEslEvent(ctx, dbHandler, transaction); err != nil {
+					return err
+				}
+				event, err := dbHandler.DBReadEslEventInternal(ctx, transaction, false)
+				if err != nil {
+					return err
+				}
+				firstVersion = event.EslVersion
+				return db.DBWriteCutoff(dbHandler, ctx, transaction, event.EslVersion)
+			})
+			if err != nil {
+				t.Fatalf("Unexpected error in the setup: %v", err)
+			}
+			// GIVEN: a slow transaction that has written an event (the next version), but did not commit yet:
+			slowTransaction, err := dbHandler.BeginTransaction(ctx, false)
+			if err != nil {
+				t.Fatalf("Unexpected error starting the slow transaction: %v", err)
+			}
+			defer func() { _ = slowTransaction.Rollback() }() // this only has an effect if the test fails before the commit
+			if err := writeEmptyEslEvent(ctx, dbHandler, slowTransaction); err != nil {
+				t.Fatalf("Unexpected error writing the event of the slow transaction: %v", err)
+			}
+			// GIVEN: a faster transaction that got the next version and commits first:
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				return writeEmptyEslEvent(ctx, dbHandler, transaction)
+			})
+			if err != nil {
+				t.Fatalf("Unexpected error writing the event of the fast transaction: %v", err)
+			}
+			sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
+
+			// WHEN: the export runs while the slow transaction is still open
+			_, err = ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 10, tc.GivenGrace)
+			if err != nil {
+				t.Fatalf("Unexpected error in ProcessOneEvent while the slow transaction is open: %v", err)
+			}
+
+			// THEN: the cutoff must not move past the missing version
+			if diff := testutil.CmpDiff(types.Ptr(firstVersion+tc.ExpectedCutoffOffsetWhileOpen), readCutoff(t, ctx, dbHandler)); diff != "" {
+				t.Errorf("cutoff while the slow transaction is open (-want, +got):\n%s", diff)
+			}
+
+			// WHEN: the slow transaction commits, and the export runs again
+			if err := slowTransaction.Commit(); err != nil {
+				t.Fatalf("Unexpected error committing the slow transaction: %v", err)
+			}
+			_, err = ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 10, tc.GivenGrace)
+			if err != nil {
+				t.Fatalf("Unexpected error in ProcessOneEvent after the commit: %v", err)
+			}
+
+			// THEN: both events are processed, so the cutoff is at the newest version
+			if diff := testutil.CmpDiff(types.Ptr(firstVersion+tc.ExpectedCutoffOffsetAfterCommit), readCutoff(t, ctx, dbHandler)); diff != "" {
+				t.Errorf("cutoff after the slow transaction committed (-want, +got):\n%s", diff)
+			}
+
+			// THEN: both events were processed as one batch. A batch writes only one cutoff row (for its highest version),
+			// so there is no cutoff row for the version in between:
+			expectedCutoffRows := []db.EslVersion{firstVersion, firstVersion + 2}
+			if diff := testutil.CmpDiff(expectedCutoffRows, readCutoffVersions(t, ctx, dbHandler)); diff != "" {
+				t.Errorf("cutoff rows, the batching must stay intact (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// writeEmptyEslEvent writes an esl event without any data. The export handles it like a CreateApplicationVersion that does nothing.
+func writeEmptyEslEvent(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx) error {
+	return dbHandler.DBWriteEslEventInternal(ctx, db.EvtCreateApplicationVersion, transaction, nil, db.ESLMetadata{})
+}
+
+// readCutoffVersions returns all versions in the cutoff table in ascending order.
+// A batch of events writes only one row, for the highest version of the batch.
+func readCutoffVersions(t *testing.T, ctx context.Context, dbHandler *db.DBHandler) []db.EslVersion {
+	t.Helper()
+	var versions []db.EslVersion
+	err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		selectQuery := dbHandler.AdaptQuery(`
+			SELECT eslVersion
+			FROM cutoff
+			ORDER BY eslVersion ASC
+			LIMIT 100;
+		`)
+		rows, err := transaction.QueryContext(ctx, selectQuery)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var version db.EslVersion
+			if err := rows.Scan(&version); err != nil {
+				return err
+			}
+			versions = append(versions, version)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error reading the cutoff rows: %v", err)
+	}
+	return versions
+}
+
+// readCutoff returns the current cutoff, or nil if there is none.
+func readCutoff(t *testing.T, ctx context.Context, dbHandler *db.DBHandler) *db.EslVersion {
+	t.Helper()
+	var cutoff *db.EslVersion
+	err := dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
+		var err error
+		cutoff, err = db.DBReadCutoff(dbHandler, ctx, transaction)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error reading the cutoff: %v", err)
+	}
+	return cutoff
 }
 
 func makeSetupTransformer() []repository.Transformer {
@@ -511,7 +830,7 @@ func TestProcessOneEvent(t *testing.T) {
 
 			_ = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 				sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
-				actualSleepDuration, actualError := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1)
+				actualSleepDuration, actualError := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1, 0)
 				if diff := cmp.Diff(tc.expectedError, actualError, cmpopts.EquateErrors()); diff != "" {
 					t.Fatalf("error mismatch (-want, +got):\n%s", diff)
 				}
@@ -841,7 +1160,7 @@ func TestProcessOneEventBatchFailureFallback(t *testing.T) {
 			// Drive the loop a few times; three events means at most three successful iterations.
 			sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
 			for i := 0; i < 5; i++ {
-				if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, tc.maxBatchSize); err != nil {
+				if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, tc.maxBatchSize, 0); err != nil {
 					t.Fatalf("ProcessOneEvent iteration %d returned error: %v", i, err)
 				}
 			}
@@ -999,7 +1318,7 @@ func TestProcessOneEventBatchedPushEndToEnd(t *testing.T) {
 			})
 
 			sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
-			if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, len(tc.deploys)); err != nil {
+			if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, len(tc.deploys), 0); err != nil {
 				t.Fatalf("ProcessOneEvent: %v", err)
 			}
 
@@ -1088,7 +1407,7 @@ func TestProcessOneEventBatchPushFailureReprocesses(t *testing.T) {
 	// First iteration: the push fails, so the cutoff must not advance and no commit timestamps are
 	// written.
 	sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
-	if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 2); err != nil {
+	if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 2, 0); err != nil {
 		t.Fatalf("ProcessOneEvent (failing push): %v", err)
 	}
 	_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1108,7 +1427,7 @@ func TestProcessOneEventBatchPushFailureReprocesses(t *testing.T) {
 	// Recover: the next iteration reprocesses the whole batch cleanly.
 	repo.fail = false
 	sleepDuration.Reset()
-	if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 2); err != nil {
+	if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 2, 0); err != nil {
 		t.Fatalf("ProcessOneEvent (recovered push): %v", err)
 	}
 	_ = dbHandler.WithTransaction(ctx, true, func(ctx context.Context, transaction *sql.Tx) error {
@@ -1183,7 +1502,7 @@ func TestProcessOneEventMixedSequence(t *testing.T) {
 	}
 	sleepDuration := backoff.MakeSimpleBackoff(minSleep, maxSleep)
 	for i, step := range steps {
-		if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 10); err != nil {
+		if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 10, 0); err != nil {
 			t.Fatalf("ProcessOneEvent iteration %d: %v", i, err)
 		}
 		if repo.pushCount != step.expectedPushes {
@@ -1255,7 +1574,7 @@ func TestProcessOneEventBackoffResetsAfterPushRecovers(t *testing.T) {
 
 			// The push keeps failing, so the same event is reprocessed and the backoff grows each time.
 			for i := 0; i < tc.GivenFailedProcessOneEventCalls; i++ {
-				if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1); err != nil {
+				if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1, 0); err != nil {
 					t.Fatalf("ProcessOneEvent (failing push %d): %v", i, err)
 				}
 			}
@@ -1266,7 +1585,7 @@ func TestProcessOneEventBackoffResetsAfterPushRecovers(t *testing.T) {
 
 			// The push recovers: the event is processed and the cutoff advances.
 			repo.fail = false
-			if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1); err != nil {
+			if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1, 0); err != nil {
 				t.Fatalf("ProcessOneEvent (recovered push): %v", err)
 			}
 
@@ -1354,7 +1673,7 @@ func TestProcessOneEventStopsAfterMaxReached(t *testing.T) {
 
 			// The push keeps failing, so the same event is reprocessed and the backoff grows each time.
 			for i := 0; i < tc.GivenFailedProcessOneEventCalls; i++ {
-				actualSleepDuration, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1)
+				actualSleepDuration, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1, 0)
 				if i == tc.ExpectedErrorIndex {
 					if diff := testutil.CmpDiff(tc.ExpectedError, err, cmpopts.EquateErrors()); diff != "" {
 						t.Errorf("expected an error at index %d: (-want, +got):\n%s", i, diff)
@@ -1438,7 +1757,7 @@ func TestProcessOneEventNotifiesSyncStatus(t *testing.T) {
 			<-ch // drain the initial signal that Subscribe() always sends
 
 			sleepDuration := backoff.MakeSimpleBackoff(time.Nanosecond, 64*time.Nanosecond)
-			if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1); err != nil {
+			if _, err := ProcessOneEvent(ctx, repo, dbHandler, nil, &sleepDuration, true, 1, 0); err != nil {
 				t.Fatalf("ProcessOneEvent: %v", err)
 			}
 

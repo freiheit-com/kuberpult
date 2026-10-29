@@ -180,6 +180,15 @@ func Run(ctx context.Context) error {
 	}
 	logging.Info(ctx, "eslProcessingTimeSeconds", zap.Int("eslProcessingTimeSeconds", int(eslProcessingIdleTimeSeconds)))
 
+	eslGapGracePeriod, err := valid.ReadEnvVarDuration("KUBERPULT_GRACE_PERIOD_BEFORE_SKIPPING_EVENTS")
+	if err != nil {
+		return err
+	}
+	if eslGapGracePeriod < 0 {
+		return fmt.Errorf("error KUBERPULT_GRACE_PERIOD_BEFORE_SKIPPING_EVENTS must be >=0 but was: %v", eslGapGracePeriod)
+	}
+	logging.Info(ctx, "eslGapGracePeriod", zap.Duration("eslGapGracePeriod", eslGapGracePeriod))
+
 	// maxExportBatchSize caps how many adjacent CreateApplicationVersion events are processed in a
 	// single push. Setting it to 1 reproduces exactly the old single-event behaviour
 	// The cap must keep a batch's single push comfortably within
@@ -499,7 +508,7 @@ func Run(ctx context.Context) error {
 				Name:     "processEsls",
 				Run: func(ctx context.Context, reporter *setup.HealthReporter) error {
 					reporter.ReportReady("Processing Esls")
-					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds, failOnErrorWithGitPushTags, int(maxExportBatchSize))
+					return processEsls(ctx, repo, dbHandler, cfg.DDMetrics, eslProcessingIdleTimeSeconds, failOnErrorWithGitPushTags, int(maxExportBatchSize), eslGapGracePeriod)
 				},
 			},
 			{
@@ -648,6 +657,7 @@ func processEsls(
 	eslProcessingIdleTimeSeconds int64,
 	failOnErrorWithGitPushTags bool,
 	maxBatchSize int,
+	eslGapGrace time.Duration,
 ) error {
 	var sleepDuration = backoff.MakeSimpleBackoff(
 		time.Second*time.Duration(eslProcessingIdleTimeSeconds),
@@ -655,7 +665,7 @@ func processEsls(
 	)
 	for {
 		span, ctxOneEvent := tracer.StartSpanFromContext(ctx, "processOneEvent")
-		wantedSleepTime, err := ProcessOneEvent(ctxOneEvent, repo, dbHandler, ddMetrics, &sleepDuration, failOnErrorWithGitPushTags, maxBatchSize)
+		wantedSleepTime, err := ProcessOneEvent(ctxOneEvent, repo, dbHandler, ddMetrics, &sleepDuration, failOnErrorWithGitPushTags, maxBatchSize, eslGapGrace)
 		span.Finish(tracer.WithError(err))
 		if err != nil {
 			return err
@@ -675,6 +685,7 @@ func ProcessOneEvent(
 	sleepDuration *backoff.SimpleBackoff,
 	failOnErrorWithGitPushTags bool,
 	maxBatchSize int,
+	eslGapGracePeriod time.Duration,
 ) (
 	time.Duration,
 	error,
@@ -701,8 +712,12 @@ func ProcessOneEvent(
 		if resetErr := repo.ResetHardTo(ctx, oldCommitId); resetErr != nil {
 			return resetErr
 		}
-		var err2 error
-		batch, err2 = HandleBatchEvents(ctx, transaction, dbHandler, repo, maxBatchSize)
+		// The esl events have the timestamp of the database, so the gap guard must use the same clock:
+		now, err2 := dbHandler.DBReadTransactionTimestamp(ctx, transaction)
+		if err2 != nil {
+			return err2
+		}
+		batch, err2 = HandleBatchEvents(ctx, transaction, dbHandler, repo, maxBatchSize, eslGapGracePeriod, *now)
 		return err2
 	})
 	if err != nil {
@@ -729,7 +744,7 @@ func ProcessOneEvent(
 			// blocking the rest. This call processes only the first event; processEsls drains the rest
 			// on later iterations.
 			logging.Info(ctx, "batch apply failed, falling back to single-event processing.", zap.Error(err))
-			return ProcessOneEvent(ctx, repo, dbHandler, ddMetrics, sleepDuration, failOnErrorWithGitPushTags, 1)
+			return ProcessOneEvent(ctx, repo, dbHandler, ddMetrics, sleepDuration, failOnErrorWithGitPushTags, 1, eslGapGracePeriod)
 		}
 		logging.Error(ctx, "skipping esl event, because it returned an error.", zap.Error(err))
 		// after this many tries, we can just skip it:
@@ -952,7 +967,7 @@ type batchedEvent struct {
 // HandleBatchEvents additionally returns, aligned one-to-one with the returned esl rows, the
 // hash of the commit each event produced ("" for a NoOp event that produced none), so the caller can
 // write one commit-transaction-timestamp per commit.
-func HandleBatchEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, repo repository.Repository, maxBatchSize int) ([]batchedEvent, error) {
+func HandleBatchEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, repo repository.Repository, maxBatchSize int, eslGapGracePeriod time.Duration, now time.Time) ([]batchedEvent, error) {
 	eslVersion, err := db.DBReadCutoff(dbHandler, ctx, transaction)
 	if err != nil {
 		return nil, fmt.Errorf("error in DBReadCutoff: %v", err)
@@ -968,6 +983,7 @@ func HandleBatchEvents(ctx context.Context, transaction *sql.Tx, dbHandler *db.D
 		// no event found
 		return nil, nil
 	}
+	events = trimAtGap(ctx, eslGapGracePeriod, eslVersion, events, now)
 	batch := selectBatch(events, maxBatchSize)
 	return processEslEventBatch(ctx, repo, batch, transaction)
 }
@@ -1117,8 +1133,10 @@ func getTransformer(_ context.Context, eslEventType db.EventType) (repository.Tr
 // selectBatch returns the contiguous prefix of events that should be processed together with a
 // single push. The input must be the events as returned by DBReadEslEventBatch: all events with
 // eslVersion > cutoff, in ascending eslVersion order, with NO event_type filter applied (see the
-// note on DBReadEslEventBatch). This is what lets the returned slice stay strictly contiguous in
-// eslVersion — we never skip over an interleaved non-matching event.
+// note on DBReadEslEventBatch). The input must also have no gaps in eslVersion: events that are not
+// visible yet (e.g. a slow transaction that has not committed) are cut off by trimAtGap
+// before this function is called. Without gaps in the input, the returned slice stays strictly
+// contiguous in eslVersion — we never skip over an interleaved non-matching event.
 //
 // The rule:
 //   - empty input -> empty batch.
