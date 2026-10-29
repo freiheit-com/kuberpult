@@ -27,6 +27,8 @@ import (
 )
 
 // trimAtGap prevents the export from moving the cutoff past ESL versions that are still being committed.
+// The parameter `events` is the list of unprocessed events, with the oldest event at index 0.
+//
 // A slow transaction (e.g. a release train) can commit after transactions with higher versions,
 // and the export would skip it forever once the cutoff has moved past it.
 //
