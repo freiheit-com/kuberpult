@@ -66,7 +66,7 @@ waiting, which is the behavior from before this setting existed.
 
 It's better to be a little slow rather than to miss entire events.
 Set the `gracePeriodBeforeSkippingEvents` to a value
-higher than the maximum duration of the cd-service transactions that writes to the esl table.
+higher than the maximum duration of the cd-service transactions that write to the esl table.
 If you have `datadogTracing.enabled:true`, you can filter for spans
 in DataDog with `service:kuberpult-cd-service resource_name:ProcessBatch`
 to get this number.

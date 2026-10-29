@@ -540,7 +540,7 @@ func (h *DBHandler) DBReadEslEventLaterThan(ctx context.Context, tx *sql.Tx, esl
 
 // DBReadEslEventBatch returns up to maxBatchSize esl events with eslVersion > cutoff,
 // in ascending eslVersion order. When cutoff is nil, it starts at the beginning of the table.
-// Gaps between the events are possible due to rolled back transactions.
+// Gaps between the events are possible due to rolled back (or in progress) transactions (see trimAtGap in esl_gaps.go).
 //
 // NOTE: this deliberately does NOT filter by event_type.
 func (h *DBHandler) DBReadEslEventBatch(ctx context.Context, tx *sql.Tx, cutoff *EslVersion, maxBatchSize int) (_ []*EslEventRow, err error) {
