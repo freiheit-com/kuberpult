@@ -307,7 +307,7 @@ manifestRepoExport:
   # The manifest-export detects these gaps, and waits this amount of time before skipping an ID
   # whose event didn't arrive yet.
   # For details, view `docs/operators/timeouts.md`.
-  gracePeriodBeforeSkippingEvents: 2m
+  gracePeriodBeforeSkippingEvents: 60s
 
   # This flag only applies when the "gitTag" query parameter in the release train api is used.
   # It handles what happens, if the git tag cannot be pushed to the remote of the manifest-repo:

@@ -48,7 +48,7 @@ func trimAtGap(ctx context.Context, gracePeriod time.Duration, cutoff *db.EslVer
 	nextCutoff := cutoffVersion + 1
 	prefix := consecutivePrefixSlice(events)
 	nextEvent := events[0]
-	if nextEvent.EslVersion == nextCutoff { // if there is no gap
+	if nextEvent.EslVersion == nextCutoff { // if there is no gap at the beginning
 		return prefix // then we just return all consecutive events
 	}
 

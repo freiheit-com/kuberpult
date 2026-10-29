@@ -72,6 +72,11 @@ in DataDog with `service:kuberpult-cd-service resource_name:ProcessBatch`
 to get this number.
 Take the slowest ProcessBatch span and add a buffer to be safe (e.g. times two).
 
+Note that the actual wait-time (the `time.Sleep` call) is determined by
+`manifestRepoExport.eslProcessingIdleTimeSeconds`.
+The grace period is therefore not used to `sleep`, but to determine if a gap is old
+enough to skip.
+
 ### `frontend.batchClient.timeout`
 
 This is the time the frontend-service waits for the cd-service.

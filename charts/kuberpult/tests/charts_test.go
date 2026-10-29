@@ -1021,7 +1021,7 @@ ingress:
 			ExpectedEnvs: []core.EnvVar{
 				{
 					Name:  "KUBERPULT_GRACE_PERIOD_BEFORE_SKIPPING_EVENTS",
-					Value: "2m",
+					Value: "60s",
 				},
 			},
 		},
