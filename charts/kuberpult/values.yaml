@@ -302,7 +302,7 @@ manifestRepoExport:
   # For details, view `docs/operators/timeouts.md`.
   maxExportBatchSize: 1
 
-  # With long running transaction, it can happen that events appear "out of order" in the DB.
+  # With long running transactions, it can happen that events appear "out of order" in the DB.
   # For example it could happen, that ID 11 is committed in a transaction, before ID 10 is committed in another one.
   # The manifest-export detects these gaps, and waits this amount of time before skipping an ID
   # whose event didn't arrive yet.

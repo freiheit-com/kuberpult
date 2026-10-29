@@ -38,22 +38,26 @@ the worst-case batch push well under `networkTimeoutSeconds`.
 
 ### `manifestRepoExport.gracePeriodBeforeSkippingEvents`
 
-The cd-service takes the id of an event (the "esl version") at the start of its transaction, but the
+The cd-service takes the ID of an event (the "esl version") at the start of its transaction, but the
 event only becomes visible when the transaction commits. A long transaction (e.g. a release train)
 can therefore commit *after* a later, shorter transaction. The export sees the later event first and
 must not move on before the earlier one has arrived, otherwise the earlier event is never exported.
 
-`gracePeriodBeforeSkippingEvents` (a duration like `2m` or `90s`) is how long the export waits for such a missing id.
-If the id has not appeared after that time, the export assumes that its transaction was rolled back,
+`gracePeriodBeforeSkippingEvents` (a duration like `2m` or `90s`) is how old an event after a missing ID has to
+be before the manifest-export gives up on waiting for it.
+The measurement starts at the creation time of the first event after the gap (start of the transaction).
+This means if there are multiple gaps in a row, the wait times overlap.
+
+If the ID has not appeared after the grace period, the export assumes that its transaction was rolled back,
 logs the info message `esl version gap accepted` with the skipped range, and continues.
 
 * If the value is **too small**, a slow transaction can commit after the export gave up waiting.
   That event is then never exported, and the manifest repository stays behind the database
   without any error.
-* If the value is **too large**, the export is delayed by up to that time for every id that
-  never appears (transactions that were rolled back). Gaps one after another add up.
+* If the value is **too large**, the export is delayed by up to that time for every rolled back transaction.
+  Gaps that are close together wait in parallel.
 * If no transactions ever roll back (likely in small setups with few requests), then
-then the grace period has no effect on the speed of the manifest-export.
+  the grace period has no effect on the speed of the manifest-export.
 
 Setting it to `0s` disables the
 waiting, which is the behavior from before this setting existed.
@@ -61,8 +65,8 @@ waiting, which is the behavior from before this setting existed.
 **Recommendation**:
 
 It's better to be a little slow rather than to miss entire events.
-Set the gracePeriod to a value
-higher than the maximum duration of the longest cd-service transaction that writes to the esl table.
+Set the `gracePeriodBeforeSkippingEvents` to a value
+higher than the maximum duration of the cd-service transactions that writes to the esl table.
 If you have `datadogTracing.enabled:true`, you can filter for spans
 in DataDog with `service:kuberpult-cd-service resource_name:ProcessBatch`
 to get this number.
