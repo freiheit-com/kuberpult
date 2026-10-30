@@ -33,7 +33,6 @@ const mock_StreamOverview = Spy('Overview');
 const mock_GetAllAppLocks = Spy('AllAppLocks');
 const mock_GetAllEnvTeamLocks = Spy('AllEnvLocks');
 const mock_GetAllManifestLocks = Spy('AllManifestLocks');
-const mock_StreamStatus = Spy('Status');
 const mock_StreamGitSyncStatus = Spy('GitSyncStatus');
 
 jest.mock('../utils/GrpcApi', () => ({
@@ -48,9 +47,6 @@ jest.mock('../utils/GrpcApi', () => ({
                 GetAllAppLocks: () => mock_GetAllAppLocks(),
                 GetAllEnvTeamLocks: () => mock_GetAllEnvTeamLocks(),
                 GetAllManifestLocks: () => mock_GetAllManifestLocks(),
-            }),
-            rolloutService: () => ({
-                StreamStatus: () => mock_StreamStatus(),
             }),
             manifestExportGitService: () => ({
                 StreamGitSyncStatus: () => mock_StreamGitSyncStatus(),
@@ -89,11 +85,6 @@ describe('App uses the API', () => {
         mock_GetAllManifestLocks.returns(Promise.resolve({ manifestLocks: [] }));
         mock_GetConfig.returns(Promise.resolve('test-config'));
         AzureAuthSub.set({ authReady: true });
-        mock_StreamStatus.returns(
-            new Observable((observer) => {
-                observer.next({});
-            })
-        );
 
         // when
         getWrapper();
@@ -109,11 +100,6 @@ describe('App uses the API', () => {
             new Observable((observer) => {
                 observer.error('error');
                 subscriptionCount++;
-            })
-        );
-        mock_StreamStatus.returns(
-            new Observable((observer) => {
-                observer.next({});
             })
         );
         mock_StreamGitSyncStatus.returns(

@@ -175,12 +175,6 @@ db:
       # It does have grpc endpoints that are very specific for some git operations, which most people will not use.
       maxOpen: 5
       maxIdle: 2
-    rollout:
-      maxOpen: 100
-      maxIdle: 20
-    reposerver:
-      maxOpen: 5
-      maxIdle: 2
   # In the past, Kuberpult had a bug which wrote invalid deployment records to the database.
   # i.e., These records point to nil releases version or the releases which do not have any manifests for the environment they are deployed to.
   # Or they point to environments that do not exist anymore.
@@ -259,7 +253,7 @@ manifestRepoExport:
 
   # Controls whether apps are allowed to move between brackets.
   # Moving an app between brackets is a complicated operation: the app's manifest has to be removed
-  # from its old bracket and added to the new one and it has to be ensured that the app is managed by at 
+  # from its old bracket and added to the new one and it has to be ensured that the app is managed by at
   # least one of the brackets at all times.
   # We deliberately do not automate the full bracket-move logic, instead relying on a manual step during
   # bracket moves to ensure that the move logic remains simple and reliable.
@@ -275,7 +269,7 @@ manifestRepoExport:
   #   - Brackets are rendered with prune=false, so Argo CD does NOT automatically delete resources.
   #
   # NOTE: When allowBracketMoves==true, following a bracket move you must manually trigger a
-  # "re-render everything" after resetting to allowBracketMoves==false for all affected environments 
+  # "re-render everything" after resetting to allowBracketMoves==false for all affected environments
   # to remove the app from its old bracket. Argo CD will not prune it automatically.
   allowBracketMoves: false
 
@@ -320,8 +314,9 @@ manifestRepoExport:
   #
   # Consider setting `dogstatsdMetrics.enabled:true`, then the failings of git push operations are measured in the metric "manifest_export_tag_push_failures".
   failOnErrorWithGitPushTags: true
-  # Allows to run the rollout service and the manifest service at the same time.
-  # This is useful if you are migrating from the rollout-service (which is deprecated!) to the manifest-repo-export-service without a downtime.
+  # The rollout-service is gone, but this option stays for now.
+  # This option allows the manifest-repo-export to render a different argocd project name per environment
+  # in the Argo Application under spec.project.
   experimentalRolloutWithManifest:
     enabled: false
     argoProjectNames:
@@ -349,9 +344,6 @@ frontend:
     requests:
       cpu: 500m
       memory: 250Mi
-# Limit for the wait time for resources that support waiting on conditions ( e.g. rollout-status ).
-# This MUST be lower than the combined timeouts of ALL http proxies in use.
-  maxWaitDuration: 10m
   batchClient:
     # This value needs to be higher than the network timeout for git
     # For details, view `docs/operators/timeouts.md`
@@ -363,106 +355,6 @@ frontend:
   release:
     # When enabled, the /api/release endpoint rejects manifests that are not valid YAML.
     yamlValidationEnabled: true
-rollout:
-  # DEPRECATED
-  # Note that the rollout service is not the recommended way to set up kuberpult.
-  # We recommend to set rollout.enabled=false, reposerver.enabled=false, and manifestRepoExport.enabled=true
-  enabled: false
-  service:
-    annotations: {}
-  pod:
-    annotations: {}
-  image: kuberpult-rollout-service
-  resources:
-    limits:
-      cpu: 500m
-      memory: 250Mi
-    requests:
-      cpu: 500m
-      memory: 250Mi
-  probes:
-    liveness:
-      periodSeconds: 10
-      successThreshold: 1
-      timeoutSeconds: 5
-      failureThreshold: 10
-      initialDelaySeconds: 5
-    readiness:
-      periodSeconds: 10
-      successThreshold: 1
-      timeoutSeconds: 5
-      failureThreshold: 10
-      initialDelaySeconds: 5
-  # The maximum message size in megabytes the client can receive.
-  grpcMaxRecvMsgSize: 4
-  # Enables the persistence of ArgoCD events on the database.
-  persistArgoEvents: false
-  # If `persistArgoEvents` is enabled, this value dictates how many ArgoCD events must be received before they are
-  # written to the database. This parameter can improve performance if you have a lot of ArgoCD events.
-  argoEventsBatchSize: 1
-  # Size of the channel that holds the ArgoCD Events received by the rollout service.
-  argoEventsChannelSize: 50
-  # Size of the channel that holds the Kuberpult Events received by the rollout service.
-  kuberpultEventsChannelSize: 50
-  metrics:
-    # If `RevolutionMetricsEnabled` is enabled, Kuberpult sends metrics regarding successful and failed DORA events
-    doraMetricsEnabled: false
-    # If `ArgoEventsMetricsEnabled` is enabled, Kuberpult sends metrics regarding argocd events received by the
-    # rollout service. Useful for diagnosing possible bottlenecks on rollout service.
-    argoEventsMetricsEnabled: false
-    # If `KuberpultEventsMetricsEnabled` is enabled, Kuberpult sends metrics regarding kuberpult events received by the
-    # rollout service. Useful for diagnosing possible bottlenecks on rollout service
-    kuberpultEventsMetricsEnabled: false
-  experimentalBrackets:
-    # Master switch for bracket rendering in the rollout service.
-    # When false, the clusters parameter is ignored.
-    enabled: false
-    # Switches an environment to bracket mode.
-    # Environments that are not listed here will be handled as normal apps in the rollout service.
-    # Example:
-    # clusters:
-    #   <env1>: true
-    #   <env2>: true
-    # For active/active environments, use the plain "<envName>", all a/a clusters within it will be enabled at the same time.
-    # When switching this option to true for an environment, the rollout-service will:
-    # 1) keep the normal argo apps for now
-    # 2) create bracket apps for argo - for a moment the apps will "fight" against each other, but not find any meaningful difference.
-    # 3) delete the normal apps with cascade=false, so that only bracket apps remain.
-    # ROLLBACK:
-    # When switching this option from true to false, the rollout-service will just add the apps, it will not delete the brackets.
-    clusters: {}
-# Standalone reposerver service for interacting with argocd
-reposerver:
-  # DEPRECATED
-  # Note that the reposerver is not the recommended way to set up kuberpult.
-  # We recommend to set rollout.enabled=false, reposerver.enabled=false, and manifestRepoExport.enabled=true
-  enabled: false
-  replicas: 1
-  service:
-    annotations: {}
-  pod:
-    annotations: {}
-  image: kuberpult-reposerver-service
-  resources:
-    limits:
-      cpu: 500m
-      memory: 250Mi
-    requests:
-      cpu: 500m
-      memory: 250Mi
-  probes:
-    liveness:
-      periodSeconds: 10
-      successThreshold: 1
-      timeoutSeconds: 5
-      failureThreshold: 10
-      initialDelaySeconds: 5
-    readiness:
-      periodSeconds: 10
-      successThreshold: 1
-      timeoutSeconds: 5
-      failureThreshold: 10
-      initialDelaySeconds: 5
 ingress:
   # The simplest setup involves an ingress, to make kuberpult available outside the cluster.
   # set to false, if you want to use your own ingress:
@@ -503,7 +395,7 @@ ingress:
     gateway: null
 ssh:
   # This section is necessary to checkout the manifest repo from git. Only ssh is supported (no https).
-  # The secret name containing the ssh identity (aka private key) and known_hosts must be provided 
+  # The secret name containing the ssh identity (aka private key) and known_hosts must be provided
   secretName: null
   # DEPRECATED
   # Providing ssh identity and known_hosts directly here is no longer recommended due to security issues.
@@ -519,29 +411,6 @@ pgp:
 argocd:
   # The base url is used to generate links to argocd in the UI. Kuberpult never uses this to talk to argocd.
   baseUrl: ""
-  # The token is generated by adding a user in argocd with apiKey permssions and generating a token.
-  # 1. Add an entry to the configmap argocd-cm data with key "accounts.kuberpult" and value "apiKey"
-  # 2. Run `argocd account generate-token --account kuberpult` and put the result here
-  # 3. Grant kuberpult the necessary rights by adding these lines to the argocd-rbac-cm config map:
-  #
-  #  policy.csv: |
-  #    p, role:kuberpult, applications, get, */*, allow
-  #    g, kuberpult, role:kuberpult
-  #
-  token: ""
-  # The argocd server url is used by kuberpult to reach out to argocd. If argocd is running in the same cluster, use the service name of the api server.
-  # Also must include the protocol and port e.g. http://argocd-server.argocd.svc.cluster.local:80 or https://argocd.example.com:443
-  server: ""
-  # Disables tls verification. This is useful when running in the same cluster as argocd and using a self-signed certificate.
-  insecure: false
-
-  refresh:
-    # Enable sending refresh requests to argocd
-    enabled: false
-    # Send up to that many parallel refresh requests to argocd.
-    # The number is determined by the power of the deployed argocd.
-    concurrency: 50
-    clientTimeoutSeconds: 30
 
   generateFiles: true
 
@@ -672,29 +541,3 @@ dex:
   #       clientSecret: $GOOGLE_CLIENT_SECRET
   #       redirectURI: http://127.0.0.1:5556/callback
   config: {}
-# DEPRECATED: This configuration option will be removed when the rollout service is removed.
-# Revolution integrations, such as DORA metric reporting should be handled independently of Kuberpult in the future,
-# e.g. by direct integration with the actual deployment tool like ArgoCD.
-# Configuration for revolution dora metrics. If you are not using revolution you can safely ignore this.
-revolution:
-  dora:
-    enabled: false
-    # The default url in revolution is https://revolution.dev/api/dora/kuberpult?companyID=myCompany&productID=myProductID&projectID=myProductId
-    url: ""
-    # The token can be obtained from revolution.
-    token: ""
-    # Maximum number of requests send in parallel.
-    concurrency: 20
-
-    # If enabled, revolution isn't actually contacted with new events and Kuberpult simply logs the events it would have sent.
-    # Useful if you don't want to overload Revolution with events while debugging.
-    dryRun: false
-    maxAge: 2h
-
-# DEPRECATED: The rollout service is deprecated and will be removed in future releases of Kuberpult.
-# This configuration option will be removed when the rollout service is removed.
-# Whether the rollout service should self-manage applications
-manageArgoApplications:
-  enabled: false
-  # DEPRECATED: List of teams that should be self managed by the rollout service.
-  filter: []

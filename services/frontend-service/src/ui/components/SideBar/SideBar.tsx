@@ -50,7 +50,6 @@ import { Tooltip } from '../tooltip/tooltip';
 
 export enum ActionTypes {
     Deploy,
-    PrepareUndeploy,
     Undeploy,
     CreateEnvironmentLock,
     DeleteEnvironmentLock,
@@ -252,18 +251,6 @@ export const getActionDetails = (
                 application: action.deploy.application,
                 version: action.deploy.version,
                 revision: action.deploy.revision,
-            };
-        case 'prepareUndeploy':
-            return {
-                type: ActionTypes.PrepareUndeploy,
-                name: 'Prepare Undeploy',
-                dialogTitle: 'Are you sure you want to start undeploy?',
-                tooltip:
-                    'The new version will go through the same cycle as any other versions' +
-                    ' (e.g. development->staging->production). ' +
-                    'The behavior is similar to any other version that is created normally.',
-                summary: 'Prepare undeploy version for Application "' + action.prepareUndeploy.application + '"',
-                application: action.prepareUndeploy.application,
             };
         case 'undeploy':
             return {

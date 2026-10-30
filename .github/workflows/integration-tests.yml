@@ -53,11 +53,6 @@ jobs:
           echo "No valid images found in the registry for the frontend service"
           exit 1
         fi
-
-        if ! docker manifest inspect ${IMAGE_REGISTRY}/kuberpult-rollout-service:${IMAGE_TAG_KUBERPULT} > /dev/null; then
-          echo "No valid images found in the registry for the rollout service"
-          exit 1
-        fi
     - name: Print environment
       run: |
         echo Using registry: $IMAGE_REGISTRY

@@ -45,50 +45,6 @@ import (
 	rp "github.com/freiheit-com/kuberpult/services/manifest-repo-export-service/pkg/repository"
 )
 
-func setupDBFixtures(ctx context.Context, dbHandler *db.DBHandler, transaction *sql.Tx) error {
-	err := dbHandler.DBWriteMigrationsTransformer(ctx, transaction)
-	if err != nil {
-		return err
-	}
-	fixtureAppications := []types.AppName{"app", "app-1", "app-2", "app-3"}
-	eslVersion := 0
-	for _, app := range fixtureAppications {
-		err = dbHandler.DBInsertOrUpdateApplication(ctx, transaction, app, db.AppStateChangeCreate, db.DBAppMetaData{Team: "team"}, types.ArgoBracketName(app))
-		if err != nil {
-			return err
-		}
-		for releaseNumber := 1; releaseNumber < 4; releaseNumber++ {
-			uintReleaseNumber := uint64(releaseNumber)
-			err = dbHandler.DBUpdateOrCreateRelease(ctx, transaction, db.DBReleaseWithMetaData{
-				ReleaseNumbers: types.ReleaseNumbers{
-					Version:  &uintReleaseNumber,
-					Revision: 0,
-				},
-				Created:   time.Time{},
-				App:       types.AppName(app),
-				Manifests: db.DBReleaseManifests{},
-				Metadata:  db.DBReleaseMetaData{},
-			})
-			if err != nil {
-				return err
-			}
-		}
-		eslVersion++
-	}
-	fixtureEnvironments := []types.EnvName{"development-1", "development-2", "development-3"}
-	for _, env := range fixtureEnvironments {
-		err = dbHandler.DBWriteEnvironment(ctx, transaction, env, config.EnvironmentConfig{
-			Upstream: &config.EnvironmentConfigUpstream{
-				Latest: true,
-			},
-		})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 var versionOne = uint64(1)
 
 func TestGetCommitInfo(t *testing.T) {

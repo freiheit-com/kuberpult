@@ -64,15 +64,6 @@ func ApiDeprecationWarning(ctx context.Context, oldEndpoint string, newEndpoint 
 	Warn(ctx, "api deprecation with replacement", allFields...)
 }
 
-// ApiDeprecationWarningWithoutReplacement should be called for endpoints that have no replacement in /api/
-func ApiDeprecationWarningWithoutReplacement(ctx context.Context, oldEndpoint string, fields ...zap.Field) {
-	allFields := []zap.Field{
-		zap.String("oldEndpoint", oldEndpoint),
-	}
-	allFields = append(allFields, fields...)
-	Warn(ctx, "api deprecation without replacement", allFields...)
-}
-
 func Wrap(ctx context.Context, inner func(ctx context.Context) error) {
 	err := logger.Wrap(ctx, inner)
 	if err != nil {

@@ -902,32 +902,6 @@ type TestDataUndeploy = TestData & {
 const dataUndeploy: TestDataUndeploy[] = (() => {
     const result: TestDataUndeploy[] = [
         {
-            name: 'test no prepareUndeploy',
-            renderedApp: {
-                name: 'test1',
-                releases: [],
-                sourceRepoUrl: 'http://test2.com',
-                team: 'example',
-                undeploySummary: UndeploySummary.NORMAL,
-                warnings: [],
-                argoBracket: '',
-            },
-            envs: [
-                {
-                    name: 'foo2',
-                    distanceToUpstream: 0,
-                    priority: Priority.UPSTREAM,
-                },
-            ],
-            expectedUndeployButton: '⋮',
-            expectedAction: {
-                action: {
-                    $case: 'prepareUndeploy',
-                    prepareUndeploy: { application: 'test1' },
-                },
-            },
-        },
-        {
             name: 'test no undeploy',
             renderedApp: {
                 name: 'test1',

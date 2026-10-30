@@ -52,8 +52,7 @@ function retryStrategy(maxWaitTimeMinutes: number) {
         attempts.pipe(
             mergeMap((error, retryAttempt) => {
                 if (error.code === 12) {
-                    // Error code 12 means "not implemented". That is what we get when the rollout service is not enabled
-                    // so we don't want to retry in this case
+                    // Error code 12 means "not implemented", so we don't want to retry in this case
                     throw error;
                 }
 
@@ -104,7 +103,7 @@ export const App: React.FC = () => {
                     },
                     (error) => {
                         if (error.code === 12) {
-                            // Error code 12 means "not implemented". That is what we get when the rollout service is not enabled.
+                            // Error code 12 means "not implemented".
                             FlushGitSyncStatus();
                             return;
                         }

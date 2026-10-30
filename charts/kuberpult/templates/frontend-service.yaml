@@ -32,9 +32,6 @@
 {{- if .Values.frontend.tag }}
 {{ fail "Values.frontend.tag cannot be used anymore. We only support the same appVersion for all services at this point."}}
 {{ end -}}
-{{- if (and (.Values.frontend.enableRevisions) (.Values.rollout.enabled)) }}
-{{ fail "Values.frontend.enabledRevision and Values.rollout.enabled cannot be toggled ON at the same time, because the rollout service does not support revisions."}}
-{{ end -}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -210,14 +207,6 @@ spec:
         - name: KUBERPULT_AZURE_REDIRECT_URL
           value: "https://{{ .Values.ingress.domainName }}"
 {{- end }}
-        - name: KUBERPULT_ROLLOUTSERVER
-{{- if .Values.rollout.enabled }}
-          value: "kuberpult-rollout-service:8443"
-{{- else }}
-          value: ""
-{{- end }}
-        - name: KUBERPULT_MAX_WAIT_DURATION
-          value: {{ .Values.frontend.maxWaitDuration | quote }}
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.frontend.grpcMaxRecvMsgSize }}"
         volumeMounts:

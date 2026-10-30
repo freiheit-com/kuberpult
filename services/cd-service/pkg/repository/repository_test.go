@@ -19,10 +19,8 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	"github.com/google/go-cmp/cmp"
@@ -47,120 +45,12 @@ func (e errMatcher) Is(err error) bool {
 	return e.Error() == err.Error()
 }
 
-type SlowTransformer struct {
-	finished chan struct{}
-	started  chan struct{}
-}
-
-func (s *SlowTransformer) GetDBEventType() db.EventType {
-	return "invalid"
-}
-func (s *SlowTransformer) SetEslVersion(_ db.TransformerID) {
-	//Does nothing
-}
-
-func (s *SlowTransformer) GetEslVersion() db.TransformerID {
-	return 0
-}
-
-func (s *SlowTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
-	s.started <- struct{}{}
-	<-s.finished
-	return "ok", nil
-}
-
-type EmptyTransformer struct{}
-
-func (p *EmptyTransformer) SetEslVersion(_ db.TransformerID) {
-	//Does nothing
-}
-
-func (p *EmptyTransformer) GetEslVersion() db.TransformerID {
-	return 0
-}
-
-func (p *EmptyTransformer) GetDBEventType() db.EventType {
-	return "invalid"
-}
-
-func (p *EmptyTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
-	return "nothing happened", nil
-}
-
-type PanicTransformer struct{}
-
-func (p *PanicTransformer) GetDBEventType() db.EventType {
-	return "invalid"
-}
-
-func (p *PanicTransformer) GetEslVersion() db.TransformerID {
-	return 0
-}
-
-func (p *PanicTransformer) SetEslVersion(_ db.TransformerID) {
-	//Does nothing
-}
-
-func (p *PanicTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
-	panic("panic tranformer")
-}
-
-var ErrTransformer = errors.New("error transformer")
-
-type ErrorTransformer struct{}
-
-func (p *ErrorTransformer) GetDBEventType() db.EventType {
-	return "invalid"
-}
-
-func (p *ErrorTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
-	return "error", ErrTransformer
-}
-
-func (p *ErrorTransformer) SetEslVersion(_ db.TransformerID) {
-	//Does nothing
-}
-
-func (p *ErrorTransformer) GetEslVersion() db.TransformerID {
-	return 0
-}
-
-type InvalidJsonTransformer struct{}
-
-func (p *InvalidJsonTransformer) GetDBEventType() db.EventType {
-	return "invalid"
-}
-
-func (p *InvalidJsonTransformer) SetEslVersion(_ db.TransformerID) {
-	//Does nothing
-}
-
-func (p *InvalidJsonTransformer) GetEslVersion() db.TransformerID {
-	return 0
-}
-
-func (p *InvalidJsonTransformer) Transform(ctx context.Context, state *State, transformerContext TransformerContext, transaction *sql.Tx) (string, error) {
-	return "error", ErrInvalidJson
-}
-
 func convertToSet(list []types.ReleaseNumbers) map[TestStruct]bool {
 	set := make(map[TestStruct]bool)
 	for _, i := range list {
 		set[TestStruct{Version: *i.Version, Revision: i.Revision}] = true
 	}
 	return set
-}
-
-type mockClock struct {
-	t time.Time
-}
-
-func (m *mockClock) now() time.Time {
-	return m.t
-}
-
-func (m *mockClock) sleep(d time.Duration) {
-	m.t = m.t.Add(d)
 }
 
 func getTransformer(i int) (Transformer, error) {
@@ -183,24 +73,6 @@ func getTransformer(i int) (Transformer, error) {
 	// }
 	// return &ErrorTransformer{}, TransformerError
 }
-
-type nilTransformer struct {
-}
-
-func (m *nilTransformer) Transform(_ context.Context, _ *State, _ TransformerContext, _ *sql.Tx) (commitMsg string, e error) {
-	return "", nil
-}
-func (*nilTransformer) GetDBEventType() db.EventType {
-	return "nilEvent"
-}
-func (*nilTransformer) SetEslVersion(_ db.TransformerID) {
-	// nothing to do
-}
-func (*nilTransformer) GetEslVersion() db.TransformerID {
-	panic("getEslVersion")
-}
-
-var noopTransformer = &nilTransformer{}
 
 func TestMeasureGitSyncStatus(t *testing.T) {
 	tcs := []struct {

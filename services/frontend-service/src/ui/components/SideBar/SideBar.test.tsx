@@ -43,11 +43,8 @@ describe('Sidebar shows list of actions', () => {
     const data: dataT[] = [
         {
             name: '2 results',
-            actions: [
-                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
-            ],
-            expectedNumOfActions: 2,
+            actions: [{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }],
+            expectedNumOfActions: 1,
         },
         {
             name: '1 results, repeated',
@@ -61,19 +58,14 @@ describe('Sidebar shows list of actions', () => {
             name: '3 results',
             actions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
                 { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
             ],
-            expectedNumOfActions: 3,
+            expectedNumOfActions: 2,
         },
         {
             name: '2 results, repeated',
-            actions: [
-                { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
-            ],
-            expectedNumOfActions: 2,
+            actions: [{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }],
+            expectedNumOfActions: 1,
         },
         {
             name: '0 results',
@@ -118,24 +110,24 @@ describe('Sidebar test deletebutton', () => {
 
     const data: dataT[] = [
         {
-            name: '2 results',
+            name: '2 results, one removed',
             actions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                { action: { $case: 'undeploy', undeploy: { application: 'foo' } } },
             ],
             expectedNumOfActions: 1,
         },
         {
-            name: '3 results',
+            name: '3 results, one removed',
             actions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
                 { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
+                { action: { $case: 'undeploy', undeploy: { application: 'foo-service' } } },
             ],
             expectedNumOfActions: 2,
         },
         {
-            name: '0 results',
+            name: '0 results, 0 removed',
             actions: [],
             expectedNumOfActions: 0,
         },
@@ -196,11 +188,21 @@ describe('Action Store functionality', () => {
             name: '2 different type of actions',
             actions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                {
+                    action: {
+                        $case: 'deleteEnvFromApp',
+                        deleteEnvFromApp: { application: 'nmww', environment: 'dev' },
+                    },
+                },
             ],
             expectedActions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                {
+                    action: {
+                        $case: 'deleteEnvFromApp',
+                        deleteEnvFromApp: { application: 'nmww', environment: 'dev' },
+                    },
+                },
             ],
         },
         {
@@ -242,11 +244,11 @@ describe('Action Store functionality', () => {
             name: '2 different type of actions',
             actions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                { action: { $case: 'renderEnvironment', renderEnvironment: { environment: 'dev' } } },
             ],
             expectedActions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                { action: { $case: 'renderEnvironment', renderEnvironment: { environment: 'dev' } } },
             ],
         },
         {
@@ -287,9 +289,9 @@ describe('Action Store functionality', () => {
             name: 'delete 1 action (different action type, same app) - 1 remains',
             actions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                { action: { $case: 'renderEnvironment', renderEnvironment: { environment: 'nmww' } } },
             ],
-            deleteActions: [{ action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } }],
+            deleteActions: [{ action: { $case: 'renderEnvironment', renderEnvironment: { environment: 'nmww' } } }],
             expectedActions: [{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }],
         },
         {
@@ -312,11 +314,11 @@ describe('Action Store functionality', () => {
             actions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
                 { action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                { action: { $case: 'renderEnvironment', renderEnvironment: { environment: 'nmww' } } },
             ],
             deleteActions: [
                 { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                { action: { $case: 'renderEnvironment', renderEnvironment: { environment: 'nmww' } } },
             ],
             expectedActions: [{ action: { $case: 'undeploy', undeploy: { application: 'auth-service' } } }],
         },
@@ -595,25 +597,22 @@ describe('Action details', () => {
             },
         },
         {
-            name: 'test prepareUndeploy action',
+            name: 'test rerenderEnvironment action',
             action: {
                 action: {
-                    $case: 'prepareUndeploy',
-                    prepareUndeploy: {
-                        application: 'foo',
+                    $case: 'renderEnvironment',
+                    renderEnvironment: {
+                        environment: 'foo',
                     },
                 },
             },
             expectedDetails: {
-                type: ActionTypes.PrepareUndeploy,
-                name: 'Prepare Undeploy',
-                dialogTitle: 'Are you sure you want to start undeploy?',
-                tooltip:
-                    'The new version will go through the same cycle as any other versions' +
-                    ' (e.g. development->staging->production). ' +
-                    'The behavior is similar to any other version that is created normally.',
-                summary: 'Prepare undeploy version for Application "foo"',
-                application: 'foo',
+                type: ActionTypes.RenderEnvironment,
+                name: 'Re-render Environment',
+                dialogTitle: '',
+                tooltip: 'This will only re-render manifests of all the apps for this environment in Git.',
+                summary: 'Re-render environment foo',
+                environment: 'foo',
             },
         },
         {
@@ -946,7 +945,7 @@ describe('Action details', () => {
                 name: '2 results',
                 actions: [
                     { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                    { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                    { action: { $case: 'renderEnvironment', renderEnvironment: { environment: 'dev' } } },
                 ],
                 expectedTitle: 'Planned Actions (2)',
             },
@@ -999,7 +998,7 @@ describe('Action details', () => {
                 name: 'add 2 actions',
                 actions: [
                     { action: { $case: 'undeploy', undeploy: { application: 'nmww' } } },
-                    { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } },
+                    { action: { $case: 'renderEnvironment', renderEnvironment: { environment: 'dev' } } },
                 ],
                 expectedTitle: 'Planned Actions (3)',
                 appDetails: {
@@ -1098,7 +1097,7 @@ describe('Action details', () => {
                 name: 'Add 2 more actions actions',
                 actions: [
                     { action: { $case: 'undeploy', undeploy: { application: 'test2' } } },
-                    { action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'test2' } } },
+                    { action: { $case: 'renderEnvironment', renderEnvironment: { environment: 'test2' } } },
                 ],
                 expectedTitle: 'Planned Actions (6)',
                 appDetails: {
@@ -1169,7 +1168,7 @@ describe('Action details', () => {
         describe('Deleting an action from the cart', () => {
             it('Test deleting an an action', () => {
                 updateActions([{ action: { $case: 'undeploy', undeploy: { application: 'nmww' } } }]);
-                appendAction([{ action: { $case: 'prepareUndeploy', prepareUndeploy: { application: 'nmww' } } }]);
+                appendAction([{ action: { $case: 'renderEnvironment', renderEnvironment: { environment: 'dev' } } }]);
                 // Here we expect the value to be Planned Actions (1)
                 const expected = 'Planned Actions (1)';
                 const { container } = getWrapper({});
