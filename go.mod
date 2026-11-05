@@ -3,48 +3,48 @@ module github.com/freiheit-com/kuberpult
 go 1.25.0
 
 require (
-	github.com/DataDog/datadog-go/v5 v5.8.3
+	github.com/DataDog/datadog-go/v5 v5.9.1
 	github.com/MicahParks/keyfunc/v2 v2.1.0
 	github.com/blendle/zapdriver v1.3.1
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/coreos/go-oidc/v3 v3.17.0
-	github.com/go-git/go-billy/v5 v5.8.0
+	github.com/coreos/go-oidc/v3 v3.21.0
+	github.com/go-git/go-billy/v5 v5.9.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/golang-migrate/migrate/v4 v4.19.0
+	github.com/golang-migrate/migrate/v4 v4.20.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lestrrat-go/jwx/v2 v2.1.6
-	github.com/lib/pq v1.11.2
+	github.com/lestrrat-go/jwx/v2 v2.1.7
+	github.com/lib/pq v1.12.3
 	// versions for libgit2 should not be updated
 	github.com/libgit2/git2go/v34 v34.0.0
-	github.com/oapi-codegen/runtime v1.1.2
-	github.com/onokonem/sillyQueueServer v0.0.0-20170829113733-84501ce98da1
-	github.com/prometheus/client_golang v1.23.2
-	github.com/stretchr/testify v1.11.1
-	go.opentelemetry.io/otel/exporters/prometheus v0.62.0
-	go.opentelemetry.io/otel/metric v1.40.0
-	go.opentelemetry.io/otel/sdk/metric v1.40.0
-	go.uber.org/zap v1.27.1
-	golang.org/x/crypto v0.48.0
-	golang.org/x/oauth2 v0.35.0
-	google.golang.org/api v0.236.0
-	google.golang.org/grpc v1.79.3
-	google.golang.org/protobuf v1.36.11
+	github.com/oapi-codegen/runtime v1.8.0
+	github.com/onokonem/sillyQueueServer 4fb068d37f1b
+	github.com/prometheus/client_golang v1.25.0
+	github.com/stretchr/testify v1.12.1
+	go.opentelemetry.io/otel/exporters/prometheus v0.69.0
+	go.opentelemetry.io/otel/metric v1.47.0
+	go.opentelemetry.io/otel/sdk/metric v1.47.0
+	go.uber.org/zap v1.28.0
+	golang.org/x/crypto v0.58.0
+	golang.org/x/oauth2 v0.37.0
+	google.golang.org/api v0.311.0
+	google.golang.org/grpc v1.85.0
+	google.golang.org/protobuf v1.36.12
 	gopkg.in/DataDog/dd-trace-go.v1 v1.74.8
 	// versions for k8s dependencies should not be updated
-	k8s.io/apimachinery v0.33.1
+	k8s.io/apimachinery v0.37.2
 	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979 // indirect
-	sigs.k8s.io/yaml v1.4.0
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
-	github.com/ProtonMail/go-crypto v1.3.0
+	github.com/ProtonMail/go-crypto v1.5.2
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -54,9 +54,9 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
-	go.opentelemetry.io/otel v1.40.0
+	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/trace v1.40.0 // indirect
-	golang.org/x/sync v0.19.0
+	golang.org/x/sync v0.24.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -190,6 +190,6 @@ require (
 )
 
 // https://github.com/kubernetes/kubernetes/issues/79384#issuecomment-505627280
-replace k8s.io/apimachinery => k8s.io/apimachinery v0.29.11 // keep
+replace k8s.io/apimachinery => k8s.io/apimachinery v0.37.2 // keep
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
