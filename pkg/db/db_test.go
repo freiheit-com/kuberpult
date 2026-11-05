@@ -1177,10 +1177,6 @@ func TestSqliteToPostgresQuery(t *testing.T) {
 	}
 }
 
-func version(v int) *int64 {
-	var result = int64(v)
-	return &result
-}
 func uversion(v int) *uint64 {
 	var result = uint64(v)
 	return &result

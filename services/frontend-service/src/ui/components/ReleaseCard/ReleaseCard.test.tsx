@@ -30,8 +30,6 @@ import {
     GetGitSyncStatusResponse,
     Priority,
     Release,
-    RolloutStatus,
-    StreamStatusResponse,
     GitSyncStatus,
     UndeploySummary,
 } from '../../../api/api';

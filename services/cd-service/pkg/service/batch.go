@@ -294,8 +294,6 @@ func (d *BatchServer) processAction(
 			Env:            types.EnvName(act.Env),
 			Authentication: repository.Authentication{RBACConfig: d.RBACConfig},
 		}, nil, nil
-	case *api.BatchAction_PrepareUndeploy:
-		return nil, nil, status.Error(codes.InvalidArgument, "processAction: prepareUndeploy is not supported anymore, use Undeploy directly")
 	case *api.BatchAction_Undeploy:
 		act := action.Undeploy
 		if err := ValidateApplication(types.AppName(act.Application)); err != nil {

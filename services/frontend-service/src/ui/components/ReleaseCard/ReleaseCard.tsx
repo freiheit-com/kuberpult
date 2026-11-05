@@ -106,7 +106,7 @@ const useSyncStatusForDeployment = (
         }
         return 0;
     });
-    // Calculates the most interesting rollout status according to the `rolloutStatusPriority`.
+    // Calculates the most interesting rollout status according to the `gitSyncStatusPriority`.
     const mostInteresting = gitSyncStatusEnvGroupsArray.reduce(
         (cur: GitSyncStatus | undefined, item) =>
             cur === undefined

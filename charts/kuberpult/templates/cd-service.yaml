@@ -25,6 +25,15 @@
 {{- if (and (.Values.ssh.secretName) (or .Values.ssh.identity .Values.ssh.known_hosts)) }}
 {{ fail "Values.ssh.identity and Values.ssh.known_hosts cannot be set when Values.ssh.secretName is already set."}}
 {{ end -}}
+
+{{- if (.Values.rollout).enabled -}}
+{{ fail "Values.rollout.enabled cannot be used anymore, because the rollout-service was removed. See https://github.com/freiheit-com/kuberpult/issues/3021"}}
+{{- end -}}
+
+{{- if (.Values.reposerver).enabled -}}
+{{ fail "Values.reposerver.enabled cannot be used anymore, because the reposerver-service was removed. See https://github.com/freiheit-com/kuberpult/issues/3021"}}
+{{- end -}}
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -157,11 +166,6 @@ spec:
           value: {{ .Values.log.format | quote }}
         - name: LOG_LEVEL
           value: {{ .Values.log.level | quote }}
-{{- if .Values.argocd.sendWebhooks }}
-      {{ fail "Values.cd.webhooks cannot be used anymore. To inform Argo CD immediately about changes, see the option `manageArgoApplications.enabled`, or configure your git provider to send a webhook to Argo CD"}}
-{{- end }}
-        - name: KUBERPULT_ARGO_CD_INSECURE
-          value: {{ .Values.argocd.insecure | quote }}
         - name: KUBERPULT_ARGO_CD_GENERATE_FILES
           value: {{ .Values.argocd.generateFiles | quote }}
 {{- if .Values.datadogTracing.enabled }}
@@ -276,8 +280,6 @@ spec:
           value: "false"
         - name: KUBERPULT_GRPC_MAX_RECV_MSG_SIZE
           value: "{{ .Values.cd.grpcMaxRecvMsgSize }}"
-        - name: KUBERPULT_EXPERIMENTAL_BRACKETS_CLUSTERS
-          value: {{ include "kuberpult.experimentalBracketsClusters" . | quote }}
         volumeMounts:
         - name: ssh
           mountPath: /etc/ssh

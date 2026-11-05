@@ -171,13 +171,6 @@ spec:
             port:
               name: http
       - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
-        path: /api.v1.RolloutService/
-        backend:
-          service:
-            name: kuberpult-frontend-service
-            port:
-              name: http
-      - pathType: {{ required ".ingress.pathType is required" .Values.ingress.pathType }}
         path: /api.v1.ManifestExportGitService/
         backend:
           service:
@@ -294,8 +287,6 @@ spec:
             prefix: /api.v1.BatchService/
         - uri:
             prefix: /api.v1.FrontendConfigService/
-        - uri:
-            prefix: /api.v1.RolloutService/
         - uri:
             prefix: /api.v1.ManifestExportGitService/
         - uri:

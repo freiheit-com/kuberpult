@@ -17,7 +17,6 @@ Copyright freiheit.com*/
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -43,9 +42,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	jwxjwt "github.com/lestrrat-go/jwx/v2/jwt"
-	"google.golang.org/protobuf/proto"
 
-	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
 	"github.com/freiheit-com/kuberpult/pkg/errorMatcher"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
@@ -219,90 +216,6 @@ func TestServerHeader(t *testing.T) {
 	}
 }
 
-func TestGrpcForwardHeader(t *testing.T) {
-	tcs := []struct {
-		Name        string
-		Environment map[string]string
-
-		RequestPath string
-		Body        proto.Message
-
-		ExpectedHttpStatusCode int
-	}{
-		{
-			Name:                   "rollout server unimplemented",
-			RequestPath:            "/api.v1.RolloutService/StreamStatus",
-			Body:                   &api.StreamStatusRequest{},
-			ExpectedHttpStatusCode: 200,
-		},
-	}
-	for _, tc := range tcs {
-		tc := tc
-		t.Run(tc.Name, func(t *testing.T) {
-			var wg sync.WaitGroup
-			ctx, cancel := context.WithCancel(context.Background())
-			wg.Add(1)
-			go func(t *testing.T) {
-				defer wg.Done()
-				defer cancel()
-				for {
-					res, err := http.Get("http://localhost:8081/healthz")
-					if err != nil {
-						t.Logf("unhealthy: %q", err)
-						<-time.After(1 * time.Second)
-						continue
-					}
-					if res.StatusCode != 200 {
-						t.Logf("status: %q", res.StatusCode)
-						<-time.After(1 * time.Second)
-						continue
-					}
-					break
-				}
-				path, err := url.JoinPath("http://localhost:8081/", tc.RequestPath)
-				if err != nil {
-					t.Errorf("error joining url: %s", err)
-				}
-				body, err := proto.Marshal(tc.Body)
-				if err != nil {
-					t.Errorf("expected no error while calling Marshal but got %q", err)
-				}
-				req, err := http.NewRequest("POST", path, bytes.NewReader(body))
-				if err != nil {
-					t.Errorf("expected no error but got %q", err)
-				}
-				req.Header.Add("Content-Type", "application/grpc-web")
-				res, err := http.DefaultClient.Do(req)
-				if err != nil {
-					t.Errorf("expected no error but got %q", err)
-				}
-				_, _ = io.ReadAll(res.Body)
-				if tc.ExpectedHttpStatusCode != res.StatusCode {
-					t.Errorf("unexpected http status code, expected %d, got %d", tc.ExpectedHttpStatusCode, res.StatusCode)
-				}
-				// TODO(HVG): test the grpc status
-			}(t)
-			for k, v := range tc.Environment {
-				t.Setenv(k, v)
-			}
-			err := os.Setenv("KUBERPULT_GIT_AUTHOR_EMAIL", "mail2")
-			if err != nil {
-				t.Fatalf("expected no error, but got %q", err)
-			}
-			err = os.Setenv("KUBERPULT_GIT_AUTHOR_NAME", "name1")
-			if err != nil {
-				t.Fatalf("expected no error, but got %q", err)
-			}
-			t.Logf("env var: %s", os.Getenv("KUBERPULT_GIT_AUTHOR_EMAIL"))
-			err = runServer(ctx)
-			if err != nil {
-				t.Fatalf("expected no error, but got %q", err)
-			}
-			wg.Wait()
-		})
-	}
-}
-
 func TestEnvVarParsing(t *testing.T) {
 	tcs := []struct {
 		Name        string
@@ -333,7 +246,6 @@ func TestEnvVarParsing(t *testing.T) {
 				AzureEnableAuth:              false,
 				DexFullNameOverride:          "kuberpult-dex",
 				BatchClientTimeout:           2 * time.Minute,
-				MaxWaitDuration:              10 * time.Minute,
 				ApiEnableDespiteNoAuth:       false,
 				IapEnabled:                   false,
 				GrpcMaxRecvMsgSize:           4,
@@ -350,7 +262,6 @@ func TestEnvVarParsing(t *testing.T) {
 				"KUBERPULT_CDSERVER":             "cd:8443",
 				"KUBERPULT_MANIFESTEXPORTSERVER": "mani:8443",
 				"KUBERPULT_CD_SERVER_SECURE":     "true",
-				"KUBERPULT_ROLLOUTSERVER":        "rollout",
 
 				"KUBERPULT_GKE_PROJECT_NUMBER":       "proj",
 				"KUBERPULT_GKE_BACKEND_SERVICE_ID":   "backend",
@@ -385,7 +296,6 @@ func TestEnvVarParsing(t *testing.T) {
 				"KUBERPULT_GIT_AUTHOR_EMAIL": "git mail",
 
 				"KUBERPULT_BATCH_CLIENT_TIMEOUT":       "22m",
-				"KUBERPULT_MAX_WAIT_DURATION":          "33m",
 				"KUBERPULT_API_ENABLE_DESPITE_NO_AUTH": "true",
 				"KUBERPULT_IAP_ENABLED":                "true",
 				"KUBERPULT_GRPC_MAX_RECV_MSG_SIZE":     "50",
@@ -397,7 +307,6 @@ func TestEnvVarParsing(t *testing.T) {
 				CdServer:              "cd:8443",
 				ManifestExportServer:  "mani:8443",
 				CdServerSecure:        true,
-				RolloutServer:         "rollout",
 				GKEProjectNumber:      "proj",
 				GKEBackendServiceID:   "backend",
 				GKEBackendServiceName: "serv-name",
@@ -431,7 +340,6 @@ func TestEnvVarParsing(t *testing.T) {
 				GitAuthorEmail: "git mail",
 
 				BatchClientTimeout:           22 * time.Minute,
-				MaxWaitDuration:              33 * time.Minute,
 				ApiEnableDespiteNoAuth:       true,
 				IapEnabled:                   true,
 				GrpcMaxRecvMsgSize:           50,
@@ -440,19 +348,6 @@ func TestEnvVarParsing(t *testing.T) {
 				RootAppsPointToBrackets:      true,
 			},
 			ExpectedError: nil,
-		},
-		{
-			Name: "invalid value for wait duration",
-			Environment: map[string]string{
-				"KUBERPULT_GIT_AUTHOR_NAME":  "git-name1",
-				"KUBERPULT_GIT_AUTHOR_EMAIL": "git-email2",
-
-				"KUBERPULT_MAX_WAIT_DURATION": "33",
-			},
-			ExpectedConfiguration: nil,
-			ExpectedError: errorMatcher.ContainsErrMatcher{
-				Messages: []string{"KUBERPULT_MAX_WAIT_DURATION", "33"},
-			},
 		},
 		{
 			Name: "invalid value for batch client timeout",

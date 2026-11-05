@@ -18,12 +18,3 @@ The manifest-repo-export-service uploads the following metrics to Datadog (if `m
 * `process_delay_seconds` - The duration between the earliest unprocessed event and `now` in seconds; 0 means everything has been processed;
 * `git_sync_unsynced` - Number of the applications that have unsynced git sync status;
 * `git_sync_failed` - Number of the applications that have failed git sync status;
-
-### `rollout-service` Metrics
-The rollout-service uploads the following metrics to datadog, if `rollout.enabled: true`:
-* `argo_events_fill_rate` - Number of events that are currently in the argo events queue divided by its capacity;
-* `kuberpult_events_fill_rate` - Number of events that are currently in the kuberpult events queue divided by its capacity;
-* `dora_failed_events` - Number of failed attempts to send dora events to revolution;
-* `dora_successful_events` - Number of successful attempts to send dora events to revolution;
-* `argo_discarded_events` - Number of argo events that were discarded because the channel was full;
-

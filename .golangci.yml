@@ -22,13 +22,6 @@ linters:
       - linters: [misspell]
         path: "services/manifest-repo-export-service/pkg/cmd/server.go"
         text: "MINIMIZE"
-      # rollout-service misspellings are not fixed intentionally (US-English proto/gRPC names) because the service is deprecated
-      - linters: [misspell]
-        path: "services/rollout-service/pkg/service/broadcast.go"
-        text: "wheter"
-      - linters: [misspell]
-        path: "services/rollout-service"
-        text: "SUCCESFUL"
   settings:
     gocritic:
       disable-all: true

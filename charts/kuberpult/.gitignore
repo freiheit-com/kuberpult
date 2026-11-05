@@ -8,5 +8,4 @@ argocd_adminpw.txt
 Chart.lock
 emptyfile
 charts/*
-kind-test-logs/
 helm_lint.log

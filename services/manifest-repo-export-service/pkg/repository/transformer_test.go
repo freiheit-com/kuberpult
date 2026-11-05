@@ -44,23 +44,9 @@ import (
 )
 
 const (
-	envDev         = "dev"
 	envAcceptance  = "acceptance"
 	envAcceptance2 = "acceptance2"
 )
-
-// Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
-type errMatcher struct {
-	msg string
-}
-
-func (e errMatcher) Error() string {
-	return e.msg
-}
-
-func (e errMatcher) Is(err error) bool {
-	return e.Error() == err.Error()
-}
 
 func setupRepositoryTestWithPath(t *testing.T, argoRenderOpts ...func(*argocd.RenderOptions)) (Repository, string) {
 	ctx := context.Background()

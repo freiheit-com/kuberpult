@@ -10,12 +10,6 @@ function print() {
 
 print 'installing kuberpult helm chart...'
 
-portForwardAndWait "default" service/argocd-server 5001 443
-token=$(argocd account generate-token --server localhost:5001 --account kuberpult --insecure)
-
-echo "argocd token: $token" # this is only ok because this script is only used locally for a temporary cluster. Never do this on production.
-
-
 GIT_NAMESPACE=${GIT_NAMESPACE:-git}
 ARGO_NAMESPACE=${ARGO_NAMESPACE:-default}
 VERSION=$(git describe --always --long --tags || echo 0.0.1)
@@ -44,34 +38,6 @@ cd:
       memory: 200Mi
       cpu: 0.05
 frontend:
-  resources:
-    limits:
-      memory: 200Mi
-      cpu: 0.05
-    requests:
-      memory: 200Mi
-      cpu: 0.05
-rollout:
-  experimentalBrackets:
-    enabled: true
-    clusters:
-      development: false
-      staging: false
-      aa-aa-test-dev-1: false
-  enabled: true
-  grpcMaxRecvMsgSize: 4
-  resources:
-    limits:
-      memory: 200Mi
-      cpu: 0.05
-    requests:
-      memory: 200Mi
-      cpu: 0.05
-  persistArgoEvents: true
-  argoEventsBatchSize: 1
-reposerver:
-  enabled: true
-  grpcMaxRecvMsgSize: 4
   resources:
     limits:
       memory: 200Mi
@@ -112,15 +78,6 @@ ssh:
 $(sed -e "s/^/    /" <../../services/cd-service/client)
   known_hosts: |
 $(sed -e "s/^/    /" <../../services/cd-service/known_hosts)
-argocd:
-  token: "$token"
-  server: "https://argocd-server.${ARGO_NAMESPACE}.svc.cluster.local:443"
-  insecure: true
-  refresh:
-    enabled: true
-manageArgoApplications:
-  enabled: true
-  filter: "*"
 datadogProfiling:
   enabled: false
   apiKey: invalid-3

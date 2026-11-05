@@ -2990,46 +2990,6 @@ func TestMinimizeCommitsGeneration(t *testing.T) {
 	}
 }
 
-func getTransformer(i int) (Transformer, error) {
-	// transformerType := i % 5
-	// switch transformerType {
-	// case 0:
-	// case 1:
-	// case 2:
-	return &CreateApplicationVersion{
-		Application: "foo",
-		Manifests: map[types.EnvName]string{
-			"development": fmt.Sprintf("%d", i),
-		},
-		Version:               uint64(i),
-		WriteCommitData:       true,
-		TransformerEslVersion: db.TransformerID(i),
-		TransformerMetadata: TransformerMetadata{
-			AuthorName:  "test-author",
-			AuthorEmail: "test@example.com",
-		},
-	}, nil
-	// case 3:
-	// 	return &ErrorTransformer{}, TransformerError
-	// case 4:
-	// 	return &InvalidJsonTransformer{}, InvalidJson
-	// }
-	// return &ErrorTransformer{}, TransformerError
-}
-
-type TestStruct struct {
-	Version  uint64
-	Revision uint64
-}
-
-func convertToSet(list []types.ReleaseNumbers) map[TestStruct]bool {
-	set := make(map[TestStruct]bool)
-	for _, i := range list {
-		set[TestStruct{Version: *i.Version, Revision: i.Revision}] = true
-	}
-	return set
-}
-
 // default values for tests
 func testRenderOptions() *argocd.RenderOptions {
 	return &argocd.RenderOptions{
@@ -3037,67 +2997,6 @@ func testRenderOptions() *argocd.RenderOptions {
 		RenderBrackets:  false,
 		PointToBrackets: false,
 	}
-}
-
-func setupRepositoryBenchmarkWithPath(t *testing.B) (Repository, string) {
-	ctx := context.Background()
-	migrationsPath, err := db.CreateMigrationsPath(4)
-	if err != nil {
-		t.Fatalf("CreateMigrationsPath error: %v", err)
-	}
-
-	dbConfig, err := db.ConnectToPostgresContainer(ctx, t, migrationsPath, fmt.Sprintf("%s_%d", t.Name(), t.N))
-	if err != nil {
-		t.Fatalf("CreateMigrationsPath error: %v", err)
-	}
-
-	dir := t.TempDir()
-	remoteDir := path.Join(dir, "remote")
-	localDir := path.Join(dir, "local")
-	cmd := exec.Command("git", "init", "--bare", remoteDir)
-	err = cmd.Start()
-	if err != nil {
-		t.Errorf("could not start git init")
-		return nil, ""
-	}
-	err = cmd.Wait()
-	if err != nil {
-		t.Errorf("could not wait for git init to finish")
-		return nil, ""
-	}
-
-	repoCfg := RepositoryConfig{
-		URL:                 remoteDir,
-		Path:                localDir,
-		CommitterEmail:      "kuberpult@freiheit.com",
-		CommitterName:       "kuberpult",
-		ArgoCdGenerateFiles: true,
-		ReleaseVersionLimit: 2,
-		ArgoRenderOptions:   testRenderOptions(),
-	}
-
-	if dbConfig != nil {
-
-		migErr := db.RunDBMigrations(ctx, *dbConfig)
-		if migErr != nil {
-			t.Fatal(migErr)
-		}
-
-		dbHandler, err := db.Connect(ctx, *dbConfig)
-		if err != nil {
-			t.Fatal(err)
-		}
-		repoCfg.DBHandler = dbHandler
-	}
-
-	repo, err := New(
-		testutilauth.MakeTestContext(),
-		repoCfg,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return repo, remoteDir
 }
 
 type Gauge struct {

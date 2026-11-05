@@ -28,17 +28,16 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/services/frontend-service/pkg/config"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/testing/protocmp"
 )
 
 type mockReleaseTrainPrognosisServiceClient struct {
@@ -1849,183 +1848,6 @@ func TestServer_Handle(t *testing.T) {
 			}
 			if d := cmp.Diff(tt.expectedGetManifestRequest, versionClient.request, protocmp.Transform()); d != "" {
 				t.Errorf("get manifests request mismatch: %s", d)
-			}
-		})
-	}
-}
-
-type mockRolloutClient struct {
-	api.RolloutServiceClient
-	request  *api.GetStatusRequest
-	response *api.GetStatusResponse
-}
-
-func (m *mockRolloutClient) GetStatus(_ context.Context, in *api.GetStatusRequest, _ ...grpc.CallOption) (*api.GetStatusResponse, error) {
-	m.request = in
-	return m.response, nil
-}
-
-func TestServer_Rollout(t *testing.T) {
-	tests := []struct {
-		name                  string
-		req                   *http.Request
-		KeyRing               openpgp.KeyRing
-		signature             string
-		AzureAuthEnabled      bool
-		Config                config.ServerConfig
-		statusResponse        *api.GetStatusResponse
-		expectedResp          *http.Response
-		expectedBody          string
-		expectedStatusRequest *api.GetStatusRequest
-	}{
-		{
-			name: "propagates the environment group",
-			req: &http.Request{
-				Method: http.MethodPost,
-				URL: &url.URL{
-					Path: "/environment-groups/development/rollout-status",
-				},
-				Header: http.Header{
-					"Content-Type": []string{"application/json"},
-				},
-				Body: io.NopCloser(strings.NewReader(`{}`)),
-			},
-			statusResponse: &api.GetStatusResponse{},
-
-			expectedResp: &http.Response{
-				StatusCode: http.StatusOK,
-			},
-			expectedBody: `{"status":"unknown","applications":[]}`,
-			expectedStatusRequest: &api.GetStatusRequest{
-				EnvironmentGroup: "development",
-			},
-		},
-		{
-			name: "propagates the team",
-			req: &http.Request{
-				Method: http.MethodPost,
-				URL: &url.URL{
-					Path: "/environment-groups/development/rollout-status",
-				},
-				Header: http.Header{
-					"Content-Type": []string{"application/json"},
-				},
-				Body: io.NopCloser(strings.NewReader(`{"team":"foo"}`)),
-			},
-			statusResponse: &api.GetStatusResponse{},
-
-			expectedResp: &http.Response{
-				StatusCode: http.StatusOK,
-			},
-			expectedBody: `{"status":"unknown","applications":[]}`,
-			expectedStatusRequest: &api.GetStatusRequest{
-				EnvironmentGroup: "development",
-				Team:             "foo",
-			},
-		},
-		{
-			name: "propagates the wait time",
-			req: &http.Request{
-				Method: http.MethodPost,
-				URL: &url.URL{
-					Path: "/environment-groups/development/rollout-status",
-				},
-				Header: http.Header{
-					"Content-Type": []string{"application/json"},
-				},
-				Body: io.NopCloser(strings.NewReader(`{"waitDuration":"1m"}`)),
-			},
-			statusResponse: &api.GetStatusResponse{},
-			Config: config.ServerConfig{
-				MaxWaitDuration: 2 * time.Minute,
-			},
-
-			expectedResp: &http.Response{
-				StatusCode: http.StatusOK,
-			},
-			expectedBody: `{"status":"unknown","applications":[]}`,
-			expectedStatusRequest: &api.GetStatusRequest{
-				EnvironmentGroup: "development",
-				WaitSeconds:      60,
-			},
-		},
-		{
-			name: "rejects high wait time",
-			req: &http.Request{
-				Method: http.MethodPost,
-				URL: &url.URL{
-					Path: "/environment-groups/development/rollout-status",
-				},
-				Header: http.Header{
-					"Content-Type": []string{"application/json"},
-				},
-				Body: io.NopCloser(strings.NewReader(`{"waitDuration":"10m"}`)),
-			},
-			statusResponse: &api.GetStatusResponse{},
-			Config: config.ServerConfig{
-				MaxWaitDuration: 2 * time.Minute,
-			},
-
-			expectedResp: &http.Response{
-				StatusCode: http.StatusBadRequest,
-			},
-			expectedBody: "waitDuration is too high: 10m - maximum is 2m0s\n",
-		},
-		{
-			name: "rejects low wait time",
-			req: &http.Request{
-				Method: http.MethodPost,
-				URL: &url.URL{
-					Path: "/environment-groups/development/rollout-status",
-				},
-				Header: http.Header{
-					"Content-Type": []string{"application/json"},
-				},
-				Body: io.NopCloser(strings.NewReader(`{"waitDuration":"1ns"}`)),
-			},
-			statusResponse: &api.GetStatusResponse{},
-			Config: config.ServerConfig{
-				MaxWaitDuration: 2 * time.Minute,
-			},
-
-			expectedResp: &http.Response{
-				StatusCode: http.StatusBadRequest,
-			},
-			expectedBody: "waitDuration is shorter than one second: 1ns\n",
-		},
-	}
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			rolloutClient := &mockRolloutClient{response: tt.statusResponse}
-			s := Server{
-				RolloutClient: rolloutClient,
-				KeyRing:       tt.KeyRing,
-				AzureAuth:     tt.AzureAuthEnabled,
-				Config:        tt.Config,
-			}
-
-			w := httptest.NewRecorder()
-			if tt.req.URL.Path[:3] == "api" {
-				s.HandleAPI(w, tt.req)
-			} else {
-				s.Handle(w, tt.req)
-			}
-			resp := w.Result()
-
-			if d := cmp.Diff(tt.expectedResp, resp, cmpopts.IgnoreFields(http.Response{}, "Status", "Proto", "ProtoMajor", "ProtoMinor", "Header", "Body", "ContentLength")); d != "" {
-				t.Errorf("response mismatch: %s", d)
-			}
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				t.Errorf("error reading response body: %s", err)
-			}
-			if d := cmp.Diff(tt.expectedBody, string(body)); d != "" {
-				t.Errorf("response body mismatch:\ngot:  %s\nwant: %s\ndiff: \n%s", string(body), tt.expectedBody, d)
-
-			}
-			if d := cmp.Diff(tt.expectedStatusRequest, rolloutClient.request, protocmp.Transform()); d != "" {
-				t.Errorf("create get status request mismatch: %s", d)
 			}
 		})
 	}

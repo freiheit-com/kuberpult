@@ -38,7 +38,6 @@ import (
 
 type Server struct {
 	BatchClient                 api.BatchServiceClient
-	RolloutClient               api.RolloutServiceClient
 	VersionClient               api.VersionServiceClient
 	ReleaseTrainPrognosisClient api.ReleaseTrainPrognosisServiceClient
 	CommitDeploymentsClient     api.CommitDeploymentServiceClient

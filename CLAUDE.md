@@ -8,14 +8,12 @@ Kuberpult is a Kubernetes deployment management system that manages *what gets d
 
 ## Architecture
 
-Five Go microservices plus shared packages:
+Three Go microservices plus shared packages:
 
 - **cd-service** — Core logic: release management, deployment, locks, release trains. Exposes gRPC only (HTTP port serves only a `/health` check).
 - **manifest-repo-export-service** — Reads DB state, pushes manifest changes to the git repository that ArgoCD watches.
 - **frontend-service** — REST/gRPC-web adapter backing the React web UI.
-- **rollout-service** — Coordinates direct connection to Argo CD via grpc.
-- **reposerver-service** — Manages repository synchronization, implements Argo CD grpc endpoints.
-- **pkg/** — Shared packages: `api/` (protobuf), `db/`, `auth/`, `logger/`, `metrics/`, `tracing/`, `testutil/`, `migrations/`.
+- **pkg/** — Shared packages: `api/` (protobuf), `db/`, `auth/`, `logger/`, `metrics/`, `tracing/`, `testutil/`.
 
 Services communicate via gRPC (port 8443 internal, 8080 HTTP). All service config comes from environment variables. PostgreSQL is the only supported database; migrations run automatically on startup.
 
@@ -206,14 +204,3 @@ If we filter by something else, an ORDER BY and LIMIT 1 is required.
 2) Those with potentially a lot of results. These must have an ORDER BY and LIMIT N.
 
 The goal is to make all queries deterministic, including the order of the result.
-
-
-## Kind tests
-The tests in test/kind-brackets are using the cd-, frontend-, reposerver-,
-and rollout-service.
-They do NOT use the manifest-repo-export.
-This means the only service communicating with Argo CD in any way is the
-rollout-service.
-
-## Rollout Service
-Details about the rollout-service are in a package-level comment in argo.go.

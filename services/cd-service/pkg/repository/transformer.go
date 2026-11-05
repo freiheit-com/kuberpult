@@ -1023,32 +1023,6 @@ func (c *UndeployApplication) GetEslVersion() db.TransformerID {
 	return c.TransformerEslVersion
 }
 
-// bracketEmptyInEnv reports whether no app currently assigned to bracketName has a live
-// deployment in env. Used after an undeploy / delete-env to decide whether the bracket's
-// Argo Application (<env>-<bracketName>) must be cascade-deleted to remove its workload:
-// bracket Argo apps run with AllowEmpty=false, so Argo CD's auto-sync no longer prunes a
-// bracket down to empty — kuberpult must drive that whole-bracket removal explicitly via
-// the rollout_should_undeploy_cascade table.
-func bracketEmptyInEnv(ctx context.Context, state *State, transaction *sql.Tx, bracketName types.ArgoBracketName, env types.EnvName) (bool, error) {
-	bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, state.DBHandler, transaction)
-	if err != nil {
-		return false, err
-	}
-	if bracketRow == nil {
-		return true, nil
-	}
-	for _, app := range bracketRow.AllBracketsJsonBlob.BracketMap[bracketName] {
-		deployment, err := state.DBHandler.DBSelectLatestDeployment(ctx, transaction, app, env)
-		if err != nil {
-			return false, err
-		}
-		if deployment != nil && deployment.ReleaseNumbers.Version != nil {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
 func (u *UndeployApplication) Transform(
 	ctx context.Context,
 	state *State,
@@ -1122,15 +1096,6 @@ func (u *UndeployApplication) Transform(
 		if err != nil {
 			return "", err
 		}
-		// Signal the rollout-service to cascade-delete the Argo Application
-		// that managed this app's workload. argo_app is the kuberpult app
-		// name (which matches the com.freiheit.kuberpult/application annotation
-		// on the Argo Application); the rollout-service consumer constructs
-		// the Argo CD Application name as <env>-<argo_app>.
-		err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(u.Application), env, false, u.TransformerEslVersion)
-		if err != nil {
-			return "", fmt.Errorf("UndeployApplication: could not signal cascade-delete for env '%s': %w", env, err)
-		}
 	}
 	dbApp, err := state.DBHandler.DBSelectExistingApp(ctx, transaction, u.Application)
 	if err != nil {
@@ -1152,24 +1117,6 @@ func (u *UndeployApplication) Transform(
 	err = db.HandleDeleteAppFromBracket(ctx, state.DBHandler, transaction, u.Application, dbApp.ArgoBracket, *now, u.GetEslVersion())
 	if err != nil {
 		return "", fmt.Errorf("UndeployApplication: could not handle bracket deletion for app '%s': %v", u.Application, err)
-	}
-
-	// If removing this app emptied its bracket in an env, the bracket's Argo app
-	// (<env>-<bracket>) must be cascade-deleted too — its workload is no longer
-	// pruned by Argo auto-sync (AllowEmpty=false on brackets). is_bracket=true.
-	if dbApp.ArgoBracket != "" {
-		for _, env := range undeployedEnvs {
-			empty, err := bracketEmptyInEnv(ctx, state, transaction, dbApp.ArgoBracket, env)
-			if err != nil {
-				return "", fmt.Errorf("UndeployApplication: could not check bracket emptiness for env '%s': %w", env, err)
-			}
-			if empty {
-				err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(dbApp.ArgoBracket), env, true, u.TransformerEslVersion)
-				if err != nil {
-					return "", fmt.Errorf("UndeployApplication: could not signal bracket cascade-delete for env '%s': %w", env, err)
-				}
-			}
-		}
 	}
 
 	err = state.DBHandler.DBClearReleases(ctx, transaction, u.Application)
@@ -1285,34 +1232,6 @@ func (u *DeleteEnvFromApp) Transform(
 	}); err != nil {
 		return "", fmt.Errorf("DeleteEnvFromApp: could not delete deployment for app '%s' env '%s': %w", u.Application, envName, err)
 	}
-	// Signal the rollout-service to cascade-delete the Argo Application that
-	// managed this app on this env. See UndeployApplication for the schema note.
-	err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(u.Application), envName, false, u.TransformerEslVersion)
-	if err != nil {
-		return "", fmt.Errorf("DeleteEnvFromApp: could not signal cascade-delete: %w", err)
-	}
-
-	// Removing this env may have emptied the app's bracket in this env (no app in the
-	// bracket is deployed here anymore). If so, cascade-delete the bracket's Argo app
-	// (<env>-<bracket>) too — its workload is no longer pruned by Argo auto-sync
-	// (AllowEmpty=false on brackets). is_bracket=true.
-	dbApp, err := state.DBHandler.DBSelectApp(ctx, transaction, u.Application)
-	if err != nil {
-		return "", fmt.Errorf("DeleteEnvFromApp: could not select app '%s': %w", u.Application, err)
-	}
-	if dbApp != nil && dbApp.ArgoBracket != "" {
-		empty, err := bracketEmptyInEnv(ctx, state, transaction, dbApp.ArgoBracket, envName)
-		if err != nil {
-			return "", fmt.Errorf("DeleteEnvFromApp: could not check bracket emptiness for env '%s': %w", envName, err)
-		}
-		if empty {
-			err = state.DBHandler.UpsertRolloutUndeployCascade(ctx, transaction, string(dbApp.ArgoBracket), envName, true, u.TransformerEslVersion)
-			if err != nil {
-				return "", fmt.Errorf("DeleteEnvFromApp: could not signal bracket cascade-delete: %w", err)
-			}
-		}
-	}
-
 	t.DeleteEnvFromApp(u.Application, envName)
 	return fmt.Sprintf("Environment '%v' was removed from application '%v' successfully.", u.Environment, u.Application), nil
 }

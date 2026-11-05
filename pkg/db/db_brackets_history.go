@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -48,13 +47,6 @@ type BracketRow struct {
 }
 
 type AppNames = []types.AppName
-
-func SortAppNames(appNames AppNames) AppNames {
-	sortedAppNames := make(AppNames, len(appNames))
-	copy(sortedAppNames, appNames)
-	slices.SortFunc(sortedAppNames, func(a, b types.AppName) int { return strings.Compare(string(a), string(b)) })
-	return sortedAppNames
-}
 
 type BracketJsonBlob struct {
 	BracketMap map[types.ArgoBracketName]AppNames
@@ -210,27 +202,6 @@ func executeSelectQuery(ctx context.Context, tx *sql.Tx, selectQuery string, arg
 		return nil, err
 	}
 	return result, nil
-}
-
-// DBSelectBracketHistoryPrevious returns the bracket snapshot immediately before
-// the latest one (the second-newest row). It is used to detect which bracket an
-// app just left: comparing the previous snapshot with the latest reveals brackets
-// the app moved out of, so the rollout-service can delete their now-orphaned Argo
-// app (bracket emptied) or refresh its spec (bracket still has other members).
-func DBSelectBracketHistoryPrevious(ctx context.Context, h *DBHandler, tx *sql.Tx) (result *BracketRow, err error) {
-	span, ctx := tracer.StartSpanFromContext(ctx, "DBSelectBracketHistoryPrevious")
-	defer func() {
-		span.Finish(tracer.WithError(err))
-	}()
-
-	selectQuery := h.AdaptQuery(`
-		SELECT created_at, all_brackets, source_transformer_esl_id
-		FROM ` + bracketsHistoryTable + `
-		ORDER BY esl_id DESC 	-- order by id
-		LIMIT 1 				-- take only one entry
-		OFFSET 1 				-- skip the latest, take the one before it
-	;`)
-	return executeSelectQuery(ctx, tx, selectQuery)
 }
 
 // DBSelectBracketHistoryAtOrBeforeId returns the bracket_history row from the given maxEslVersion
