@@ -733,3 +733,68 @@ func TestHandleBracketDoubleDeletion(t *testing.T) {
 		})
 	}
 }
+
+func TestIsAppInBracket(t *testing.T) {
+	row := &BracketRow{AllBracketsJsonBlob: BracketJsonBlob{BracketMap: map[types.ArgoBracketName]AppNames{
+		"bracket1": {"app1", "app2"},
+		"bracket2": {"app3"},
+	}}}
+	tcs := []struct {
+		Name        string
+		Row         *BracketRow
+		App         types.AppName
+		BracketName types.ArgoBracketName
+		Expected    bool
+	}{
+		{
+			Name:        "nil row",
+			Row:         nil,
+			App:         "app1",
+			BracketName: "bracket1",
+			Expected:    false,
+		},
+		{
+			Name:        "app in bracket",
+			Row:         row,
+			App:         "app2",
+			BracketName: "bracket1",
+			Expected:    true,
+		},
+		{
+			Name:        "app in other bracket",
+			Row:         row,
+			App:         "app3",
+			BracketName: "bracket1",
+			Expected:    false,
+		},
+		{
+			Name:        "app does not exist",
+			Row:         row,
+			App:         "app4",
+			BracketName: "bracket1",
+			Expected:    false,
+		},
+		{
+			Name:        "bracket does not exist",
+			Row:         row,
+			App:         "app1",
+			BracketName: "bracket3",
+			Expected:    false,
+		},
+		{
+			Name:        "row with nil bracket map",
+			Row:         &BracketRow{},
+			App:         "app1",
+			BracketName: "bracket1",
+			Expected:    false,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			actual := IsAppInBracket(tc.Row, tc.App, tc.BracketName)
+			if diff := testutil.CmpDiff(tc.Expected, actual); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}

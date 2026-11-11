@@ -71,12 +71,22 @@ func ResolveBracketName(app types.AppName, bracketName types.ArgoBracketName) ty
 	return bracketName
 }
 
+func IsAppInBracket(row *BracketRow, app types.AppName, bracketName types.ArgoBracketName) bool {
+	if row == nil {
+		return false
+	}
+	return slices.Contains(row.AllBracketsJsonBlob.BracketMap[bracketName], app)
+}
+
 // HandleBracketsHistoryUpdate assigns app to newBracketName in the bracket history, removing it from any
 // previous bracket. newBracketName must already be resolved (see ResolveBracketName).
 func HandleBracketsHistoryUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, app types.AppName, newBracketName types.ArgoBracketName, now time.Time, transformerEslId TransformerID) error {
 	bracketRow, err := DBSelectBracketHistoryLatest(ctx, h, tx)
 	if err != nil {
 		return fmt.Errorf("HandleBracketsUpdate could not get newBracketName by timestamp: %w", err)
+	}
+	if IsAppInBracket(bracketRow, app, newBracketName) {
+		return nil // bracket is the same
 	}
 	if bracketRow == nil {
 		bracketRow = &BracketRow{
@@ -91,10 +101,6 @@ func HandleBracketsHistoryUpdate(ctx context.Context, h *DBHandler, tx *sql.Tx, 
 	for oldBracketName, appNames := range bracketRow.AllBracketsJsonBlob.BracketMap {
 		oldIndex := slices.Index(appNames, app)
 		if oldIndex >= 0 { // found the app
-			if newBracketName == oldBracketName {
-				// same bracket, nothing to do
-				return nil
-			}
 			// we found the app but in a different bracket
 			// 1) remove app from old bracket:
 			appNames = slices.Delete(appNames, oldIndex, oldIndex+1)
