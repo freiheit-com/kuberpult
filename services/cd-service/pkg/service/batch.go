@@ -529,16 +529,18 @@ func (d *BatchServer) ProcessBatch(
 		results = append(results, result)
 	}
 
-	requireBracketIsolation, err := transformersRequireBracketIsolation(ctx, d.DBHandler, transformers)
-	if err != nil {
-		return nil, err
-	}
-	if requireBracketIsolation {
-		// if brackets change, then we isolate them:
-		requiresIsolation = true
-	} else {
-		// if they don't change, we tell the transformer to err if they detect a change:
-		requireBracketsUnchanged(transformers)
+	if !requiresIsolation {
+		requireBracketIsolation, err := transformersRequireBracketIsolation(ctx, d.DBHandler, transformers)
+		if err != nil {
+			return nil, err
+		}
+		if requireBracketIsolation {
+			// if brackets change, then we isolate them:
+			requiresIsolation = true
+		} else {
+			// if they don't change, we tell the transformer to err if they detect a change:
+			requireBracketsUnchanged(transformers)
+		}
 	}
 
 	// Add information about the transformer types for the root-level span of ProcessBatch
