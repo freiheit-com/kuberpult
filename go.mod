@@ -4,9 +4,9 @@ go 1.25.0
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.8.3
-	github.com/MicahParks/keyfunc/v2 v2.1.0
+	github.com/MicahParks/keyfunc/v3 v3.9.2
 	github.com/blendle/zapdriver v1.3.1
-	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/cenkalti/backoff/v7 v7.0.3
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/go-git/go-billy/v5 v5.8.0
 	github.com/gogo/protobuf v1.3.2
@@ -14,11 +14,11 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.4
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/improbable-eng/grpc-web v0.15.0
 	github.com/kylelemons/godebug v1.1.0
-	github.com/lestrrat-go/jwx/v2 v2.1.6
+	github.com/lestrrat-go/jwx/v4 v4.6.0
 	github.com/lib/pq v1.11.2
 	// versions for libgit2 should not be updated
 	github.com/libgit2/git2go/v34 v34.0.0
@@ -35,7 +35,7 @@ require (
 	google.golang.org/api v0.236.0
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
-	gopkg.in/DataDog/dd-trace-go.v1 v1.74.8
+	gopkg.in/DataDog/dd-trace-go.v2 v2.12.0
 	// versions for k8s dependencies should not be updated
 	k8s.io/apimachinery v0.33.1
 	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979 // indirect
