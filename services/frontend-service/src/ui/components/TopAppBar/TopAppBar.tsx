@@ -26,6 +26,7 @@ import {
     useAllWarningsAllApps,
     useApplicationsFilteredAndSorted,
     useKuberpultVersion,
+    useCdServiceVersion,
 } from '../../utils/store';
 import { Warning } from '../../../api/api';
 import {
@@ -52,6 +53,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
     const teamsParam = (params.get('teams') || '').split(',').filter((val) => val !== '');
 
     const version = useKuberpultVersion() || '0.0.0-local';
+    const cdServiceVersion = useCdServiceVersion() || '0.0.0-local';
     const cookieValue = document.cookie
         .split('; ')
         .find((row) => row.startsWith('kuberpult.oauth='))
@@ -159,6 +161,7 @@ export const TopAppBar: React.FC<TopAppBarProps> = (props) => {
                         <div className="mdc-top-app-bar__section mdc-top-app-bar__section--align-start">
                             <span className="mdc-top-app-bar__title">
                                 Kuberpult <KuberpultGitHubLink version={version} />
+                                <span className="top-app-bar__version-info"> (FE: {version}, CD: {cdServiceVersion})</span>
                             </span>
                         </div>
                         {renderedAppFilter}

@@ -447,10 +447,11 @@ message GetFrontendConfigResponse {
   Auth auth_config = 2;
   string source_repo_url = 3;
   string kuberpult_version = 4;
-  string branch = 5;
-  string manifest_repo_url = 6;
-  bool revisions_enabled = 7;
-  bool root_apps_point_to_brackets = 8;
+  string cd_service_version = 5;
+  string branch = 6;
+  string manifest_repo_url = 7;
+  bool revisions_enabled = 8;
+  bool root_apps_point_to_brackets = 9;
 }
 
 service VersionService {
