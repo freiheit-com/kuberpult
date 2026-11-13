@@ -87,6 +87,50 @@ For details on how to fill the repo, see the
 
 - the `cd-service` is available at `localhost:8080`. And Kuberpult ui is available at `localhost:3000`
 
+## Dex login (with docker-compose)
+
+Some behaviour only happens when logging in via dex, so it cannot be reproduced with the setup above
+(which has no authentication at all). To run kuberpult with a local dex:
+
+```
+make kuberpult-dex
+```
+
+This starts a dex container next to the other services, configured in
+`infrastructure/docker/dex/dex-config-template.yaml` with one static user:
+
+| email                  | password   |
+|------------------------|------------|
+| `dex-user@example.com` | `password` |
+
+Then:
+
+- Open `http://localhost:8081/login` to log in (or your `KUBERPULT_PORT_FRONTEND_HTTP`, if you have
+  an `.env.local`). Use the port of the frontend-service, which serves the ui that is built into its
+  image - not the ui dev server on port `3000`, because the dev server does not forward the
+  redirects of the login flow. The login sets the cookie `kuberpult.oauth`, which is valid for all
+  ports, so afterwards the ui on port `3000` works as well.
+- Nothing forces you to log in. Only the rest endpoints redirect to the login page, so the ui shows
+  "Guest" in the top right corner until you visited `/login`.
+- The permissions of the user are in `infrastructure/docker/dex/policy.csv`.
+- The scripts in `infrastructure/scripts/create-testdata` do not send a dex token, so they only work
+  without dex. Either create your test data with `make kuberpult` first (the database is persisted,
+  so it is still there after switching to `make kuberpult-dex`), or add an `Authorization` header as
+  described below.
+
+To get a token without a browser, e.g. to call kuberpult with curl:
+
+```
+TOKEN=$(curl -s -u kuberpult:kuberpult-secret \
+  -d grant_type=password -d username=dex-user@example.com -d password=password \
+  -d scope="openid email profile groups" \
+  http://localhost:5556/dex/token | jq -r .id_token)
+
+curl -X PUT -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" \
+  -d '{"message": "test app lock"}' \
+  "http://localhost:8081/environments/staging/applications/my-app/locks/my-lock"
+```
+
 ## GRCP Calls (with docker-compose setup)
 
 Most calls can be made directly from the UI.

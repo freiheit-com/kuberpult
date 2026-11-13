@@ -127,6 +127,11 @@ endif
 kuberpult: prepare-compose prepare-git prepare-pgp compose-down
 	docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.persist.yml up
 
+# Same as `kuberpult`, but with a local dex for authentication.
+# See "Dex login (with docker-compose)" in README_DEVELOPERS.md
+kuberpult-dex: prepare-compose prepare-git prepare-pgp compose-down
+	docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.persist.yml -f docker-compose.dex.yml up
+
 reset-db: compose-down
 	$(COMPOSE_CMD) -f docker-compose.persist.yml down -v
 
