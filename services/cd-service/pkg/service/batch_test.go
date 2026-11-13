@@ -22,7 +22,13 @@ import (
 	"fmt"
 	"os/exec"
 	"path"
+	"sync"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	api "github.com/freiheit-com/kuberpult/pkg/api/v1"
 	"github.com/freiheit-com/kuberpult/pkg/auth"
@@ -33,10 +39,6 @@ import (
 	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
 	"github.com/freiheit-com/kuberpult/pkg/types"
 	"github.com/freiheit-com/kuberpult/services/cd-service/pkg/repository"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/testing/protocmp"
 )
 
 // Used to compare two error message strings, needed because errors.Is(fmt.Errorf(text),fmt.Errorf(text)) == false
@@ -529,6 +531,7 @@ func TestBatchServiceErrors(t *testing.T) {
 			})
 			svc := &BatchServer{
 				Repository: repo,
+				DBHandler:  repo.State().DBHandler,
 			}
 			response, processErr := svc.ProcessBatch(
 				testutilauth.MakeTestContext(),
@@ -607,6 +610,7 @@ func TestBatchServiceLimit(t *testing.T) {
 			})
 			svc := &BatchServer{
 				Repository: repo,
+				DBHandler:  repo.State().DBHandler,
 			}
 			_, err = svc.ProcessBatch(
 				testutilauth.MakeTestContext(),
@@ -816,6 +820,7 @@ func TestReleaseTrain(t *testing.T) {
 			})
 			svc := &BatchServer{
 				Repository: repo,
+				DBHandler:  repo.State().DBHandler,
 			}
 			resp, err := svc.ProcessBatch(
 				testutilauth.MakeTestContext(),
@@ -1082,6 +1087,7 @@ func TestCreateEnvironmentTrain(t *testing.T) {
 			})
 			svc := &BatchServer{
 				Repository: repo,
+				DBHandler:  repo.State().DBHandler,
 			}
 			resp, err := svc.ProcessBatch(
 				testutilauth.MakeTestContext(),
@@ -1217,6 +1223,192 @@ func TestActiveActiveEnvironmentNames(t *testing.T) {
 			isValid := err == nil
 			if isValid != tc.valid {
 				t.Errorf("Invalid environment: %v, %v", tc.InputEnvConfig, err)
+			}
+		})
+	}
+}
+
+func createReleaseBatchRequest(app types.AppName) *api.BatchRequest {
+	return &api.BatchRequest{
+		Actions: []*api.BatchAction{
+			{
+				Action: &api.BatchAction_CreateRelease{
+					CreateRelease: &api.CreateReleaseRequest{
+						Application: string(app),
+						Team:        "team",
+						Manifests:   map[string]string{"dev": "manifest"},
+						Version:     1,
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestProcessBatchConcurrentBracketChanges(t *testing.T) {
+	tcs := []struct {
+		Name    string
+		NumApps int
+	}{
+		{
+			Name:    "many new apps are created in parallel",
+			NumApps: 30,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			// GIVEN
+			repo, err := setupRepositoryTestWithDB(t)
+			if err != nil {
+				t.Fatalf("error setting up repository test: %v", err)
+			}
+			ctx := testutilauth.MakeTestContext()
+			dbHandler := repo.State().DBHandler
+
+			err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
+				_, _, _, applyErr := repo.ApplyTransformersInternal(ctx, transaction, &repository.CreateEnvironment{
+					Environment: "dev",
+					Config:      config.EnvironmentConfig{Upstream: &config.EnvironmentConfigUpstream{Latest: true}},
+				})
+				if applyErr != nil && applyErr.TransformerError != nil {
+					return applyErr.TransformerError
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatalf("error applying setup transformers: %v", err)
+			}
+
+			svc := &BatchServer{
+				Repository: repo,
+				DBHandler:  dbHandler,
+				Config:     BatchServerConfig{LockType: LockTypeGo},
+			}
+
+			// WHEN n requests are made in parallel
+			var wg sync.WaitGroup
+			responses := make([]*api.BatchResponse, tc.NumApps)
+			errs := make([]error, tc.NumApps)
+			for i := range tc.NumApps {
+				app := types.AppName(fmt.Sprintf("app-%d", i))
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					responses[i], errs[i] = svc.ProcessBatch(testutilauth.MakeTestContext(), createReleaseBatchRequest(app))
+				}()
+			}
+			wg.Wait()
+
+			for i := range tc.NumApps {
+				if errs[i] != nil {
+					t.Errorf("release %d returned an error: %v", i, errs[i])
+					continue
+				}
+				if responses[i].GetResults()[0].GetCreateReleaseResponse().GetSuccess() == nil {
+					t.Errorf("release %d did not succeed: %v", i, responses[i])
+				}
+			}
+
+			// THEN
+			row, err := db.WithTransactionT(dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.BracketRow,
+				error) {
+				return db.DBSelectBracketHistoryLatest(ctx, dbHandler, transaction)
+			})
+			if err != nil {
+				t.Fatalf("could not read bracket history: %v", err)
+			}
+
+			var actualApps []types.AppName
+			for _, apps := range row.AllBracketsJsonBlob.BracketMap {
+				actualApps = append(actualApps, apps...)
+			}
+			if len(actualApps) != tc.NumApps {
+				t.Errorf("expected %d apps in bracket history, got %d: %v", tc.NumApps, len(actualApps), actualApps)
+			}
+		})
+	}
+}
+
+func TestTransformerRequiresIsolation(t *testing.T) {
+	tcs := []struct {
+		Name        string
+		Transformer repository.Transformer
+		Expected    bool
+	}{
+		{
+			Name:        "delete env from app requires isolation",
+			Transformer: &repository.DeleteEnvFromApp{Application: "app"},
+			Expected:    true,
+		},
+		{
+			Name:        "delete env requires isolation",
+			Transformer: &repository.DeleteEnvironment{Environment: "dev"},
+			Expected:    true,
+		},
+		{
+			Name:        "undeploy application requires isolation",
+			Transformer: &repository.UndeployApplication{Application: "app"},
+			Expected:    true,
+		},
+		{
+			Name:        "release train without a commit hash does not require isolation",
+			Transformer: &repository.ReleaseTrain{CommitHash: ""},
+			Expected:    false,
+		},
+		{
+			Name:        "create application version does not require isolation",
+			Transformer: &repository.CreateApplicationVersion{Application: "app"},
+			Expected:    false,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			actual := transformerTypeRequiresIsolation(tc.Transformer)
+			if diff := testutil.CmpDiff(tc.Expected, actual); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTransformersRequireBracketIsolation(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		Transformers []repository.Transformer
+		Expected     bool
+	}{
+		{
+			Name:         "release train with a commit hash requires isolation",
+			Transformers: []repository.Transformer{&repository.ReleaseTrain{CommitHash: "abc123"}},
+			Expected:     true,
+		},
+		{
+			Name:         "release train without a commit hash does not require isolation",
+			Transformers: []repository.Transformer{&repository.ReleaseTrain{CommitHash: ""}},
+			Expected:     false,
+		},
+		{
+			Name:         "no transformers require isolation",
+			Transformers: []repository.Transformer{},
+			Expected:     false,
+		},
+		{
+			Name: "a release train with a commit hash short-circuits even with a CAV present",
+			Transformers: []repository.Transformer{
+				&repository.CreateApplicationVersion{Application: "app"},
+				&repository.ReleaseTrain{CommitHash: "abc123"},
+			},
+			Expected: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			actual, err := transformersRequireBracketIsolation(context.Background(), nil, tc.Transformers)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if diff := testutil.CmpDiff(tc.Expected, actual); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}
 		})
 	}

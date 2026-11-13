@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sync"
 
@@ -485,7 +486,6 @@ func (d *BatchServer) processAction(
 }
 
 var isolatedTransformersLock sync.RWMutex
-var isolatedTransformerNames = []db.EventType{db.EvtUndeployApplication, db.EvtDeleteEnvFromApp, db.EvtDeleteEnvironment}
 
 func (d *BatchServer) ProcessBatch(
 	ctx context.Context,
@@ -522,14 +522,25 @@ func (d *BatchServer) ProcessBatch(
 			return nil, err
 		}
 
-		transformerTypeName := transformer.GetDBEventType()
-		for _, isolatedTransformerName := range isolatedTransformerNames {
-			if isolatedTransformerName == transformerTypeName {
-				requiresIsolation = true
-			}
+		if transformerTypeRequiresIsolation(transformer) {
+			requiresIsolation = true
 		}
 		transformers = append(transformers, transformer)
 		results = append(results, result)
+	}
+
+	if !requiresIsolation {
+		requireBracketIsolation, err := transformersRequireBracketIsolation(ctx, d.DBHandler, transformers)
+		if err != nil {
+			return nil, err
+		}
+		if requireBracketIsolation {
+			// if brackets change, then we isolate them:
+			requiresIsolation = true
+		} else {
+			// if they don't change, we tell the transformer to err if they detect a change:
+			requireBracketsUnchanged(transformers)
+		}
 	}
 
 	// Add information about the transformer types for the root-level span of ProcessBatch
@@ -604,6 +615,58 @@ func (d *BatchServer) handleError(applyErr *repository.TransformerBatchApplyErro
 			return nil, applyErr.TransformerError
 		}
 		return nil, err
+	}
+}
+
+func transformerTypeRequiresIsolation(transformer repository.Transformer) bool {
+	transformerTypeName := transformer.GetDBEventType()
+	var isolatedTransformerNames = []db.EventType{db.EvtUndeployApplication, db.EvtDeleteEnvFromApp, db.EvtDeleteEnvironment}
+	for _, isolatedTransformerName := range isolatedTransformerNames {
+		if isolatedTransformerName == transformerTypeName {
+			return true
+		}
+	}
+
+	return false
+}
+
+func transformersRequireBracketIsolation(ctx context.Context, dbHandler *db.DBHandler, transformers []repository.Transformer) (bool, error) {
+	var cavs []*repository.CreateApplicationVersion
+	for _, transformer := range transformers {
+		if cav, ok := transformer.(*repository.CreateApplicationVersion); ok {
+			cavs = append(cavs, cav)
+		}
+		if releaseTrain, ok := transformer.(*repository.ReleaseTrain); ok && releaseTrain.CommitHash != "" {
+			// release trains into the past can revive apps, which is also a bracket change, and we want to isolate bracket changes
+			return true, nil
+		}
+	}
+	if len(cavs) == 0 {
+		return false, nil
+	}
+
+	row, err := db.WithTransactionT(dbHandler, ctx, db.DefaultNumRetries, true, func(ctx context.Context, transaction *sql.Tx) (*db.BracketRow, error) {
+		return db.DBSelectBracketHistoryLatest(ctx, dbHandler, transaction)
+	})
+	if err != nil {
+		return false, fmt.Errorf("could not read bracket history: %w", err)
+	}
+
+	for _, cav := range cavs {
+		bracketName := db.ResolveBracketName(cav.Application, cav.ArgoBracket)
+		if !db.IsAppInBracket(row, cav.Application, bracketName) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func requireBracketsUnchanged(transformers []repository.Transformer) {
+	for _, transformer := range transformers {
+		if cav, ok := transformer.(*repository.CreateApplicationVersion); ok {
+			cav.RequireBracketUnchanged = true
+		}
 	}
 }
 
