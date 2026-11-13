@@ -1336,12 +1336,12 @@ func TestTransformerRequiresIsolation(t *testing.T) {
 		Expected    bool
 	}{
 		{
-			Name:        "undeploy application requires isolation",
+			Name:        "delete env from app requires isolation",
 			Transformer: &repository.DeleteEnvFromApp{Application: "app"},
 			Expected:    true,
 		},
 		{
-			Name:        "undeploy application requires isolation",
+			Name:        "delete env requires isolation",
 			Transformer: &repository.DeleteEnvironment{Environment: "dev"},
 			Expected:    true,
 		},
@@ -1356,11 +1356,6 @@ func TestTransformerRequiresIsolation(t *testing.T) {
 			Expected:    false,
 		},
 		{
-			Name:        "release train with a commit hash requires isolation",
-			Transformer: &repository.ReleaseTrain{CommitHash: "abc123"},
-			Expected:    true,
-		},
-		{
 			Name:        "create application version does not require isolation",
 			Transformer: &repository.CreateApplicationVersion{Application: "app"},
 			Expected:    false,
@@ -1368,7 +1363,50 @@ func TestTransformerRequiresIsolation(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Name, func(t *testing.T) {
-			actual := transformerRequiresIsolation(tc.Transformer)
+			actual := transformerTypeRequiresIsolation(tc.Transformer)
+			if diff := testutil.CmpDiff(tc.Expected, actual); diff != "" {
+				t.Errorf("mismatch (-want, +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestTransformersRequireBracketIsolation(t *testing.T) {
+	tcs := []struct {
+		Name         string
+		Transformers []repository.Transformer
+		Expected     bool
+	}{
+		{
+			Name:         "release train with a commit hash requires isolation",
+			Transformers: []repository.Transformer{&repository.ReleaseTrain{CommitHash: "abc123"}},
+			Expected:     true,
+		},
+		{
+			Name:         "release train without a commit hash does not require isolation",
+			Transformers: []repository.Transformer{&repository.ReleaseTrain{CommitHash: ""}},
+			Expected:     false,
+		},
+		{
+			Name:         "no transformers require isolation",
+			Transformers: []repository.Transformer{},
+			Expected:     false,
+		},
+		{
+			Name: "a release train with a commit hash short-circuits even with a CAV present",
+			Transformers: []repository.Transformer{
+				&repository.CreateApplicationVersion{Application: "app"},
+				&repository.ReleaseTrain{CommitHash: "abc123"},
+			},
+			Expected: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			actual, err := transformersRequireBracketIsolation(context.Background(), nil, tc.Transformers)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if diff := testutil.CmpDiff(tc.Expected, actual); diff != "" {
 				t.Errorf("mismatch (-want, +got):\n%s", diff)
 			}

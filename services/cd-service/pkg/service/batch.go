@@ -522,18 +522,18 @@ func (d *BatchServer) ProcessBatch(
 			return nil, err
 		}
 
-		if transformerRequiresIsolation(transformer) {
+		if transformerTypeRequiresIsolation(transformer) {
 			requiresIsolation = true
 		}
 		transformers = append(transformers, transformer)
 		results = append(results, result)
 	}
 
-	bracketChanges, err := lockBracketChanges(ctx, d.DBHandler, transformers)
+	requireBracketIsolation, err := transformersRequireBracketIsolation(ctx, d.DBHandler, transformers)
 	if err != nil {
 		return nil, err
 	}
-	if bracketChanges {
+	if requireBracketIsolation {
 		// if brackets change, then we isolate them:
 		requiresIsolation = true
 	} else {
@@ -616,7 +616,7 @@ func (d *BatchServer) handleError(applyErr *repository.TransformerBatchApplyErro
 	}
 }
 
-func transformerRequiresIsolation(transformer repository.Transformer) bool {
+func transformerTypeRequiresIsolation(transformer repository.Transformer) bool {
 	transformerTypeName := transformer.GetDBEventType()
 	var isolatedTransformerNames = []db.EventType{db.EvtUndeployApplication, db.EvtDeleteEnvFromApp, db.EvtDeleteEnvironment}
 	for _, isolatedTransformerName := range isolatedTransformerNames {
@@ -624,18 +624,19 @@ func transformerRequiresIsolation(transformer repository.Transformer) bool {
 			return true
 		}
 	}
-	if releaseTrain, ok := transformer.(*repository.ReleaseTrain); ok && releaseTrain.CommitHash != "" {
-		// release trains into the past can revive apps, which is also a bracket change, and we want to isolate bracket changes
-		return true
-	}
+
 	return false
 }
 
-func lockBracketChanges(ctx context.Context, dbHandler *db.DBHandler, transformers []repository.Transformer) (bool, error) {
+func transformersRequireBracketIsolation(ctx context.Context, dbHandler *db.DBHandler, transformers []repository.Transformer) (bool, error) {
 	var cavs []*repository.CreateApplicationVersion
 	for _, transformer := range transformers {
 		if cav, ok := transformer.(*repository.CreateApplicationVersion); ok {
 			cavs = append(cavs, cav)
+		}
+		if releaseTrain, ok := transformer.(*repository.ReleaseTrain); ok && releaseTrain.CommitHash != "" {
+			// release trains into the past can revive apps, which is also a bracket change, and we want to isolate bracket changes
+			return true, nil
 		}
 	}
 	if len(cavs) == 0 {
