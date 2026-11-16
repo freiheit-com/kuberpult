@@ -72,7 +72,6 @@ type Repository interface {
 	FetchAndReset(ctx context.Context) error
 	PushRepo(ctx context.Context) error
 	GetHeadCommitId() (*git.Oid, error)
-	FixCommitsTimestamp(ctx context.Context, state State) error
 	Notify() *notify.Notify
 	createCommit(ctx context.Context, state *State, transformer Transformer, commitMsg []string) (_ *git.Oid, _ *git.Oid, resultError *TransformerBatchApplyError)
 }
@@ -1556,49 +1555,6 @@ func (s *State) FixReleasesTimestamp(ctx context.Context, transaction *sql.Tx, a
 				}
 			}
 		}
-	}
-	return nil
-}
-
-func (r *repository) FixCommitsTimestamp(ctx context.Context, state State) error {
-	revwalk, err := r.repository.Walk()
-	if err != nil {
-		return fmt.Errorf("failed to create revwalk: %v", err)
-	}
-	branchName := r.config.Branch
-	if branchName == "" {
-		branchName = "master"
-	}
-	branchRef, err := r.repository.References.Lookup(fmt.Sprintf("refs/heads/%s", branchName))
-	if err != nil {
-		return fmt.Errorf("failed to get branch reference: %v", err)
-	}
-
-	// Push HEAD to revwalk
-	err = revwalk.Push(branchRef.Target())
-	if err != nil {
-		return fmt.Errorf("failed to push HEAD to revwalk: %v", err)
-	}
-	dbHandler := state.DBHandler
-	err = dbHandler.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
-		err = revwalk.Iterate(func(commit *git.Commit) bool {
-			commit, err := r.repository.LookupCommit(commit.Id())
-			if err != nil {
-				logging.Error(ctx, "failed to lookup commit.", zap.String("commitId", commit.Id().String()), zap.Error(err))
-				return true // continue
-			}
-			err = dbHandler.DBUpdateCommitTransactionTimestamp(ctx, transaction, commit.Id().String(), commit.Committer().When)
-			if err != nil {
-				logging.Error(ctx, "failed to lookup commit.", zap.String("commitId", commit.Id().String()), zap.Error(err))
-				return true
-			}
-
-			return true
-		})
-		return err
-	})
-	if err != nil {
-		return fmt.Errorf("failed during revwalk: %v", err)
 	}
 	return nil
 }
