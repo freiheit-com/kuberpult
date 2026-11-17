@@ -391,6 +391,8 @@ type CreateApplicationVersion struct {
 	ArgoBracket                    types.ArgoBracketName    `json:"argoBracket"`
 	SkipDeployment                 bool                     `json:"skipDeployment"`
 	Override                       bool                     `json:"override"`
+
+	RequireBracketUnchanged bool `json:"-"`
 }
 
 func (c *CreateApplicationVersion) GetDBEventType() db.EventType {
@@ -548,6 +550,17 @@ func (c *CreateApplicationVersion) Transform(
 			}
 		}
 	}
+	if c.RequireBracketUnchanged {
+		bracketRow, err := db.DBSelectBracketHistoryLatest(ctx, state.DBHandler, transaction)
+		if err != nil {
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not read brackets: %w", err))
+		}
+		if !db.IsAppInBracket(bracketRow, c.Application, actualBracketName) {
+			return "", GetCreateReleaseGeneralFailure(fmt.Errorf("bracket of app '%s' would change to '%s', but the bracket lock is not held",
+				c.Application, actualBracketName))
+		}
+	}
+
 	err = db.HandleBracketsHistoryUpdate(ctx, state.DBHandler, transaction, c.Application, actualBracketName, *now, c.GetEslVersion())
 	if err != nil {
 		return "", GetCreateReleaseGeneralFailure(fmt.Errorf("could not update brackets: %w", err))
