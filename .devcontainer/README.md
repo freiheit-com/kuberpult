@@ -14,6 +14,13 @@ The devcontainer is setup in such a way that you have to sign in once from withi
 
 If you use a different agent / harness, you will have to adjust the docker file and replace the post-start action in `scripts/post-start-claude`.
 
+Your host's `~/.claude/CLAUDE.md` is mounted into the container read-only (only that file, nothing else from your host `~/.claude`).
+If it does not exist, an empty one is created on the host when the container starts.
+Limitations:
+- `@imports` in it that point to other files do not resolve, because those files are not mounted.
+- The mount follows the file, not its path. If your editor saves by writing a new file and renaming it over the old one,
+  the container keeps the old content until you recreate it with `--remove-existing-container`. A restart is not enough.
+
 ### GitHub with PAT (personal access token)
 The best way to authenticate from a devcontainer to GitHub is via GitHub Apps with properly scoped permissions.
 Since we don't have access to GitHub Apps with the fdc GitHub account, we use GitHub PATs in this template.
