@@ -382,7 +382,6 @@ func (d *BatchServer) processAction(
 				CiLink:                         in.CiLink,
 				AllowedDomains:                 d.Config.AllowedCILinkDomains,
 				TransformerEslVersion:          0,
-				IsPrepublish:                   in.IsPrepublish,
 				DeployToDownstreamEnvironments: downstreamEnvs,
 				Revision:                       in.Revision,
 				ArgoBracket:                    types.ArgoBracketName(in.ArgoBracket),
