@@ -119,7 +119,6 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		DisplayVersion:                 "",
 		Manifests:                      map[string]string{},
 		CiLink:                         "",
-		IsPrepublish:                   false,
 		DeployToDownstreamEnvironments: []string{},
 		Revision:                       0,
 	}
@@ -366,7 +365,6 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		DisplayVersion:                 "",
 		Manifests:                      map[string]string{},
 		CiLink:                         "",
-		IsPrepublish:                   false,
 		DeployToDownstreamEnvironments: []string{},
 		Revision:                       0,
 
