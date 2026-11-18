@@ -943,11 +943,7 @@ type Release struct {
 	CreatedAt       time.Time
 	DisplayVersion  string
 	IsMinor         bool
-	/**
-	  "IsPrepublish=true" is used at the start of the merge pipeline to create a pre-publish release which can't be deployed.
-	  The goal is to get 100% of the commits even if the pipeline fails.
-	*/
-	IsPrepublish bool
+
 	Environments []types.EnvName
 	CiLink       string
 }
@@ -966,7 +962,6 @@ func (rel *Release) ToProto() *api.Release {
 		CreatedAt:       timestamppb.New(rel.CreatedAt),
 		DisplayVersion:  rel.DisplayVersion,
 		IsMinor:         rel.IsMinor,
-		IsPrepublish:    rel.IsPrepublish,
 		Environments:    types.ConvertToStrings(rel.Environments),
 		CiLink:          rel.CiLink,
 		Revision:        rel.Revision,
@@ -1003,7 +998,6 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 			CreatedAt:       rel.Created,
 			DisplayVersion:  rel.Metadata.DisplayVersion,
 			IsMinor:         rel.Metadata.IsMinor,
-			IsPrepublish:    rel.Metadata.IsPrepublish,
 			Environments:    rel.Environments,
 			CiLink:          rel.Metadata.CiLink,
 			Revision:        rel.ReleaseNumbers.Revision,
@@ -1030,7 +1024,6 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 		CreatedAt:       env.Created,
 		DisplayVersion:  env.Metadata.DisplayVersion,
 		IsMinor:         env.Metadata.IsMinor,
-		IsPrepublish:    env.Metadata.IsPrepublish,
 		Environments:    env.Environments,
 		CiLink:          env.Metadata.CiLink,
 		Revision:        env.ReleaseNumbers.Revision,

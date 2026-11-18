@@ -75,7 +75,6 @@ export const makeRelease = (
     undeployVersion: undeployVersion,
     prNumber: '666',
     isMinor: false,
-    isPrepublish: false,
     ciLink: '',
     revision: revision,
 });

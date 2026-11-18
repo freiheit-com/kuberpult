@@ -1607,7 +1607,6 @@ func (s *State) GetApplicationReleaseFromManifest(application string, version ty
 		CreatedAt:       time.Time{},
 		DisplayVersion:  "",
 		IsMinor:         false,
-		IsPrepublish:    false,
 		Environments:    []string{},
 		Revision:        version.Revision,
 	}
@@ -2454,12 +2453,7 @@ type Release struct {
 	CreatedAt       time.Time
 	DisplayVersion  string
 	IsMinor         bool
-	/**
-	  "IsPrepublish=true" is used at the start of the merge pipeline to create a pre-publish release which can't be deployed.
-	  The goal is to get 100% of the commits even if the pipeline fails.
-	*/
-	IsPrepublish bool
-	Environments []string
+	Environments    []string
 }
 
 func (rel *Release) ToProto() *api.Release {
@@ -2476,7 +2470,6 @@ func (rel *Release) ToProto() *api.Release {
 		CreatedAt:       timestamppb.New(rel.CreatedAt),
 		DisplayVersion:  rel.DisplayVersion,
 		IsMinor:         false,
-		IsPrepublish:    false,
 		Environments:    []string{},
 		CiLink:          "", //does not matter here
 		Revision:        rel.Revision,
@@ -2524,7 +2517,6 @@ func (s *State) GetApplicationRelease(application string, version types.ReleaseN
 		CreatedAt:       time.Time{},
 		DisplayVersion:  "",
 		IsMinor:         false,
-		IsPrepublish:    false,
 		Environments:    nil,
 		Revision:        version.Revision,
 	}
