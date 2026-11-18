@@ -134,7 +134,6 @@ func (o *OverviewServiceServer) GetAppDetails(
 				CreatedAt:       currentRelease.Created,
 				DisplayVersion:  currentRelease.Metadata.DisplayVersion,
 				IsMinor:         currentRelease.Metadata.IsMinor,
-				IsPrepublish:    currentRelease.Metadata.IsPrepublish,
 				Environments:    currentRelease.Environments,
 				CiLink:          currentRelease.Metadata.CiLink,
 				Revision:        currentRelease.ReleaseNumbers.Revision,

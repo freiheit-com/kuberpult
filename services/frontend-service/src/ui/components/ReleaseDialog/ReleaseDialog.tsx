@@ -332,7 +332,7 @@ export const EnvironmentListItem: React.FC<EnvironmentListItemProps> = ({
         ]
     );
 
-    const allowDeployment: boolean = !release.isPrepublish && hasEnv;
+    const allowDeployment: boolean = hasEnv;
 
     const handleDeployAndLockClick = useCallback(
         (shouldLockToo: boolean) => {

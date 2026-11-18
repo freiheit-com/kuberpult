@@ -134,7 +134,7 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
     if (!release) {
         return null;
     }
-    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor, isPrepublish } = release;
+    const { createdAt, sourceMessage, sourceAuthor, undeployVersion, isMinor } = release;
 
     const tooltipContents = (
         <div className="mdc-tooltip__title_ release__details">
@@ -154,11 +154,6 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                         '💤' icon means that this release is a minor release; it has no changes to the manifests
                         comparing to the previous release.
                     </span>
-                </div>
-            )}
-            {isPrepublish && (
-                <div className="prerelease__description tooltip-text">
-                    <span>This is a pre-release. It doesn't have any manifests. It can't be deployed anywhere.</span>
                 </div>
             )}
             {!!createdAt && (
@@ -206,24 +201,13 @@ export const ReleaseCard: React.FC<ReleaseCardProps> = (props) => {
                 <div className="release__environments">
                     <EnvironmentGroupChipList app={props.app} version={props.versionInfo} smallEnvChip />
                 </div>
-                <div
-                    className={classNames(
-                        'mdc-card release-card',
-                        className,
-                        release.isPrepublish ? 'release-card__prepublish' : ''
-                    )}>
+                <div className={classNames('mdc-card release-card', className)}>
                     <div
                         className="mdc-card__primary-action release-card__description"
                         tabIndex={0}
                         onClick={openReleaseDialog}>
                         <div className="release-card__header">
-                            <div
-                                className={classNames(
-                                    'release__title',
-                                    release.isPrepublish ? 'release__title__prepublish' : ''
-                                )}>
-                                {undeployVersion ? 'Undeploy Version' : firstLine}
-                            </div>
+                            <div className="release__title">{undeployVersion ? 'Undeploy Version' : firstLine}</div>
                             <ReleaseVersion release={release} />
                         </div>
                         {syncStatus.isEnabled()

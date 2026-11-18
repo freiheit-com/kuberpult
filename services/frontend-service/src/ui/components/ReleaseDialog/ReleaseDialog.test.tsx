@@ -93,58 +93,8 @@ describe('Release Dialog', () => {
                     prNumber: '#1337',
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: ['prod'],
                     ciLink: 'givemesomething',
-                    revision: 0,
-                },
-            ],
-            envs: [
-                {
-                    name: 'prod',
-                    distanceToUpstream: 0,
-                    priority: Priority.UPSTREAM,
-                },
-            ],
-            envGroups: [
-                {
-                    // this data should never appear (group with no envs with a well-defined priority), but we'll make it for the sake of the test.
-                    distanceToUpstream: 0,
-                    environmentGroupName: 'prod',
-                    environments: [],
-                    priority: Priority.UPSTREAM,
-                },
-            ],
-            expect_message: true,
-            expect_queues: 0,
-            data_length: 2,
-            teamName: '',
-        },
-        {
-            name: 'with prepublish',
-            props: {
-                app: 'test1',
-                version: { version: 2, revision: 0 },
-            },
-            appDetails: {},
-            allEnvLocks: {
-                allTeamLocks: {},
-                allEnvLocks: {},
-            },
-            rels: [
-                {
-                    version: 2,
-                    sourceMessage: 'test1',
-                    sourceAuthor: 'test',
-                    sourceCommitId: 'commit',
-                    createdAt: new Date(2002),
-                    undeployVersion: false,
-                    prNumber: '#1337',
-                    displayVersion: '2',
-                    isMinor: false,
-                    isPrepublish: true,
-                    environments: [],
-                    ciLink: '',
                     revision: 0,
                 },
             ],
@@ -208,7 +158,6 @@ describe('Release Dialog', () => {
                                     prNumber: '#1337',
                                     displayVersion: '2',
                                     isMinor: false,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
                                     revision: 0,
@@ -258,7 +207,6 @@ describe('Release Dialog', () => {
                     prNumber: '#1337',
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
                     revision: 0,
@@ -315,7 +263,6 @@ describe('Release Dialog', () => {
                                     prNumber: '#1337',
                                     displayVersion: '2',
                                     isMinor: false,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
                                     revision: 0,
@@ -365,7 +312,6 @@ describe('Release Dialog', () => {
                     prNumber: '#1337',
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
                     revision: 0,
@@ -435,7 +381,6 @@ describe('Release Dialog', () => {
                                     sourceAuthor: 'nobody',
                                     displayVersion: '2',
                                     isMinor: false,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
                                     revision: 0,
@@ -450,7 +395,6 @@ describe('Release Dialog', () => {
                                     sourceAuthor: 'nobody',
                                     displayVersion: '3',
                                     isMinor: false,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
                                     revision: 0,
@@ -543,7 +487,6 @@ describe('Release Dialog', () => {
                     sourceAuthor: 'nobody',
                     displayVersion: '3',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
                     revision: 0,
@@ -558,7 +501,6 @@ describe('Release Dialog', () => {
                     sourceAuthor: 'nobody',
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
                     revision: 0,
@@ -595,7 +537,6 @@ describe('Release Dialog', () => {
                                     undeployVersion: true,
                                     displayVersion: '4',
                                     isMinor: false,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: 'www.somewebsite.com',
                                     revision: 0,
@@ -639,7 +580,6 @@ describe('Release Dialog', () => {
                     undeployVersion: true,
                     displayVersion: '4',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: 'www.somewebsite.com',
                     revision: 0,
@@ -768,7 +708,6 @@ describe('Release Dialog', () => {
                                     prNumber: '',
                                     displayVersion: '2',
                                     isMinor: false,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
                                     revision: 0,
@@ -823,38 +762,34 @@ describe('Release Dialog', () => {
                     </BrowserRouter>
                 );
                 const result = querySelectorSafe('.env-card-deploy-btn');
-                if (testcase.rels[0].isPrepublish) {
-                    expect(result).toBeDisabled();
-                } else {
-                    fireEvent.click(result);
-                    expect(UpdateAction.get().actions).toEqual([
-                        {
-                            action: {
-                                $case: 'deploy',
-                                deploy: {
-                                    application: 'test1',
-                                    environment: 'prod',
-                                    ignoreAllLocks: false,
-                                    lockBehavior: 2,
-                                    version: 3,
-                                    revision: 0,
-                                },
+                fireEvent.click(result);
+                expect(UpdateAction.get().actions).toEqual([
+                    {
+                        action: {
+                            $case: 'deploy',
+                            deploy: {
+                                application: 'test1',
+                                environment: 'prod',
+                                ignoreAllLocks: false,
+                                lockBehavior: 2,
+                                version: 3,
+                                revision: 0,
                             },
                         },
-                        {
-                            action: {
-                                $case: 'createEnvironmentApplicationLock',
-                                createEnvironmentApplicationLock: {
-                                    application: 'test1',
-                                    environment: 'prod',
-                                    lockId: '',
-                                    message: '',
-                                    ciLink: '',
-                                },
+                    },
+                    {
+                        action: {
+                            $case: 'createEnvironmentApplicationLock',
+                            createEnvironmentApplicationLock: {
+                                application: 'test1',
+                                environment: 'prod',
+                                lockId: '',
+                                message: '',
+                                ciLink: '',
                             },
                         },
-                    ]);
-                }
+                    },
+                ]);
             });
         });
     });
@@ -911,7 +846,6 @@ describe('Release Dialog CI Links', () => {
                                     prNumber: '#1337',
                                     displayVersion: '2',
                                     isMinor: false,
-                                    isPrepublish: false,
                                     environments: ['dev'],
                                     ciLink: 'www.somewebsite.com',
                                     revision: 0,

@@ -75,7 +75,6 @@ describe('Release Card', () => {
                                     createdAt: new Date(2023, 6, 6),
                                     displayVersion: '2',
                                     isMinor: false,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
                                     revision: 0,
@@ -107,7 +106,6 @@ describe('Release Card', () => {
                     createdAt: new Date(2023, 6, 6),
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: '',
                     revision: 0,
@@ -134,7 +132,6 @@ describe('Release Card', () => {
                                     createdAt: new Date(2002),
                                     displayVersion: '2',
                                     isMinor: true,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
                                     revision: 0,
@@ -166,7 +163,6 @@ describe('Release Card', () => {
                     createdAt: new Date(2002),
                     displayVersion: '2',
                     isMinor: true,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: '',
                     revision: 0,
@@ -193,7 +189,6 @@ describe('Release Card', () => {
                                     createdAt: new Date(2002),
                                     displayVersion: '2',
                                     isMinor: true,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
                                     revision: 0,
@@ -232,7 +227,6 @@ describe('Release Card', () => {
                     createdAt: new Date(2023, 6, 6),
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: '',
                     revision: 0,
@@ -265,7 +259,6 @@ describe('Release Card', () => {
                                     createdAt: new Date(2002),
                                     displayVersion: '2',
                                     isMinor: true,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
                                     revision: 0,
@@ -304,7 +297,6 @@ describe('Release Card', () => {
                     prNumber: '666',
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: '',
                     revision: 0,
@@ -337,7 +329,6 @@ describe('Release Card', () => {
                                     createdAt: new Date(2023, 6, 6),
                                     displayVersion: '2',
                                     isMinor: false,
-                                    isPrepublish: false,
                                     environments: [],
                                     ciLink: '',
                                     revision: 0,
@@ -376,7 +367,6 @@ describe('Release Card', () => {
                     createdAt: new Date(2023, 6, 6),
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: '',
                     revision: 0,
@@ -389,72 +379,6 @@ describe('Release Card', () => {
                     name: 'other',
                 },
             },
-        },
-        {
-            name: 'using a prepublished release',
-            props: { app: 'test2', versionInfo: { version: 2, revision: 0 } },
-            appDetails: {
-                test2: {
-                    details: {
-                        application: {
-                            name: 'test2',
-                            releases: [
-                                {
-                                    undeployVersion: false,
-                                    version: 2,
-                                    sourceMessage: 'test-rel',
-                                    sourceCommitId: '12s3',
-                                    sourceAuthor: 'test-author',
-                                    prNumber: '666',
-                                    createdAt: new Date(2002),
-                                    displayVersion: '2',
-                                    isMinor: true,
-                                    isPrepublish: true,
-                                    environments: [],
-                                    ciLink: '',
-                                    revision: 0,
-                                },
-                            ],
-                            team: 'test-team',
-                            sourceRepoUrl: '',
-                            undeploySummary: UndeploySummary.NORMAL,
-                            warnings: [],
-                            argoBracket: '',
-                        },
-                        deployments: {
-                            foo: {
-                                version: 2,
-                                revision: 0,
-                                queuedVersion: 0,
-                                undeployVersion: false,
-                            },
-                        },
-                        appLocks: {},
-                        teamLocks: {},
-                    },
-                    appDetailState: AppDetailsState.READY,
-                    updatedAt: new Date(Date.now()),
-                    errorMessage: '',
-                },
-            },
-            rels: [
-                {
-                    undeployVersion: false,
-                    version: 2,
-                    sourceMessage: 'test-rel',
-                    sourceCommitId: '12s3',
-                    sourceAuthor: 'test-author',
-                    prNumber: '666',
-                    createdAt: new Date(2002),
-                    displayVersion: '2',
-                    isMinor: true,
-                    isPrepublish: true,
-                    environments: [],
-                    ciLink: '',
-                    revision: 0,
-                },
-            ],
-            environments: {},
         },
     ];
 
@@ -474,13 +398,6 @@ describe('Release Card', () => {
                 expect(container.querySelector('.release__title')?.textContent).toContain('Undeploy Version');
             } else {
                 expect(container.querySelector('.release__title')?.textContent).toContain(
-                    testcase.rels[0].sourceMessage
-                );
-            }
-
-            if (testcase.rels[0].isPrepublish) {
-                expect(container.querySelector('.release-card__prepublish')).toBeInTheDocument();
-                expect(container.querySelector('.release__title__prepublish')?.textContent).toContain(
                     testcase.rels[0].sourceMessage
                 );
             }
@@ -520,7 +437,6 @@ const commonAppDetails: { [key: string]: AppDetailsResponse } = {
                         createdAt: new Date(2023, 6, 6),
                         displayVersion: '2',
                         isMinor: false,
-                        isPrepublish: false,
                         environments: [],
                         ciLink: '',
                         revision: 0,
@@ -611,7 +527,6 @@ describe('Release Card Git Sync Status', () => {
                     createdAt: new Date(2023, 6, 6),
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: '',
                     revision: 0,
@@ -675,7 +590,6 @@ describe('Release Card Git Sync Status', () => {
                     createdAt: new Date(2023, 6, 6),
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: '',
                     revision: 0,
@@ -745,7 +659,6 @@ describe('Release Card Git Sync Status', () => {
                     createdAt: new Date(2023, 6, 6),
                     displayVersion: '2',
                     isMinor: false,
-                    isPrepublish: false,
                     environments: [],
                     ciLink: '',
                     revision: 0,
