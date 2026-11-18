@@ -22,14 +22,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
-	"github.com/freiheit-com/kuberpult/pkg/types"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/freiheit-com/kuberpult/pkg/config"
 	"github.com/freiheit-com/kuberpult/pkg/conversion"
 	"github.com/freiheit-com/kuberpult/pkg/db"
-	"github.com/google/go-cmp/cmp"
+	"github.com/freiheit-com/kuberpult/pkg/testutilauth"
+	"github.com/freiheit-com/kuberpult/pkg/types"
 )
 
 func TestDeployApplicationVersionPartOne(t *testing.T) {
@@ -80,7 +80,6 @@ func TestDeployApplicationVersionPartOne(t *testing.T) {
 			CiLink:                "",
 			AllowedDomains:        nil,
 			TransformerEslVersion: 0,
-			IsPrepublish:          false,
 		},
 	}
 	tcs := []struct {
@@ -204,7 +203,6 @@ func TestDeployApplicationVersionPartTwo(t *testing.T) {
 			CiLink:                "",
 			AllowedDomains:        nil,
 			TransformerEslVersion: 0,
-			IsPrepublish:          false,
 		},
 	}
 	tcs := []struct {
@@ -356,7 +354,6 @@ func TestDeployApplicationVersionWithRevision(t *testing.T) {
 			CiLink:                "",
 			AllowedDomains:        nil,
 			TransformerEslVersion: 0,
-			IsPrepublish:          false,
 		},
 	}
 	tcs := []struct {

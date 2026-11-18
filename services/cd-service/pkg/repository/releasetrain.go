@@ -1103,7 +1103,6 @@ func (c *envReleaseTrain) applyPrognosis(
 				CiLink:                c.Parent.CiLink,
 				AllowedDomains:        c.Parent.AllowedDomains,
 				TransformerEslVersion: c.TransformerEslVersion,
-				IsPrepublish:          revivedRelease.Metadata.IsPrepublish,
 				ArgoBracket:           appPrognosis.ArgoBracket,
 				SkipDeployment:        true,
 				Override:              true,

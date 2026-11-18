@@ -385,7 +385,6 @@ type CreateApplicationVersion struct {
 	CiLink                         string                   `json:"ciLink"`
 	AllowedDomains                 []string                 `json:"-"`
 	TransformerEslVersion          db.TransformerID         `json:"-"`
-	IsPrepublish                   bool                     `json:"isPrepublish"`
 	DeployToDownstreamEnvironments []types.EnvName          `json:"deployToDownstreamEnvironments"`
 	Revision                       uint64                   `json:"revision"`
 	ArgoBracket                    types.ArgoBracketName    `json:"argoBracket"`
@@ -663,10 +662,6 @@ func (c *CreateApplicationVersion) Transform(
 	if err != nil {
 		return "", err
 	}
-	manifestsToKeep := c.Manifests
-	if c.IsPrepublish {
-		manifestsToKeep = make(map[types.EnvName]string)
-	}
 	release := db.DBReleaseWithMetaData{
 		ReleaseNumbers: types.ReleaseNumbers{
 			Revision: c.Revision,
@@ -674,7 +669,7 @@ func (c *CreateApplicationVersion) Transform(
 		},
 		App: c.Application,
 		Manifests: db.DBReleaseManifests{
-			Manifests: manifestsToKeep,
+			Manifests: c.Manifests,
 		},
 		Metadata: db.DBReleaseMetaData{
 			SourceAuthor:    c.SourceAuthor,
@@ -684,7 +679,6 @@ func (c *CreateApplicationVersion) Transform(
 			UndeployVersion: false,
 			IsMinor:         isMinor,
 			CiLink:          c.CiLink,
-			IsPrepublish:    c.IsPrepublish,
 		},
 		Environments: []types.EnvName{},
 		Created:      *now,
@@ -722,7 +716,7 @@ func (c *CreateApplicationVersion) Transform(
 		t.AddAppEnv(c.Application, env, teamOwner)
 		envIsConfiguredLatest := hasUpstream && cfg.Upstream.Latest && isLatest
 		downstreamDeploymentRequested := slices.Contains(c.DeployToDownstreamEnvironments, env)
-		if !c.SkipDeployment && (envIsConfiguredLatest || downstreamDeploymentRequested) && !c.IsPrepublish {
+		if !c.SkipDeployment && (envIsConfiguredLatest || downstreamDeploymentRequested) {
 			d := &DeployApplicationVersion{
 				SourceTrain:           nil,
 				Environment:           env,
@@ -776,10 +770,6 @@ func validateDownstreamEnvs(downstreamEnvs []types.EnvName, sortedEnvs []types.E
 // Updates the previous and next release (if they exist) with the "isMinor" flag
 // The "isMinor" flag only makes sense in comparison to other releases.
 func (c *CreateApplicationVersion) updateSurroundingReleasesIsMinorFlag(ctx context.Context, transaction *sql.Tx, dbHandler *db.DBHandler, version types.ReleaseNumbers, minorRegexes []*regexp.Regexp) (bool, error) {
-	if c.IsPrepublish {
-		// releases with prepublish=true do not have manifests, so there are no updates to be done
-		return true, nil
-	}
 	releaseVersions, err := dbHandler.DBSelectAllReleasesOfApp(ctx, transaction, c.Application)
 	if err != nil {
 		return false, err
