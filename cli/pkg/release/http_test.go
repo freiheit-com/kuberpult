@@ -24,9 +24,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+
+	"github.com/freiheit-com/kuberpult/cli/pkg/kuberpult_utils"
 )
 
 type mockHttpServer struct {
@@ -628,41 +629,6 @@ func TestRequestCreationRelease(t *testing.T) {
 			responseCode: http.StatusOK,
 		},
 		{
-			name: "Prepublish without using dex",
-			params: ReleaseParameters{
-				Application: "potato",
-				Manifests: map[string][]byte{
-					"development": []byte("some development manifest"),
-				},
-				IsPrepublish: true,
-			},
-			expectedErrorMsg: errMatcher{"error while preparing HTTP request, error: prepublish endpoint is only available for the new api endpoint which is only available through dex authentication"},
-		},
-		{
-			name: "create a prepublish release",
-			params: ReleaseParameters{
-				Application: "potato",
-				Manifests: map[string][]byte{
-					"development": []byte("some development manifest"),
-				},
-				IsPrepublish:         true,
-				UseDexAuthentication: true,
-			},
-			expectedMultipartFormValue: map[string][]string{
-				"application":   {"potato"},
-				"is_prepublish": {"true"},
-			},
-			expectedMultipartFormFile: map[string][]simpleMultipartFormFileHeader{
-				"manifests[development]": {
-					{
-						filename: "development-manifest",
-						content:  "some development manifest",
-					},
-				},
-			},
-			responseCode: http.StatusOK,
-		},
-		{
 			name: "one environment manifest with ci_link",
 			params: ReleaseParameters{
 				Application: "potato",
@@ -683,7 +649,6 @@ func TestRequestCreationRelease(t *testing.T) {
 					},
 				},
 			},
-
 			responseCode: http.StatusOK,
 		},
 	}

@@ -38,7 +38,6 @@ type ReleaseParameters struct {
 	DisplayVersion       *string
 	CiLink               *string
 	UseDexAuthentication bool
-	IsPrepublish         bool
 	DryRun               bool
 }
 
