@@ -1403,6 +1403,7 @@ export const useGlobalLoadingState = (): React.ReactElement | undefined => {
 };
 
 export const useKuberpultVersion = (): string => useFrontendConfig((configs) => configs.configs.kuberpultVersion);
+export const useCdServiceVersion = (): string => useFrontendConfig((configs: any) => configs.configs.cdServiceVersion);
 export const useArgoCdBaseUrl = (): string | undefined =>
     useFrontendConfig((configs) => configs.configs.argoCd?.baseUrl);
 export const useSourceRepoUrl = (): string | undefined => useFrontendConfig((configs) => configs.configs.sourceRepoUrl);

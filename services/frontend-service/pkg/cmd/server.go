@@ -389,6 +389,7 @@ func runServer(ctx context.Context) error {
 			ManifestRepoUrl:         c.ManifestRepoUrl,
 			SourceRepoUrl:           c.SourceRepoUrl,
 			KuberpultVersion:        c.Version,
+			CdServiceVersion:        c.Version,
 			Branch:                  c.GitBranch,
 			RevisionsEnabled:        c.RevisionsEnabled,
 			RootAppsPointToBrackets: c.RootAppsPointToBrackets,
