@@ -119,7 +119,6 @@ func (s Server) HandleRelease(w http.ResponseWriter, r *http.Request, tail strin
 		DisplayVersion:                 "",
 		Manifests:                      map[string]string{},
 		CiLink:                         "",
-		IsPrepublish:                   false,
 		DeployToDownstreamEnvironments: []string{},
 		Revision:                       0,
 	}
@@ -366,7 +365,6 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		DisplayVersion:                 "",
 		Manifests:                      map[string]string{},
 		CiLink:                         "",
-		IsPrepublish:                   false,
 		DeployToDownstreamEnvironments: []string{},
 		Revision:                       0,
 
@@ -494,24 +492,17 @@ func (s Server) handleApiRelease(w http.ResponseWriter, r *http.Request, tail st
 		}
 		version, err := strconv.ParseUint(versionStrs[0], 10, 64)
 		if err != nil {
-			w.WriteHeader(400)
+			w.WriteHeader(http.StatusBadRequest)
 			_, _ = fmt.Fprintf(w, "Provided version '%s' is not valid: %s", versionStrs[0], err)
 			return
 		}
 		tf.Version = version
 	}
 
-	if prepublishStrs, ok := form.Value["is_prepublish"]; ok {
-		if !checkParameterCardinality(w, "is_prepublish", prepublishStrs) {
-			return
-		}
-		prepublish, err := strconv.ParseBool(prepublishStrs[0])
-		if err != nil {
-			w.WriteHeader(400)
-			_, _ = fmt.Fprintf(w, "Provided is_prepublish '%s' is not valid: %s", prepublishStrs[0], err)
-			return
-		}
-		tf.IsPrepublish = prepublish
+	if _, ok := form.Value["is_prepublish"]; ok {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, "is_prepublish is not supported anymore")
+		return
 	}
 
 	if revisionStrs, ok := form.Value["revision"]; ok { //Revision is an optional parameter
