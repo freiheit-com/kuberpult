@@ -741,26 +741,13 @@ func TestReadArgs(t *testing.T) {
 			},
 		},
 		{
-			name: "prepublish request",
-			args: []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--prepublish"},
-			expectedCmdArgs: &commandLineArguments{
-				skipSignatures: true,
-				isPrepublish:   true,
-				application: cli_utils.RepeatedString{
-					Values: []string{"potato"},
-				},
-				environments: cli_utils.RepeatedString{
-					Values: []string{"production"},
-				},
-				manifests: cli_utils.RepeatedString{
-					Values: []string{"manifest-file.yaml"},
-				},
-			},
+			name:            "prepublish request",
+			args:            []string{"--skip_signatures", "--application", "potato", "--environment", "production", "--manifest", "manifest-file.yaml", "--prepublish"},
+			expectedCmdArgs: nil,
+			expectedError:   errMatcher{"error while parsing command line arguments, error: flag provided but not defined: -prepublish"},
 		},
 	}
-
 	for _, tc := range tcs {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
