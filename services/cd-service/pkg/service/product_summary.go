@@ -166,7 +166,7 @@ func (s *ProductSummaryServer) GetProductSummary(ctx context.Context, in *api.Ge
 			if err != nil {
 				return nil, fmt.Errorf("could not parse version to integer %s: %v", row.Revision, err)
 			}
-			release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, types.AppName(row.App), types.MakeReleaseNumbers(v, r), false, *ts)
+			release, err := dbHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, types.AppName(row.App), types.MakeReleaseNumbers(v, r), *ts)
 			if err != nil {
 				return nil, fmt.Errorf("error getting release for version")
 			}

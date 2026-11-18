@@ -795,7 +795,7 @@ func (c *CreateApplicationVersion) updateSurroundingReleasesIsMinorFlag(ctx cont
 		}
 	}
 	if nextVersion.Version != nil {
-		nextRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, nextVersion, true)
+		nextRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, nextVersion)
 		if err != nil {
 			return false, err
 		}
@@ -811,7 +811,7 @@ func (c *CreateApplicationVersion) updateSurroundingReleasesIsMinorFlag(ctx cont
 	if previousVersion.Version == nil {
 		return false, nil
 	}
-	previousRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, previousVersion, true)
+	previousRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, previousVersion)
 	if err != nil {
 		return false, err
 	}
@@ -902,7 +902,7 @@ func (c *CreateApplicationVersion) calculateVersion(ctx context.Context, transac
 	if c.Version == 0 {
 		return types.MakeEmptyReleaseNumbers(), fmt.Errorf("version is required when using the database")
 	} else {
-		metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
+		metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision})
 		if err != nil {
 			return types.MakeEmptyReleaseNumbers(), fmt.Errorf("could not calculate version, error: %v", err)
 		}
@@ -950,7 +950,7 @@ func (c *CreateApplicationVersion) sameAsExistingDB(ctx context.Context, transac
 			return GetCreateReleaseAlreadyExistsDifferent(api.DifferingField_TEAM, createUnifiedDiff(existingTeamStr, c.Team, ""))
 		}
 	}
-	metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
+	metaData, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision})
 	if err != nil {
 		return fmt.Errorf("could not calculate version, error: %v", err)
 	}
@@ -1194,7 +1194,7 @@ func (u *DeleteEnvFromApp) Transform(
 
 	if oldestDeployment != nil {
 		// Only select the recent releases for manifests updating (counting from the oldest release having a deployment)
-		releases, err := state.DBHandler.DBSelectLatestReleasesSinceVersion(ctx, transaction, u.Application, oldestDeployment.ReleaseNumbers, true)
+		releases, err := state.DBHandler.DBSelectLatestReleasesSinceVersion(ctx, transaction, u.Application, oldestDeployment.ReleaseNumbers)
 		if err != nil {
 			return "", fmt.Errorf("select latest releases: %v of app %s: %w", oldestDeployment.ReleaseNumbers, u.Application, err)
 		}
@@ -1354,7 +1354,7 @@ func (c *CleanupOldApplicationVersions) Transform(
 			continue // deployment is gone; no need to check whether the release exists
 		}
 		// delete deployments that have no corresponding release:
-		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, releaseNums, false)
+		release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, releaseNums)
 		if err != nil {
 			return "", fmt.Errorf("cleanup: could not get release %v for app '%s': %w", releaseNums, c.Application, err)
 		}

@@ -119,7 +119,7 @@ func (o *OverviewServiceServer) GetAppDetails(
 			uintRels[idx] = *r.Version
 		}
 		//Does not get the manifest and gets all releases at the same time
-		releases, err := o.DBHandler.DBSelectReleasesByVersionsAndRevision(ctx, transaction, types.AppName(appName), uintRels, false)
+		releases, err := o.DBHandler.DBSelectReleasesByVersionsAndRevision(ctx, transaction, types.AppName(appName), uintRels)
 		if err != nil {
 			return nil, err
 		}
@@ -768,7 +768,7 @@ func (o *OverviewServiceServer) StreamDeploymentHistory(in *api.DeploymentHistor
 			releaseSourceCommitId, exists := releases[db.ReleaseKey{AppName: appName, ReleaseVersion: releaseVersion, Revision: revision}]
 			if !exists {
 				// If we couldnt find the release info in the window from [start_data - 1Month, EndDate], we fetch this information directly
-				fetchRelease, err := o.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, types.ReleaseNumbers{Version: &releaseVersion, Revision: revision}, false)
+				fetchRelease, err := o.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, types.ReleaseNumbers{Version: &releaseVersion, Revision: revision})
 				if err != nil {
 					return err
 				}

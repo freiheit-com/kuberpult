@@ -87,7 +87,7 @@ func (s *GitServer) GetCommitInfo(ctx context.Context, in *api.GetCommitInfoRequ
 			return nil, status.Error(codes.InvalidArgument, "not a valid commit_hash")
 		}
 
-		releases, err := dbHandler.DBSelectAllLatestReleasesByCommitHash(ctx, transaction, commitHash, true)
+		releases, err := dbHandler.DBSelectAllLatestReleasesByCommitHash(ctx, transaction, commitHash)
 		if err != nil {
 			return nil, fmt.Errorf("could not read release with commit hash %s from DB: %v", commitHash, err)
 		}

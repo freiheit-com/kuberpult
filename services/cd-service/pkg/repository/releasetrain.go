@@ -900,7 +900,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 		var argoBracket types.ArgoBracketName
 		if ts != nil {
 			// check if the release still exists for the app
-			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy, false)
+			release, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, appName, versionToDeploy)
 			if err != nil {
 				return failedPrognosis(err)
 			}
@@ -916,7 +916,7 @@ func (c *envReleaseTrain) prognosis(ctx context.Context, state *State, transacti
 			}
 
 			if reviveRelease {
-				revivedRelease, err = state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, appName, versionToDeploy, false, *ts)
+				revivedRelease, err = state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, transaction, appName, versionToDeploy, *ts)
 				if err != nil {
 					return failedPrognosis(err)
 				}

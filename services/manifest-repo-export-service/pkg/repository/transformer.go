@@ -327,7 +327,7 @@ func (c *DeployApplicationVersion) Transform(
 	envName := c.Environment
 	fsys := state.Filesystem
 	// Check that the release exist and fetch manifest
-	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, types.AppName(c.Application), types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
+	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, types.AppName(c.Application), types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision})
 	if err != nil {
 		return "", err
 	}
@@ -915,7 +915,7 @@ func (c *RenderEnvironment) Transform(
 	appToManifestMap := make(map[types.AppName]string)
 	appsWithManifestLock := []types.AppName{}
 	for appName, releaseNumbers := range deployments {
-		release, err := state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, tx, appName, releaseNumbers, false, c.CreationTimestamp)
+		release, err := state.DBHandler.DBSelectReleaseByVersionAtTimestamp(ctx, tx, appName, releaseNumbers, c.CreationTimestamp)
 		if err != nil {
 			return "", err
 		}
@@ -1465,7 +1465,7 @@ func (c *CreateUndeployApplicationVersion) Transform(
 	tCtx TransformerContext,
 	transaction *sql.Tx,
 ) (string, error) {
-	lastRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, types.AppName(c.Application), false)
+	lastRelease, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, types.AppName(c.Application))
 	if err != nil {
 		return "", fmt.Errorf("could not get last relase for app '%v': %v", c.Application, err)
 	}

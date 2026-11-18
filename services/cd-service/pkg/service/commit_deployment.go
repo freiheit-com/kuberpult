@@ -77,7 +77,7 @@ func (s *CommitDeploymentServer) GetCommitDeploymentInfo(ctx context.Context, in
 	}
 
 	for app, releases := range applicationReleases {
-		commitDeploymentStatusForApp, err := getCommitDeploymentInfoForApp(ctx, s.DBHandler, releaseNumber, app, allEnvironments, releases)
+		commitDeploymentStatusForApp, err := getCommitDeploymentInfoForApp(ctx, releaseNumber, app, allEnvironments, releases)
 		if err != nil {
 			return nil, fmt.Errorf("could not get commit deployment info for app %s: %v", app, err)
 		}
@@ -156,7 +156,7 @@ func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in
 		if deployment == nil {
 			return nil
 		}
-		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, deployment.App, deployment.ReleaseNumbers, true)
+		release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, deployment.App, deployment.ReleaseNumbers)
 		if err != nil {
 			return err
 		}
@@ -174,7 +174,7 @@ func (s *CommitDeploymentServer) GetDeploymentCommitInfo(ctx context.Context, in
 	return deploymentCommitInfo, nil
 }
 
-func getCommitDeploymentInfoForApp(ctx context.Context, h *db.DBHandler, commitReleaseNumber uint64, app types.AppName, environments []types.EnvName, environmentReleases map[types.EnvName]uint64) (*api.AppCommitDeploymentStatus, error) {
+func getCommitDeploymentInfoForApp(ctx context.Context, commitReleaseNumber uint64, app types.AppName, environments []types.EnvName, environmentReleases map[types.EnvName]uint64) (*api.AppCommitDeploymentStatus, error) {
 	span, _ := tracer.StartSpanFromContext(ctx, "getCommitDeploymentInfoForApp")
 	defer span.Finish()
 	span.SetTag("app", app)

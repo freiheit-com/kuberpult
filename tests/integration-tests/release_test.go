@@ -468,7 +468,7 @@ func callDBForLock(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, e
 
 func callDBForReleases(t *testing.T, dbHandler *db.DBHandler, ctx context.Context, appName string) []*db.DBReleaseWithMetaData {
 	release, err := db.WithTransactionMultipleEntriesT(dbHandler, ctx, true, func(ctx context.Context, transaction *sql.Tx) ([]*db.DBReleaseWithMetaData, error) {
-		return dbHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, types.AppName(appName), true)
+		return dbHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, types.AppName(appName))
 	})
 	if err != nil {
 		t.Fatalf("DBSelectReleasesByApp failed %s", err)
