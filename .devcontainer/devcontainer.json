@@ -18,8 +18,10 @@
   // .devcontainer/ directory into other projects (or other checkouts of this
   // one under a different folder name) don't share -- or collide on -- the
   // same credential volume.
+  // Exception: the host's ~/.claude/CLAUDE.md is bind-mounted read-only (that file only).
   "mounts": [
-    "source=${localWorkspaceFolderBasename}-claude,target=/home/dev/.claude,type=volume"
+    "source=${localWorkspaceFolderBasename}-claude,target=/home/dev/.claude,type=volume",
+    "source=${localEnv:HOME}/.claude/CLAUDE.md,target=/home/dev/.claude/CLAUDE.md,type=bind,readonly"
   ],
   "remoteEnv": {
     "REVOLUTION_WORKSPACE_ID": "${localEnv:REVOLUTION_WORKSPACE_ID}",
@@ -28,5 +30,7 @@
     "REVOLUTION_MCP_TOKEN": "${localEnv:REVOLUTION_MCP_TOKEN}",
     "GH_TOKEN": "${localEnv:DEVCONTAINER_GH_TOKEN}"
   },
+  // Host-side: the CLAUDE.md bind mount fails if the source file doesn't exist.
+  "initializeCommand": "mkdir -p \"$HOME/.claude\" && touch \"$HOME/.claude/CLAUDE.md\"",
   "postStartCommand": "post-start-devcontainer"
 }

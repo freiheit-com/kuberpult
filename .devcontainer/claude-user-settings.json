@@ -10,6 +10,7 @@
     "allow": [
       "Read(//workspace/**)",
       "Edit(//workspace/**)",
+      "Edit(~/.claude/plans/**)",
       "Bash(just:*)",
       "Bash(go:*)",
       "mcp__revolution__search_knowledgebase",
@@ -27,7 +28,17 @@
       "mcp__revolution__load_checklist"
     ],
     "deny": [
-      "Edit(~/.claude/**)",
+      "Edit(~/.claude/settings.json)",
+      "Edit(~/.claude/settings.local.json)",
+      "Edit(~/.claude/.credentials.json)",
+      "Edit(~/.claude/claude.json)",
+      "Edit(~/.claude/CLAUDE.md)",
+      "Edit(~/.claude/keybindings.json)",
+      "Edit(~/.claude/plugins/**)",
+      "Edit(~/.claude/skills/**)",
+      "Edit(~/.claude/agents/**)",
+      "Edit(~/.claude/commands/**)",
+      "Edit(~/.claude/hooks/**)",
       "Edit(~/.config/**)",
       "Edit(~/.ssh/**)",
       "Bash(git push:*)",
