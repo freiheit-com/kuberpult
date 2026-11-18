@@ -516,7 +516,6 @@ func TestServer_Handle(t *testing.T) {
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many versions", "version", form),
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many display_version", "display_version", form),
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many ci_link", "ci_link", form),
-		generateCreateReleaseTestCasesForLengthChecks("create release api, too many is_prepublish", "is_prepublish", form),
 		generateCreateReleaseTestCasesForLengthChecks("create release api, too many revision", "revision", form),
 		{
 			name: "create release, revision is not a number",
@@ -621,7 +620,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedBody: "Provided revision 'abcd' is not valid: strconv.ParseUint: parsing \"abcd\": invalid syntax",
 		},
 		{
-			name: "create release api, is_prepublish is not a boolean value",
+			name: "create release api, is_prepublish is not allowed",
 			req: &http.Request{
 				Method: http.MethodPut,
 				URL: &url.URL{
@@ -632,7 +631,7 @@ func TestServer_Handle(t *testing.T) {
 						"application":   {"my-app"},
 						"version":       {"1"},
 						"revision":      {"1"},
-						"is_prepublish": {"abcd"},
+						"is_prepublish": {"true"},
 					},
 					File: form.File,
 				},
@@ -653,7 +652,7 @@ func TestServer_Handle(t *testing.T) {
 			expectedResp: &http.Response{
 				StatusCode: http.StatusBadRequest,
 			},
-			expectedBody: "Provided is_prepublish 'abcd' is not valid: strconv.ParseBool: parsing \"abcd\": invalid syntax",
+			expectedBody: "is_prepublish is not supported anymore",
 		},
 		{
 			name: "Get manifests - full version",
