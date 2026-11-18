@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "revolution": {
+      "type": "http",
+      "url": "https://mcp.revolution.dev/${REVOLUTION_WORKSPACE_ID}/product/${REVOLUTION_PRODUCT_ID}/user/${REVOLUTION_USER_ID}",
+      "headers": {
+        "Authorization": "Bearer ${REVOLUTION_MCP_TOKEN}"
+      }
+    }
+  }
+}
