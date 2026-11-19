@@ -981,7 +981,7 @@ func extractPrNumber(sourceMessage string) string {
 
 func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.Tx, application types.AppName, versions []uint64) ([]*Release, error) {
 	var result []*Release
-	rels, err := s.DBHandler.DBSelectReleasesByVersions(ctx, transaction, application, versions, true)
+	rels, err := s.DBHandler.DBSelectReleasesByVersions(ctx, transaction, application, versions)
 	if err != nil {
 		return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
 	}
@@ -1008,7 +1008,7 @@ func (s *State) GetApplicationReleasesDB(ctx context.Context, transaction *sql.T
 }
 
 func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, application types.AppName, version types.ReleaseNumbers) (*Release, error) {
-	env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
+	env, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
 	if err != nil {
 		return nil, fmt.Errorf("could not get release of app %s: %v", application, err)
 	}
@@ -1032,7 +1032,7 @@ func (s *State) GetApplicationRelease(ctx context.Context, transaction *sql.Tx, 
 
 func (s *State) GetApplicationReleaseManifests(ctx context.Context, transaction *sql.Tx, application types.AppName, version types.ReleaseNumbers) (map[types.EnvName]*api.Manifest, error) {
 	manifests := map[types.EnvName]*api.Manifest{}
-	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version, true)
+	release, err := s.DBHandler.DBSelectReleaseByVersion(ctx, transaction, application, version)
 	if err != nil {
 		return nil, fmt.Errorf("could not get release for app %s with version %v: %w", application, version, err)
 	}

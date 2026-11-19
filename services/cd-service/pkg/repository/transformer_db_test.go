@@ -1329,7 +1329,7 @@ func TestMinorFlag(t *testing.T) {
 					return err
 				}
 				for _, minorVersion := range tc.ExpectedMinors {
-					release, err := state.DBHandler.DBSelectReleaseByVersion(ctxWithTime, transaction, appName, minorVersion, true)
+					release, err := state.DBHandler.DBSelectReleaseByVersion(ctxWithTime, transaction, appName, minorVersion)
 					if err != nil {
 						return err
 					}
@@ -1338,7 +1338,7 @@ func TestMinorFlag(t *testing.T) {
 					}
 				}
 				for _, majorVersion := range tc.ExpectedMajors {
-					release, err := state.DBHandler.DBSelectReleaseByVersion(ctxWithTime, transaction, appName, majorVersion, true)
+					release, err := state.DBHandler.DBSelectReleaseByVersion(ctxWithTime, transaction, appName, majorVersion)
 					if err != nil {
 						return err
 					}
@@ -3496,7 +3496,7 @@ func TestDeleteEnvFromAppWithDB(t *testing.T) {
 				t.Fatalf("expected no error in 'given' section, got %v", err)
 			}
 			err = repo.State().DBHandler.WithTransaction(ctxWithTime, false, func(ctx context.Context, transaction *sql.Tx) error {
-				releases, err2 := repo.State().DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, appName, true)
+				releases, err2 := repo.State().DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, appName)
 				if err2 != nil {
 					return fmt.Errorf("error retrieving release: %v", err2)
 				}
@@ -4068,7 +4068,7 @@ func TestDeleteEnvironmentDBState(t *testing.T) {
 				}
 
 				for appName, appConfig := range tc.expectedLatestRelease {
-					app, err := r.DB.DBSelectReleaseByVersion(ctx, transaction, appName, types.ReleaseNumbers{Version: uversion(1), Revision: 0}, false)
+					app, err := r.DB.DBSelectReleaseByVersion(ctx, transaction, appName, types.ReleaseNumbers{Version: uversion(1), Revision: 0})
 					if err != nil {
 						return err
 					}
@@ -5555,7 +5555,7 @@ func TestTimestampConsistency(t *testing.T) {
 					t.Fatalf("error mismatch on envAcceptance(-want, +got):\n%s", diff)
 				}
 				//Release
-				releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, testAppName, true)
+				releases, err := state.DBHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, testAppName)
 				if err != nil {
 					return err
 				}

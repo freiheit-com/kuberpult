@@ -720,7 +720,7 @@ func TestCustomMigrationReleases(t *testing.T) {
 				for i := range tc.expectedReleases {
 					expectedRelease := tc.expectedReleases[i]
 
-					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumbers, true)
+					release, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, expectedRelease.App, expectedRelease.ReleaseNumbers)
 					if err != nil {
 						return err
 					}
@@ -3528,7 +3528,7 @@ func TestDeleteRelease(t *testing.T) {
 					t.Fatalf("number of team locks mismatch (-want, +got):\n%d", len(allReleases))
 				}
 
-				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumbers, true)
+				latestRelease, err := dbHandler.DBSelectReleaseByVersion(ctx, transaction, tc.toInsert.App, tc.toInsert.ReleaseNumbers)
 				if err != nil {
 					return err
 				}
@@ -4445,14 +4445,12 @@ func TestReadWriteArgoBracket(t *testing.T) {
 }
 
 func TestReadReleasesByApp(t *testing.T) {
-
 	tcs := []struct {
-		Name                 string
-		Releases             []DBReleaseWithMetaData
-		RetrievePrepublishes bool
-		AppName              types.AppName
-		Expected             []*DBReleaseWithMetaData
-		ExpectedErr          error
+		Name        string
+		Releases    []DBReleaseWithMetaData
+		AppName     types.AppName
+		Expected    []*DBReleaseWithMetaData
+		ExpectedErr error
 	}{
 		{
 			Name: "Retrieve one release",
@@ -4632,8 +4630,7 @@ func TestReadReleasesByApp(t *testing.T) {
 					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
 				},
 			},
-			AppName:              "app1",
-			RetrievePrepublishes: false,
+			AppName: "app1",
 			Expected: []*DBReleaseWithMetaData{
 				{
 					ReleaseNumbers: types.ReleaseNumbers{
@@ -4642,68 +4639,6 @@ func TestReadReleasesByApp(t *testing.T) {
 					},
 					App:          "app1",
 					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
-					Environments: []types.EnvName{"dev"},
-				},
-				{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
-						Revision: 0,
-					},
-					App:          "app1",
-					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
-					Environments: []types.EnvName{"dev"},
-				},
-			},
-		},
-		{
-			Name: "Prepublish Release should be retrieved",
-			Releases: []DBReleaseWithMetaData{
-				{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(1),
-						Revision: 0,
-					},
-					App:       "app1",
-					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest1"}},
-				},
-				{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(2),
-						Revision: 0,
-					},
-					App:       "app1",
-					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
-					Metadata:  DBReleaseMetaData{IsPrepublish: true},
-				},
-				{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(3),
-						Revision: 0,
-					},
-					App:       "app1",
-					Manifests: DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
-				},
-			},
-			AppName:              "app1",
-			RetrievePrepublishes: true,
-			Expected: []*DBReleaseWithMetaData{
-				{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(3),
-						Revision: 0,
-					},
-					App:          "app1",
-					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest3"}},
-					Environments: []types.EnvName{"dev"},
-				},
-				{
-					ReleaseNumbers: types.ReleaseNumbers{
-						Version:  uversion(2),
-						Revision: 0,
-					},
-					App:          "app1",
-					Manifests:    DBReleaseManifests{Manifests: map[types.EnvName]string{"dev": "manifest2"}},
-					Metadata:     DBReleaseMetaData{IsPrepublish: true},
 					Environments: []types.EnvName{"dev"},
 				},
 				{
@@ -4733,7 +4668,7 @@ func TestReadReleasesByApp(t *testing.T) {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
 				}
-				releases, err := dbHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, tc.AppName, !tc.RetrievePrepublishes)
+				releases, err := dbHandler.DBSelectReleasesByAppLatestEslVersion(ctx, transaction, tc.AppName)
 				if err != nil {
 					return fmt.Errorf("error while selecting release, error: %w", err)
 				}
@@ -4753,12 +4688,11 @@ func TestReadReleasesByApp(t *testing.T) {
 func TestReadReleasesByVersion(t *testing.T) {
 
 	tcs := []struct {
-		Name                 string
-		Releases             []DBReleaseWithMetaData
-		RetrievePrepublishes bool
-		AppName              types.AppName
-		Versions             []uint64
-		Expected             []*DBReleaseWithMetaData
+		Name     string
+		Releases []DBReleaseWithMetaData
+		AppName  types.AppName
+		Versions []uint64
+		Expected []*DBReleaseWithMetaData
 	}{
 		{
 			Name: "Retrieve one release, no manifests",
@@ -4902,7 +4836,7 @@ func TestReadReleasesByVersion(t *testing.T) {
 						return fmt.Errorf("error while writing release, error: %w", err)
 					}
 				}
-				releases, err := dbHandler.DBSelectReleasesByVersions(ctx, transaction, tc.AppName, tc.Versions, !tc.RetrievePrepublishes)
+				releases, err := dbHandler.DBSelectReleasesByVersions(ctx, transaction, tc.AppName, tc.Versions)
 				if err != nil {
 					return fmt.Errorf("error while selecting release, error: %w", err)
 				}

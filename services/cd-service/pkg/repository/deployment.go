@@ -99,7 +99,7 @@ func (c *DeployApplicationVersion) Prognosis(
 	transaction *sql.Tx,
 ) (*DeployPrognosis, error) {
 	var manifestContent []byte
-	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision}, true)
+	version, err := state.DBHandler.DBSelectReleaseByVersion(ctx, transaction, c.Application, types.ReleaseNumbers{Version: &c.Version, Revision: c.Revision})
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func (c *DeployApplicationVersion) ApplyPrognosis(
 	return fmt.Sprintf("deployed version %d of %q to %q", c.Version, c.Application, c.Environment), nil
 }
 func getCommitID(ctx context.Context, transaction *sql.Tx, state *State, release uint64, app types.AppName) (string, error) {
-	tmpList, err := state.DBHandler.DBSelectReleasesByVersions(ctx, transaction, app, []uint64{release}, false)
+	tmpList, err := state.DBHandler.DBSelectReleasesByVersions(ctx, transaction, app, []uint64{release})
 	if err != nil {
 		return "", err
 	}

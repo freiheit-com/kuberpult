@@ -1233,7 +1233,7 @@ func (h *DBHandler) RunCustomMigrationReleases(ctx context.Context, getAllAppsFu
 }
 
 func (h *DBHandler) needsReleasesMigrations(ctx context.Context, transaction *sql.Tx) (bool, error) {
-	hasRelease, err := h.DBHasAnyRelease(ctx, transaction, true)
+	hasRelease, err := h.DBHasAnyRelease(ctx, transaction)
 	if err != nil {
 		return true, err
 	}
@@ -1619,7 +1619,7 @@ func (h *DBHandler) RunCustomMigrationCleanOutdatedDeployments(ctx context.Conte
 	for deploymentBatch := range slices.Chunk(allDeployments, MaxDeleteBatchSize) {
 		err = h.WithTransaction(ctx, false, func(ctx context.Context, transaction *sql.Tx) error {
 			for _, deployment := range deploymentBatch {
-				release, err := h.DBSelectReleaseByVersion(ctx, transaction, deployment.App, deployment.ReleaseNumbers, false)
+				release, err := h.DBSelectReleaseByVersion(ctx, transaction, deployment.App, deployment.ReleaseNumbers)
 				if err != nil {
 					return fmt.Errorf("could not fetch release %v for app %s: %w", deployment.ReleaseNumbers, deployment.App, err)
 				}
