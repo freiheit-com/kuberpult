@@ -28,6 +28,7 @@
   "branchConcurrentLimit": 20,
   "prConcurrentLimit": 20,
   "prHourlyLimit": 5,
+  "separateMajorMinor": false,
   "rangeStrategy": "pin",
   "recreateClosed": true
 }
